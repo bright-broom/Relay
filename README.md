@@ -11,6 +11,7 @@ Relayは、日々の会話や活動から情報を整理し、案件の進行と
 - [プロダクト・システム設計](docs/DESIGN.md)
 - [開発要件](docs/DEVELOPMENT.md)
 - [デザインガイド](docs/DESIGN_GUIDELINES.md)
+- [推奨スタックと刷新順序](docs/STACK_DECISION.md)
 - [画面サンプル](prototype/index.html)
 - [確認状況](docs/VALIDATION.md)
 
@@ -18,7 +19,16 @@ Relayは、日々の会話や活動から情報を整理し、案件の進行と
 
 `prototype/index.html` をブラウザーで開くと、架空データによる案件一覧・更新案の確認・対応メモ・タスク完了・引き継ぎ文作成を試せます。操作はメモリー内のみで、再読込すると初期状態へ戻ります。
 
-このHTMLは初期の画面検討用で、最新のデザインガイドを反映した画面ではありません。本番はTypeScript、デザイントークン、グローバルな翻訳リソースを用いて実装します。
+画面サンプルはデザインガイドに沿って刷新しました。白・黒・グレーと青い主要操作、専用の案件詳細画面、日英UI切り替えを備えます。業務データ・元の発言は架空の日本語データのまま表示します。
+
+TypeScriptのソースは `src/prototype/`、スタイルの値は `src/design/tokens.ts`、UI文言は `src/i18n/messages.ts` で管理します。`prototype/assets/` は生成物です。直接編集しないでください。
+
+```sh
+npm ci
+npm run check
+```
+
+`npm run build` で配布用の画面を更新します。生成物はそのままブラウザーで開けるようコミットしています。今回のビルドにReact・Next.js・Tailwind・DBは含みません。本番UIでは採用したフレームワークで描画部分を置き換えます。
 
 ## 本番の想定構成
 

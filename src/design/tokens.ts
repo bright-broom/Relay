@@ -1,0 +1,30 @@
+/** Shared design values. Framework-independent source; never edit generated CSS. */
+export const tokens = {
+  'surface': '#FFFFFF', 'subtle': '#F4F5F7', 'input': '#F7F7F7',
+  'ink': '#0B0B0D', 'muted': '#626873', 'line': '#E9E9EB', 'control': '#858A95',
+  'accent': '#0171E3', 'accent-hover': '#005BC4', 'accent-pressed': '#004A9F',
+  'on-accent': '#FFFFFF', 'selected': '#EFF6FF', 'success': '#166534',
+  'warning': '#854D0E', 'error': '#B42318', 'warning-surface': '#FFFAEB',
+  'success-surface': '#F0FDF4', 'error-surface': '#FEF3F2',
+  'font': 'Inter, "Hiragino Sans", "Yu Gothic", Meiryo, system-ui, sans-serif',
+  'text-xs': '0.75rem', 'text-sm': '0.875rem', 'text-base': '1rem',
+  'text-md': '1.125rem', 'text-lg': '1.5rem', 'text-xl': '2rem',
+  'title-mobile': '1.75rem', 'brand-size': '1.75rem', 'metric-size': '2.5rem',
+  'regular': '400', 'medium': '500', 'semibold': '600', 'bold': '700',
+  'leading': '1.75', 'heading-leading': '1.4', 'tight': '1.1',
+  'space-0': '0', 'space-1': '0.25rem', 'space-2': '0.5rem', 'space-3': '0.75rem',
+  'space-4': '1rem', 'space-5': '1.5rem', 'space-6': '2rem', 'space-7': '3rem',
+  'space-8': '4rem', 'space-9': '6rem', 'space-10': '7.5rem',
+  'radius-sm': '0.5rem', 'radius-card': '0.75rem', 'radius-panel': '1rem', 'radius-pill': '999px',
+  'border-width': '1px', 'focus-width': '2px', 'focus-gap': '3px',
+  'action': '3rem', 'touch': '2.75rem', 'row': '3.5rem', 'icon': '1.25rem',
+  'sidebar': '15rem', 'topbar': '5rem', 'content-max': '96rem', 'reading': '45rem',
+  'aside': '19rem', 'table-min': '52rem', 'field-min': '8rem', 'dialog-max': '44rem',
+  'desktop-gutter': '3rem', 'mobile-gutter': '1.5rem', 'mobile-nav-top': '4rem',
+  'backdrop': 'rgb(11 11 13 / 35%)', 'floating-shadow': '0 16px 64px rgb(11 11 13 / 14%)',
+  'fast': '160ms', 'panel-motion': '280ms', 'reduced-motion': '0ms',
+  'disabled-opacity': '0.55', 'nav-z': '10', 'toast-z': '30',
+  'letter-tight': '-0.035em', 'divider-short': '2rem', 'review-column-min': '15rem',
+} as const;
+
+export const breakpoints = { mobile: '48rem', compact: '75rem' } as const;

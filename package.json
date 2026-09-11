@@ -1,0 +1,15 @@
+{
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  },
+  "name": "relay-design-preview",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "node scripts/build.mjs",
+    "check": "npm run typecheck && npm run build && node scripts/check.mjs"
+  }
+}
