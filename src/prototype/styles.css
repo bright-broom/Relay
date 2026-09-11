@@ -205,3 +205,11 @@ h3{font-size:var(--type-subheading);font-weight:var(--semibold)}small{font-size:
 .auth-page{min-block-size:var(--viewport-block);display:grid;place-content:center;padding-block:var(--space-7)}
 .auth-page > .stack{max-inline-size:var(--content-max)}
 }
+
+@layer components {
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--gap-related)}
+.form-grid input{inline-size:100%}
+}
+@layer responsive {
+@media(max-width:__MOBILE__){.form-grid{grid-template-columns:minmax(0,1fr)}}
+}

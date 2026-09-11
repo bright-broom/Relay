@@ -22,7 +22,7 @@ export async function session(request: Request, db: Database = database()): Prom
   return row && allowed(row.email) ? row : null;
 }
 let provider: Promise<oidc.Configuration> | undefined;
-function google() {
+export function google() {
   return provider ??= oidc.discovery(new URL('https://accounts.google.com'), process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_CLIENT_SECRET!, undefined, {execute: [oidc.enableNonRepudiationChecks]}).catch(error => { provider = undefined; throw error; });
 }
 export async function startLogin(db: Database = database(), configuration?: oidc.Configuration) {

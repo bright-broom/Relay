@@ -1,7 +1,16 @@
 // Generated from src/server/handler.ts. Do not edit.
 
 // src/server/handler.ts
-import { readFile } from "node:fs/promises";
+import { ZodError } from "zod";
+
+// src/server/calendar.ts
+import * as oidc2 from "openid-client";
+import { randomUUID as randomUUID2 } from "node:crypto";
+import { z as z2 } from "zod";
+
+// src/server/auth.ts
+import { createHash, randomBytes } from "node:crypto";
+import * as oidc from "openid-client";
 
 // src/server/config.ts
 function allowed(email, list = process.env.ALLOWED_GOOGLE_EMAILS ?? "") {
@@ -26,10 +35,6 @@ function lineConfigured() {
 function sameOrigin(request) {
   return request.headers.get("origin") === origin();
 }
-
-// src/server/auth.ts
-import { createHash, randomBytes } from "node:crypto";
-import * as oidc from "openid-client";
 
 // src/server/database.ts
 import postgres from "postgres";
@@ -141,10 +146,91 @@ async function logout(request, db = database()) {
   return Response.json({ ok: true }, { headers });
 }
 
+// src/server/vault.ts
+import { createCipheriv, createDecipheriv, randomBytes as randomBytes2 } from "node:crypto";
+function encryptionKey() {
+  const value = process.env.TOKEN_ENCRYPTION_KEY ?? "";
+  if (!/^[A-Za-z0-9+/]{43}=$/.test(value)) throw new Error("configuration");
+  const key = Buffer.from(value, "base64");
+  if (key.length !== 32) throw new Error("configuration");
+  return key;
+}
+function calendarConfigured() {
+  try {
+    encryptionKey();
+    return true;
+  } catch {
+    return false;
+  }
+}
+function seal(value, subject) {
+  const iv = randomBytes2(12), cipher = createCipheriv("aes-256-gcm", encryptionKey(), iv);
+  cipher.setAAD(Buffer.from("relay-calendar:" + subject));
+  const data = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  return ["v1", iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), data.toString("base64url")].join(".");
+}
+function unseal(value, subject) {
+  const [version, iv, tag, data, ...extra] = value.split(".");
+  if (version !== "v1" || !iv || !tag || !data || extra.length) throw new Error("invalidCiphertext");
+  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(iv, "base64url"));
+  decipher.setAAD(Buffer.from("relay-calendar:" + subject));
+  decipher.setAuthTag(Buffer.from(tag, "base64url"));
+  return Buffer.concat([decipher.update(Buffer.from(data, "base64url")), decipher.final()]).toString("utf8");
+}
+
+// src/server/line.ts
+import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
+
 // src/i18n/messages.ts
 var brand = "Relay";
 var localeNames = { ja: "\u65E5\u672C\u8A9E", en: "English" };
 var ja = {
+  scheduling: "\u65E5\u7A0B\u3092\u7D44\u3080",
+  calendarConnect: "Google\u30AB\u30EC\u30F3\u30C0\u30FC\u3092\u63A5\u7D9A",
+  calendarDisconnect: "\u30AB\u30EC\u30F3\u30C0\u30FC\u9023\u643A\u3092\u89E3\u9664",
+  calendarReady: "Google\u30AB\u30EC\u30F3\u30C0\u30FC\u3068\u63A5\u7D9A\u6E08\u307F",
+  calendarSetup: "\u30AB\u30EC\u30F3\u30C0\u30FC\u306E\u63A5\u7D9A\u8A2D\u5B9A\u3092\u6E96\u5099\u3057\u3066\u3044\u307E\u3059\u3002",
+  scheduleTitle: "\u4E88\u5B9A\u540D",
+  scheduleDuration: "\u6240\u8981\u6642\u9593",
+  scheduleDate: "\u958B\u59CB\u65E5",
+  scheduleFind: "\u7A7A\u304D\u6642\u9593\u304B\u3089\u5019\u88DC\u3092\u4F5C\u6210",
+  scheduleBook: "\u3053\u306E\u65E5\u6642\u3067\u767B\u9332",
+  scheduleBooked: "Google\u30AB\u30EC\u30F3\u30C0\u30FC\u306B\u767B\u9332\u3057\u307E\u3057\u305F\u3002",
+  scheduleEmpty: "\u6761\u4EF6\u306B\u5408\u3046\u7A7A\u304D\u6642\u9593\u304C\u3042\u308A\u307E\u305B\u3093\u3002\u671F\u9593\u3084\u6642\u9593\u5E2F\u3092\u5909\u3048\u3066\u304F\u3060\u3055\u3044\u3002",
+  scheduleOptions: "\u8ABF\u6574\u6761\u4EF6",
+  scheduleZone: "\u30BF\u30A4\u30E0\u30BE\u30FC\u30F3",
+  scheduleDays: "\u691C\u7D22\u671F\u9593",
+  scheduleBuffer: "\u524D\u5F8C\u306E\u4F59\u88D5",
+  scheduleHours: "\u55B6\u696D\u6642\u9593",
+  scheduleStart: "\u958B\u59CB\u6642\u523B",
+  scheduleEnd: "\u7D42\u4E86\u6642\u523B",
+  scheduleMinutes: "{count}\u5206",
+  scheduleDayCount: "{count}\u65E5\u9593",
+  scheduleHint: "\u5E73\u65E5\u306E\u7A7A\u304D\u6642\u9593\u3092\u78BA\u8A8D\u3057\u307E\u3059\u3002\u767B\u9332\u76F4\u524D\u306B\u3082\u518D\u78BA\u8A8D\u3057\u307E\u3059\u3002\u62DB\u5F85\u30E1\u30FC\u30EB\u306F\u9001\u308A\u307E\u305B\u3093\u3002",
+  scheduleExpired: "\u5019\u88DC\u306E\u671F\u9650\u304C\u5207\u308C\u307E\u3057\u305F\u3002\u3082\u3046\u4E00\u5EA6\u5019\u88DC\u3092\u4F5C\u6210\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  scheduleConflict: "\u3053\u306E\u6642\u9593\u306F\u5225\u306E\u4E88\u5B9A\u304C\u5165\u308A\u307E\u3057\u305F\u3002\u3082\u3046\u4E00\u5EA6\u5019\u88DC\u3092\u4F5C\u6210\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  scheduleReconnect: "Google\u30AB\u30EC\u30F3\u30C0\u30FC\u3092\u63A5\u7D9A\u3057\u76F4\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  scheduleFailure: "\u51E6\u7406\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u767B\u9332\u7D50\u679C\u304C\u4E0D\u660E\u306A\u5834\u5408\u306F\u3001\u540C\u3058\u5019\u88DC\u3067\u518D\u8A66\u884C\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  scheduleChanged: "\u30AB\u30EC\u30F3\u30C0\u30FC\u5074\u3067\u5909\u66F4\u307E\u305F\u306F\u524A\u9664\u3055\u308C\u3066\u3044\u307E\u3059\u3002Google\u30AB\u30EC\u30F3\u30C0\u30FC\u3092\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  scheduleDefaultTitle: "\u6253\u3061\u5408\u308F\u305B",
+  scheduleWorkingDays: "\u5BFE\u8C61\u66DC\u65E5",
+  scheduleWeekdays: "\u5E73\u65E5",
+  scheduleEveryDay: "\u6BCE\u65E5",
+  mcpSettings: "AI\u30C4\u30FC\u30EB\u3068\u306E\u9023\u643A",
+  mcpRead: "\u7A7A\u304D\u6642\u9593\u306E\u78BA\u8A8D\u306E\u307F",
+  mcpBook: "\u4E88\u5B9A\u306E\u767B\u9332\u3082\u8A31\u53EF",
+  mcpIssue: "\u63A5\u7D9A\u30AD\u30FC\u3092\u767A\u884C",
+  mcpRevoke: "\u63A5\u7D9A\u30AD\u30FC\u3092\u7121\u52B9\u5316",
+  mcpCopy: "\u63A5\u7D9A\u60C5\u5831\u3092\u30B3\u30D4\u30FC",
+  mcpHint: "MCP\u5BFE\u5FDC\u30C4\u30FC\u30EB\u7528\u3002\u63A5\u7D9A\u30AD\u30FC\u306F\u3053\u306E\u753B\u9762\u3067\u4E00\u5EA6\u3060\u3051\u8868\u793A\u3057\u307E\u3059\u3002\u6709\u52B9\u671F\u9650\u306F30\u65E5\u3067\u3059\u3002",
+  mcpTokenLabel: "\u63A5\u7D9A\u30AD\u30FC",
+  mcpEndpointLabel: "\u63A5\u7D9AURL",
+  mcpStatusDescription: "\u63A5\u7D9A\u4E2D\u306E\u672C\u4EBA\u306EGoogle\u30AB\u30EC\u30F3\u30C0\u30FC\u63A5\u7D9A\u72B6\u614B\u3092\u8FD4\u3057\u307E\u3059\u3002",
+  mcpFindDescription: "\u672C\u4EBA\u306E\u30E1\u30A4\u30F3\u30AB\u30EC\u30F3\u30C0\u30FC\u306E\u7A7A\u304D\u6642\u9593\u3092\u691C\u7D22\u3057\u307E\u3059\u3002\u55B6\u696D\u6642\u9593\u3001\u66DC\u65E5\u3001\u30BF\u30A4\u30E0\u30BE\u30FC\u30F3\u3001\u524D\u5F8C\u306E\u4F59\u88D5\u3092\u6307\u5B9A\u3067\u304D\u307E\u3059\u3002\u4E88\u5B9A\u3084\u53C2\u52A0\u8005\u306E\u5408\u610F\u3092\u4F5C\u6210\u3057\u307E\u305B\u3093\u3002",
+  mcpProposeDescription: "\u672C\u4EBA\u306E\u30E1\u30A4\u30F3\u30AB\u30EC\u30F3\u30C0\u30FC\u3092\u78BA\u8A8D\u3057\u300115\u5206\u3067\u5931\u52B9\u3059\u308B\u65E5\u7A0B\u5019\u88DC\u3092\u4FDD\u5B58\u3057\u307E\u3059\u3002\u307E\u3060\u30AB\u30EC\u30F3\u30C0\u30FC\u306B\u306F\u767B\u9332\u3057\u307E\u305B\u3093\u3002\u30E6\u30FC\u30B6\u30FC\u306B\u5019\u88DC\u3092\u63D0\u793A\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  mcpBookDescription: "\u8A31\u53EF\u3055\u308C\u305F\u672C\u4EBA\u306E\u5019\u88DCID\u3067\u4E88\u5B9A\u3092\u767B\u9332\u3057\u307E\u3059\u3002\u4E88\u5B9A\u4F5C\u6210\u306E\u4F9D\u983C\u304C\u3042\u308B\u5834\u5408\u306B\u4F7F\u3044\u307E\u3059\u3002\u7A7A\u304D\u6642\u9593\u3092\u518D\u78BA\u8A8D\u3057\u3001\u540C\u3058\u5019\u88DC\u306E\u518D\u8A66\u884C\u3067\u306F\u91CD\u8907\u767B\u9332\u3057\u307E\u305B\u3093\u3002\u62DB\u5F85\u306F\u9001\u308A\u307E\u305B\u3093\u3002\u53C2\u52A0\u8005\u306E\u5408\u610F\u3092\u610F\u5473\u3057\u307E\u305B\u3093\u3002",
+  mcpConnectHelp: "Relay\u306B\u30ED\u30B0\u30A4\u30F3\u3057\u3001\u30AB\u30EC\u30F3\u30C0\u30FC\u3092\u63A5\u7D9A\u3057\u76F4\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  mcpRetryHelp: "\u5165\u529B\u6761\u4EF6\u307E\u305F\u306FRelay\u306E\u63A5\u7D9A\u72B6\u614B\u3092\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u5019\u88DC\u671F\u9650\u5207\u308C\u3084\u7AF6\u5408\u306E\u5834\u5408\u306F\u65B0\u3057\u3044\u5019\u88DC\u3092\u53D6\u5F97\u3057\u3001\u7D50\u679C\u4E0D\u660E\u306E\u5834\u5408\u306F\u540C\u3058\u5019\u88DCID\u3092\u518D\u8A66\u884C\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   account: "\u30A2\u30AB\u30A6\u30F3\u30C8\u30FBLINE\u9023\u643A",
   googleSignIn: "Google\u3067\u30ED\u30B0\u30A4\u30F3",
   loginHint: "\u767B\u9332\u6E08\u307F\u306EGoogle\u30A2\u30AB\u30A6\u30F3\u30C8\u3067\u30ED\u30B0\u30A4\u30F3\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
@@ -341,6 +427,52 @@ var ja = {
   previewFooter: "\u8A18\u9332\u306F\u3053\u306E\u7AEF\u672B\u306E\u30D6\u30E9\u30A6\u30B6\u30FC\u306B\u4FDD\u5B58\u3055\u308C\u307E\u3059\u3002\u7AEF\u672B\u9593\u306E\u540C\u671F\u306F\u3042\u308A\u307E\u305B\u3093\u3002\u30D6\u30E9\u30A6\u30B6\u30FC\u30C7\u30FC\u30BF\u306E\u524A\u9664\u3067\u8A18\u9332\u3082\u6D88\u3048\u307E\u3059\u3002"
 };
 var en = {
+  scheduling: "Schedule",
+  calendarConnect: "Connect Google Calendar",
+  calendarDisconnect: "Disconnect calendar",
+  calendarReady: "Google Calendar connected",
+  calendarSetup: "Calendar connection setup is in progress.",
+  scheduleTitle: "Event title",
+  scheduleDuration: "Duration",
+  scheduleDate: "Starting date",
+  scheduleFind: "Find available times",
+  scheduleBook: "Book this time",
+  scheduleBooked: "Added to Google Calendar.",
+  scheduleEmpty: "No times match these conditions. Change the dates or working hours.",
+  scheduleOptions: "Scheduling preferences",
+  scheduleZone: "Time zone",
+  scheduleDays: "Search period",
+  scheduleBuffer: "Buffer before and after",
+  scheduleHours: "Working hours",
+  scheduleStart: "Starting hour",
+  scheduleEnd: "Ending hour",
+  scheduleMinutes: "{count} minutes",
+  scheduleDayCount: "{count} days",
+  scheduleHint: "Checks weekday availability, then checks again before booking. No invitations are sent.",
+  scheduleExpired: "This proposal expired. Find available times again.",
+  scheduleConflict: "Another event occupies this time. Find available times again.",
+  scheduleReconnect: "Reconnect Google Calendar.",
+  scheduleFailure: "Could not complete the request. If the booking result is uncertain, retry the same proposal.",
+  scheduleChanged: "The event was changed or deleted in Google Calendar. Check your calendar.",
+  scheduleDefaultTitle: "Meeting",
+  scheduleWorkingDays: "Days of the week",
+  scheduleWeekdays: "Weekdays",
+  scheduleEveryDay: "Every day",
+  mcpSettings: "AI tool connections",
+  mcpRead: "Availability only",
+  mcpBook: "Allow event creation too",
+  mcpIssue: "Create connection key",
+  mcpRevoke: "Revoke connection key",
+  mcpCopy: "Copy connection settings",
+  mcpHint: "For MCP clients. The key is shown only once and expires in 30 days.",
+  mcpTokenLabel: "Connection key",
+  mcpEndpointLabel: "Endpoint",
+  mcpStatusDescription: "Returns Google Calendar connection status for the authenticated caller only.",
+  mcpFindDescription: "Finds free times in the caller primary calendar using dates, IANA time zone, working hours, weekdays and buffers. Does not create events or obtain attendee consent.",
+  mcpProposeDescription: "Checks the caller primary calendar and stores candidate slots expiring in 15 minutes. Does not create Google events. Present candidates to the user.",
+  mcpBookDescription: "Books an owned proposal ID when the user has authorized event creation. Rechecks availability; retrying the same proposal does not duplicate the event. Sends no invitations and does not imply attendee agreement.",
+  mcpConnectHelp: "Sign in to Relay and reconnect Google Calendar.",
+  mcpRetryHelp: "Check the input and Relay connection. For expired or occupied slots, create fresh proposals. For uncertain booking outcomes, retry the same proposal ID.",
   account: "Account & LINE",
   googleSignIn: "Sign in with Google",
   loginHint: "Sign in with an approved Google account.",
@@ -541,124 +673,7 @@ function translate(locale, key, params = {}) {
   return text.replace(/\{(\w+)\}/g, (_, name) => String(params[name] ?? `{${name}}`));
 }
 
-// src/design/tokens.ts
-var palette = {
-  main: "#0B0B0D",
-  sub: "#FFFFFF",
-  accent: "#0171E3"
-};
-var channels = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-var mix = (base, overlay, amount) => {
-  const target = channels(overlay);
-  return "#" + channels(base).map((value, i) => Math.round(value * (1 - amount) + target[i] * amount).toString(16).padStart(2, "0")).join("").toUpperCase();
-};
-var alpha = (hex, opacity) => `rgb(${channels(hex).join(" ")} / ${opacity})`;
-var colorRecipes = {
-  "main": ["main", "sub", 0],
-  "sub": ["sub", "main", 0],
-  "surface": ["sub", "main", 0],
-  "subtle": ["sub", "main", 0.035],
-  "input": ["sub", "main", 0],
-  "ink": ["main", "sub", 0],
-  "muted": ["main", "sub", 0.36],
-  "line": ["sub", "main", 0.1],
-  "control": ["main", "sub", 0.45],
-  "accent": ["accent", "main", 0],
-  "accent-hover": ["accent", "main", 0.14],
-  "accent-pressed": ["accent", "main", 0.26],
-  "on-accent": ["sub", "main", 0]
-};
-var colorTokens = Object.fromEntries(Object.entries(colorRecipes).map(
-  ([key, [base, overlay, amount]]) => [key, mix(palette[base], palette[overlay], amount)]
-));
-var primitives = {
-  "font": 'system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif',
-  "text-xs": "0.75rem",
-  "text-sm": "0.875rem",
-  "text-base": "1rem",
-  "text-md": "1.125rem",
-  "text-lg": "1.5rem",
-  "text-xl": "2rem",
-  "title-mobile": "1.75rem",
-  "metric-size": "2.5rem",
-  "regular": "400",
-  "medium": "500",
-  "semibold": "600",
-  "leading": "1.75",
-  "heading-leading": "1.4",
-  "section-leading": "1.5",
-  "label-leading": "1.5",
-  "letter-normal": "0",
-  "space-0": "0",
-  "space-1": "0.25rem",
-  "space-2": "0.5rem",
-  "space-3": "0.75rem",
-  "space-4": "1rem",
-  "space-5": "1.5rem",
-  "space-6": "2rem",
-  "space-7": "3rem",
-  "space-9": "6rem",
-  "radius-sm": "0.5rem",
-  "radius-card": "0.75rem",
-  "radius-panel": "1rem",
-  "radius-pill": "999px",
-  "border-width": "1px",
-  "focus-width": "2px",
-  "focus-gap": "3px",
-  "action": "3rem",
-  "touch": "2.75rem",
-  "row": "3.5rem",
-  "icon": "1.25rem",
-  "sidebar": "5.5rem",
-  "topbar": "4rem",
-  "content-max": "96rem",
-  "reading": "45rem",
-  "aside": "21rem",
-  "table-min": "52rem",
-  "field-min": "8rem",
-  "dialog-max": "44rem",
-  "desktop-gutter": "3rem",
-  "mobile-gutter": "1.5rem",
-  "backdrop": alpha(palette.main, 0.35),
-  "floating-shadow": `0 16px 64px ${alpha(palette.main, 0.14)}`,
-  "fast": "160ms",
-  "reduced-motion": "0ms",
-  "disabled-opacity": "0.55",
-  "nav-z": "10",
-  "toast-z": "30"
-};
-var componentTokens = {
-  "type-page": primitives["text-xl"],
-  "type-page-mobile": primitives["title-mobile"],
-  "type-section": primitives["text-lg"],
-  "type-subheading": primitives["text-md"],
-  "type-body": primitives["text-base"],
-  "type-label": primitives["text-sm"],
-  "type-caption": primitives["text-xs"],
-  "gap-related": primitives["space-3"],
-  "gap-group": primitives["space-5"],
-  "gap-section": primitives["space-7"],
-  "panel-padding": primitives["space-5"],
-  "swatch-height": primitives["space-9"],
-  "rail-padding": primitives["space-4"],
-  "tooltip-max": "14rem",
-  "notification-dot": primitives["space-2"],
-  "narrow-gutter": primitives["space-4"],
-  "tablet-gutter": primitives["space-6"],
-  "viewport-block": "100dvh",
-  "viewport-offset": "0px",
-  "mobile-header-height": "4.25rem"
-};
-var tokens = { ...colorTokens, ...primitives, ...componentTokens };
-
-// src/server/page.ts
-function loginPage(locale, ready, denied) {
-  const t = (key) => translate(locale, key);
-  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><meta name="theme-color" content="${palette.sub}"><title>${brand}</title><link rel="stylesheet" href="/assets/styles.css"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icons/icon-180.png"><script defer src="/assets/session.js"></script></head><body><main class="auth-page"><div class="stack"><h1>${brand}</h1><p role="status">${t(denied ? "authDenied" : ready ? "loginHint" : "authSetup")}</p>${ready ? `<a class="button primary" href="/api/auth/start">${t("googleSignIn")}</a>` : ""}<a href="/?lang=${locale === "ja" ? "en" : "ja"}" lang="${locale === "ja" ? "en" : "ja"}">${localeNames[locale === "ja" ? "en" : "ja"]}</a></div></main></body></html>`;
-}
-
 // src/server/line.ts
-import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 var ApiError = class extends Error {
   constructor(status, code) {
     super(code);
@@ -782,13 +797,397 @@ async function notify(identity, input, db = database(), send = fetch) {
   }
 }
 
+// src/scheduling/slots.ts
+import { Temporal } from "@js-temporal/polyfill";
+import { z } from "zod";
+var searchSchema = z.object({
+  fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  days: z.number().int().min(1).max(14).default(7),
+  timeZone: z.string().min(1).max(80).default("Asia/Tokyo"),
+  durationMinutes: z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60), z.literal(90), z.literal(120)]).default(60),
+  startHour: z.number().int().min(0).max(23).default(9),
+  endHour: z.number().int().min(1).max(24).default(18),
+  weekdays: z.array(z.number().int().min(1).max(7)).min(1).max(7).default([1, 2, 3, 4, 5]),
+  bufferMinutes: z.number().int().min(0).max(60).default(15),
+  limit: z.number().int().min(1).max(10).default(5)
+}).strict().refine((v) => v.startHour < v.endHour, { message: "invalidWorkingHours" });
+function searchWindow(input, now) {
+  const today = Temporal.Instant.from(now).toZonedDateTimeISO(input.timeZone).toPlainDate();
+  const from = Temporal.PlainDate.from(input.fromDate);
+  if (Temporal.PlainDate.compare(from, today) < 0 || Temporal.PlainDate.compare(from, today.add({ days: 60 })) > 0) throw new RangeError("invalidDate");
+  const start = from.toZonedDateTime(input.timeZone).toInstant();
+  const end = from.add({ days: input.days }).toZonedDateTime(input.timeZone).toInstant();
+  return { start: start.toString(), end: end.toString() };
+}
+function findSlots(input, busy, now) {
+  searchWindow(input, now);
+  const intervals = busy.map((item) => {
+    const start = Temporal.Instant.from(item.start).epochMilliseconds;
+    const end = Temporal.Instant.from(item.end).epochMilliseconds;
+    if (end <= start) throw new RangeError("invalidBusy");
+    return { start: start - input.bufferMinutes * 6e4, end: end + input.bufferMinutes * 6e4 };
+  });
+  const minimum = Temporal.Instant.from(now).epochMilliseconds + 30 * 6e4;
+  const slots = [];
+  for (let day = 0; day < input.days && slots.length < input.limit; day++) {
+    const date = Temporal.PlainDate.from(input.fromDate).add({ days: day });
+    if (!input.weekdays.includes(date.dayOfWeek)) continue;
+    const start = date.toZonedDateTime({ timeZone: input.timeZone, plainTime: { hour: input.startHour } });
+    const end = input.endHour === 24 ? date.add({ days: 1 }).toZonedDateTime(input.timeZone) : date.toZonedDateTime({ timeZone: input.timeZone, plainTime: { hour: input.endHour } });
+    for (let time = start; time.epochMilliseconds + input.durationMinutes * 6e4 <= end.epochMilliseconds && slots.length < input.limit; time = time.add({ minutes: 15 })) {
+      const begin = time.epochMilliseconds, finish = begin + input.durationMinutes * 6e4;
+      if (begin < minimum || intervals.some((item) => begin < item.end && finish > item.start)) continue;
+      slots.push({ start: Temporal.Instant.fromEpochMilliseconds(begin).toString(), end: Temporal.Instant.fromEpochMilliseconds(finish).toString(), timeZone: input.timeZone });
+    }
+  }
+  return slots;
+}
+
+// src/server/calendar.ts
+var calendarScopes = ["https://www.googleapis.com/auth/calendar.events.freebusy", "https://www.googleapis.com/auth/calendar.events.owned"];
+var connectCookie = "__Host-relay-calendar";
+var callbackPath = "/api/calendar/callback";
+var nowISO = () => (/* @__PURE__ */ new Date()).toISOString();
+var proposalSchema = searchSchema.safeExtend({ title: z2.string().trim().min(1).max(120) });
+function parseProposal(input) {
+  const { title, ...criteria } = input;
+  return { title: z2.string().trim().min(1).max(120).parse(title), search: searchSchema.parse(criteria) };
+}
+async function calendarStatus(identity, db = database()) {
+  if (!calendarConfigured()) return { ready: false, connected: false };
+  const [connection2] = await db.query("SELECT owner_subject FROM relay_private.calendar_connections WHERE owner_subject=$1", [identity.subject]);
+  return { ready: true, connected: Boolean(connection2) };
+}
+async function startCalendar(identity, db = database(), configuration) {
+  if (!calendarConfigured()) throw new ApiError(503, "configuration");
+  const config = configuration ?? await google(), token = randomToken(), state = oidc2.randomState(), nonce = oidc2.randomNonce(), verifier = oidc2.randomPKCECodeVerifier();
+  await db.query("DELETE FROM relay_private.calendar_oauth WHERE owner_subject=$1 OR expires_at<now()", [identity.subject]);
+  await db.query("INSERT INTO relay_private.calendar_oauth VALUES($1,$2,$3,$4,$5,now()+interval '10 minutes')", [hash(token), identity.subject, state, verifier, nonce]);
+  const url = oidc2.buildAuthorizationUrl(config, { redirect_uri: origin() + callbackPath, scope: "openid email " + calendarScopes.join(" "), state, nonce, code_challenge: await oidc2.calculatePKCECodeChallenge(verifier), code_challenge_method: "S256", access_type: "offline", prompt: "consent", login_hint: identity.email });
+  return new Response(null, { status: 303, headers: { Location: url.href, "Set-Cookie": cookie(connectCookie, token, 600) } });
+}
+async function finishCalendar(request, identity, db = database(), configuration) {
+  return db.transaction(async (tx) => {
+    await tx.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["calendar:" + identity.subject]);
+    const headers = new Headers({ "Set-Cookie": cookie(connectCookie, "", 0), Location: "/?calendar=failed#today" });
+    const token = readCookie(request, connectCookie);
+    if (!token) return new Response(null, { status: 303, headers });
+    const [attempt] = await tx.query("DELETE FROM relay_private.calendar_oauth WHERE token_hash=$1 AND owner_subject=$2 AND expires_at>now() RETURNING state,verifier,nonce", [hash(token), identity.subject]);
+    if (!attempt) return new Response(null, { status: 303, headers });
+    try {
+      const callback = new URL(origin() + callbackPath), incoming = new URL(request.url);
+      for (const key of ["code", "state", "error", "iss"]) for (const value of incoming.searchParams.getAll(key)) callback.searchParams.append(key, value);
+      const tokens2 = await oidc2.authorizationCodeGrant(configuration ?? await google(), callback, { pkceCodeVerifier: attempt.verifier, expectedState: attempt.state, expectedNonce: attempt.nonce, idTokenExpected: true });
+      const authenticated = verifiedIdentity(tokens2.claims());
+      const scopes = new Set(tokens2.scope?.split(" "));
+      if (authenticated?.subject !== identity.subject || !calendarScopes.every((scope) => scopes.has(scope)) || !tokens2.refresh_token) throw new Error("calendarConsent");
+      await tx.query("INSERT INTO relay_private.calendar_connections(owner_subject,refresh_cipher) VALUES($1,$2) ON CONFLICT(owner_subject) DO UPDATE SET refresh_cipher=excluded.refresh_cipher,connected_at=now()", [identity.subject, seal(tokens2.refresh_token, identity.subject)]);
+      headers.set("Location", "/?calendar=connected#today");
+    } catch {
+    }
+    return new Response(null, { status: 303, headers });
+  });
+}
+async function disconnectCalendar(identity, db = database()) {
+  await db.transaction(async (tx) => {
+    await tx.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["calendar:" + identity.subject]);
+    await tx.query("DELETE FROM relay_private.calendar_connections WHERE owner_subject=$1", [identity.subject]);
+    await tx.query("DELETE FROM relay_private.calendar_oauth WHERE owner_subject=$1", [identity.subject]);
+    await tx.query("DELETE FROM relay_private.schedule_proposals WHERE owner_subject=$1 AND state='proposed'", [identity.subject]);
+  });
+}
+async function calendarClient(identity, db = database(), configuration, send = fetch) {
+  const [connection2] = await db.query("SELECT refresh_cipher FROM relay_private.calendar_connections WHERE owner_subject=$1", [identity.subject]);
+  if (!connection2) throw new ApiError(409, "calendarConnect");
+  let access;
+  try {
+    const tokens2 = await oidc2.refreshTokenGrant(configuration ?? await google(), unseal(connection2.refresh_cipher, identity.subject));
+    access = tokens2.access_token;
+    if (tokens2.refresh_token) await db.query("UPDATE relay_private.calendar_connections SET refresh_cipher=$2 WHERE owner_subject=$1 AND refresh_cipher=$3", [identity.subject, seal(tokens2.refresh_token, identity.subject), connection2.refresh_cipher]);
+  } catch {
+    throw new ApiError(409, "calendarReconnect");
+  }
+  async function call(path, body) {
+    const response = await send("https://www.googleapis.com/calendar/v3/" + path, { method: body ? "POST" : "GET", headers: { Authorization: "Bearer " + access, ...body ? { "Content-Type": "application/json" } : {} }, ...body ? { body: JSON.stringify(body) } : {}, signal: AbortSignal.timeout(1e4) });
+    if (response.status === 401) throw new ApiError(409, "calendarReconnect");
+    return response;
+  }
+  const client = {
+    async busy(start, end, timeZone) {
+      const response = await call("freeBusy", { timeMin: start, timeMax: end, timeZone, items: [{ id: "primary" }] });
+      if (!response.ok) throw new ApiError(502, "calendarUnavailable");
+      const payload = await response.json();
+      const calendar = payload.calendars?.primary;
+      if (!calendar || calendar.errors?.length || !Array.isArray(calendar.busy)) throw new ApiError(502, "calendarUnavailable");
+      return z2.array(z2.object({ start: z2.string().datetime({ offset: true }), end: z2.string().datetime({ offset: true }) }).refine((item) => Date.parse(item.end) > Date.parse(item.start))).max(1e4).parse(calendar.busy);
+    },
+    async get(id) {
+      const response = await call("calendars/primary/events/" + encodeURIComponent(id));
+      if (response.status === 404) return null;
+      if (response.status === 410) throw new ApiError(409, "calendarChanged");
+      if (!response.ok) throw new ApiError(502, "calendarUnavailable");
+      return await response.json();
+    },
+    async insert(event) {
+      const response = await call("calendars/primary/events?sendUpdates=none", { ...event, reminders: { useDefault: false }, visibility: "private", transparency: "opaque" });
+      if (response.status === 409) {
+        const existing = await client.get(event.id);
+        if (existing) return existing;
+      }
+      if (!response.ok) throw new ApiError(502, "calendarRetry");
+      return await response.json();
+    }
+  };
+  return client;
+}
+async function integrationLimit(identity, db = database()) {
+  const [row] = await db.query("INSERT INTO relay_private.integration_usage(owner_subject,window_start,count) VALUES($1,date_trunc('hour',now()),1) ON CONFLICT(owner_subject,window_start) DO UPDATE SET count=relay_private.integration_usage.count+1 RETURNING count", [identity.subject]);
+  if (row.count > 120) throw new ApiError(429, "rateLimit");
+}
+async function availableSlots(identity, input, db = database(), client, now = nowISO()) {
+  const criteria = searchSchema.parse(input), window = searchWindow(criteria, now);
+  const api = client ?? await calendarClient(identity, db);
+  const busy = await api.busy(window.start, window.end, criteria.timeZone);
+  return { slots: findSlots(criteria, busy, now), timeZone: criteria.timeZone, checkedAt: now };
+}
+async function proposeSchedule(identity, input, db = database(), client, now = nowISO()) {
+  const { title, search } = parseProposal(input);
+  const found = await availableSlots(identity, search, db, client, now);
+  const proposals = await db.transaction(async (tx) => {
+    await tx.query("DELETE FROM relay_private.schedule_proposals WHERE owner_subject=$1 AND state='proposed' AND expires_at<now()", [identity.subject]);
+    const result = [];
+    for (const slot of found.slots) {
+      const id = randomUUID2();
+      await tx.query("INSERT INTO relay_private.schedule_proposals(id,owner_subject,title,starts_at,ends_at,time_zone,buffer_minutes,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,now()+interval '15 minutes')", [id, identity.subject, title, slot.start, slot.end, slot.timeZone, search.bufferMinutes]);
+      result.push({ ...slot, id, title });
+    }
+    return result;
+  });
+  return { proposals, expiresIn: 900 };
+}
+async function bookSlot(identity, input, db = database(), client, now = nowISO()) {
+  const id = z2.uuid().parse(input);
+  return db.transaction(async (tx) => {
+    await tx.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["calendar:" + identity.subject]);
+    const [proposal] = await tx.query("SELECT * FROM relay_private.schedule_proposals WHERE id=$1 AND owner_subject=$2 FOR UPDATE", [id, identity.subject]);
+    if (!proposal) throw new ApiError(404, "missing");
+    const api = client ?? await calendarClient(identity, tx);
+    const eventId = hash("relay:" + identity.subject + ":" + id);
+    const existing = await api.get(eventId);
+    const start = proposal.starts_at.toISOString(), end = proposal.ends_at.toISOString();
+    function verify(event) {
+      if (event.id !== eventId || event.summary !== proposal.title || event.status === "cancelled" || event.extendedProperties?.private?.relayProposal !== id || Date.parse(event.start?.dateTime ?? "") !== Date.parse(start) || Date.parse(event.end?.dateTime ?? "") !== Date.parse(end)) throw new ApiError(409, "calendarChanged");
+    }
+    if (existing) {
+      verify(existing);
+      await tx.query("UPDATE relay_private.schedule_proposals SET state='booked' WHERE id=$1", [id]);
+      return { id, start, end, timeZone: proposal.time_zone, title: proposal.title, state: "booked" };
+    }
+    if (proposal.state === "booked") throw new ApiError(409, "calendarChanged");
+    if (proposal.expires_at.getTime() < Date.parse(now) || Date.parse(start) < Date.parse(now) + 3e4) throw new ApiError(409, "proposalExpired");
+    const padding = proposal.buffer_minutes * 6e4;
+    const busy = await api.busy(new Date(Date.parse(start) - padding).toISOString(), new Date(Date.parse(end) + padding).toISOString(), proposal.time_zone);
+    if (busy.some((item) => Date.parse(item.start) < Date.parse(end) + padding && Date.parse(item.end) > Date.parse(start) - padding)) throw new ApiError(409, "calendarConflict");
+    const created = await api.insert({ id: eventId, summary: proposal.title, start: { dateTime: start, timeZone: proposal.time_zone }, end: { dateTime: end, timeZone: proposal.time_zone }, extendedProperties: { private: { relayProposal: id } } });
+    verify(created);
+    await tx.query("UPDATE relay_private.schedule_proposals SET state='booked' WHERE id=$1", [id]);
+    return { id, start, end, timeZone: proposal.time_zone, title: proposal.title, state: "booked" };
+  });
+}
+
+// src/server/mcp.ts
+import { McpServer, createMcpHandler } from "@modelcontextprotocol/server";
+import { z as z3 } from "zod";
+import { randomUUID as randomUUID3 } from "node:crypto";
+async function issueMcpToken(identity, permission, db = database()) {
+  if (permission !== "read" && permission !== "book") throw new ApiError(400, "invalid");
+  const token = "relay_mcp_" + randomToken(), id = randomUUID3();
+  await db.transaction(async (tx) => {
+    await tx.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["mcp:" + identity.subject]);
+    await tx.query("DELETE FROM relay_private.mcp_tokens WHERE owner_subject=$1 AND expires_at<now()", [identity.subject]);
+    const [count] = await tx.query("SELECT count(*) FROM relay_private.mcp_tokens WHERE owner_subject=$1", [identity.subject]);
+    if (Number(count.count) >= 5) throw new ApiError(429, "rateLimit");
+    await tx.query("INSERT INTO relay_private.mcp_tokens(id,token_hash,owner_subject,owner_email,permission,expires_at) VALUES($1,$2,$3,$4,$5,now()+interval '30 days')", [id, hash(token), identity.subject, identity.email, permission]);
+  });
+  return { id, token, endpoint: origin() + "/api/mcp", expiresInDays: 30, permission };
+}
+async function listMcpTokens(identity, db = database()) {
+  return db.query("SELECT id,permission,expires_at FROM relay_private.mcp_tokens WHERE owner_subject=$1 AND expires_at>now() ORDER BY created_at DESC", [identity.subject]);
+}
+async function revokeMcpToken(identity, id, db = database()) {
+  const rows = await db.query("DELETE FROM relay_private.mcp_tokens WHERE id=$1 AND owner_subject=$2 RETURNING id", [z3.uuid().parse(id), identity.subject]);
+  if (!rows.length) throw new ApiError(404, "missing");
+}
+async function mcpIdentity(request, db = database()) {
+  const match = /^Bearer (relay_mcp_[A-Za-z0-9_-]{43})$/.exec(request.headers.get("authorization") ?? "");
+  if (!match) return null;
+  const [token] = await db.query("SELECT owner_email,owner_subject,permission FROM relay_private.mcp_tokens WHERE token_hash=$1 AND expires_at>now()", [hash(match[1])]);
+  return token && allowed(token.owner_email) ? { email: token.owner_email, subject: token.owner_subject, permission: token.permission } : null;
+}
+function schedulingMcp(identity, db = database(), client, now) {
+  const t = (key) => translate("en", key);
+  const slot = z3.object({ start: z3.string(), end: z3.string(), timeZone: z3.string() });
+  const read = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
+  return createMcpHandler(() => {
+    const server = new McpServer({ name: "relay-mcp-server", version: "0.3.0" });
+    const result = async (work) => {
+      try {
+        const data = await work();
+        return { content: [{ type: "text", text: JSON.stringify(data) }], structuredContent: data };
+      } catch (error) {
+        return { content: [{ type: "text", text: t(error instanceof ApiError && ["calendarConnect", "calendarReconnect"].includes(error.code) ? "mcpConnectHelp" : "mcpRetryHelp") + " " + (error instanceof ApiError ? error.code : "invalidRequest") }], isError: true };
+      }
+    };
+    server.registerTool("relay_get_calendar_status", { description: t("mcpStatusDescription"), inputSchema: z3.object({}).strict(), outputSchema: z3.object({ ready: z3.boolean(), connected: z3.boolean() }), annotations: read }, () => result(() => calendarStatus(identity, db)));
+    server.registerTool("relay_find_slots", { description: t("mcpFindDescription"), inputSchema: searchSchema, outputSchema: z3.object({ slots: z3.array(slot), timeZone: z3.string(), checkedAt: z3.string() }), annotations: read }, (input) => result(() => availableSlots(identity, input, db, client, now)));
+    if (identity.permission === "book") {
+      server.registerTool("relay_propose_schedule", { description: t("mcpProposeDescription"), inputSchema: proposalSchema, outputSchema: z3.object({ proposals: z3.array(slot.extend({ id: z3.string(), title: z3.string() })), expiresIn: z3.number() }), annotations: { ...read, readOnlyHint: false, idempotentHint: false } }, (input) => result(() => proposeSchedule(identity, input, db, client, now)));
+      server.registerTool("relay_book_slot", { description: t("mcpBookDescription"), inputSchema: z3.object({ proposalId: z3.uuid() }).strict(), outputSchema: slot.extend({ id: z3.string(), title: z3.string(), state: z3.literal("booked") }), annotations: { ...read, readOnlyHint: false } }, (input) => result(() => bookSlot(identity, input.proposalId, db, client, now)));
+    }
+    return server;
+  }, { responseMode: "json", maxSubscriptions: 0, keepAliveMs: 0 });
+}
+async function handleMcp(request, raw, db = database()) {
+  if (new URL(request.url).origin !== origin() || request.headers.has("origin") && request.headers.get("origin") !== origin()) throw new ApiError(403, "origin");
+  const identity = await mcpIdentity(request, db);
+  if (!identity) return Response.json({ error: "unauthorized" }, { status: 401, headers: { "WWW-Authenticate": 'Bearer realm="Relay"' } });
+  await integrationLimit(identity, db);
+  const handler = schedulingMcp(identity, db);
+  try {
+    const response = await handler.fetch(new Request(request.url, { method: "POST", headers: request.headers, body: raw }));
+    const body = response.body ? await response.arrayBuffer() : null;
+    return new Response(body, { status: response.status, headers: response.headers });
+  } finally {
+    await handler.close();
+  }
+}
+
 // src/server/handler.ts
-var readRoutes = /* @__PURE__ */ new Set(["page", "app", "session", "destinations", "start", "callback"]);
+import { readFile } from "node:fs/promises";
+
+// src/design/tokens.ts
+var palette = {
+  main: "#0B0B0D",
+  sub: "#FFFFFF",
+  accent: "#0171E3"
+};
+var channels = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+var mix = (base, overlay, amount) => {
+  const target = channels(overlay);
+  return "#" + channels(base).map((value, i) => Math.round(value * (1 - amount) + target[i] * amount).toString(16).padStart(2, "0")).join("").toUpperCase();
+};
+var alpha = (hex, opacity) => `rgb(${channels(hex).join(" ")} / ${opacity})`;
+var colorRecipes = {
+  "main": ["main", "sub", 0],
+  "sub": ["sub", "main", 0],
+  "surface": ["sub", "main", 0],
+  "subtle": ["sub", "main", 0.035],
+  "input": ["sub", "main", 0],
+  "ink": ["main", "sub", 0],
+  "muted": ["main", "sub", 0.36],
+  "line": ["sub", "main", 0.1],
+  "control": ["main", "sub", 0.45],
+  "accent": ["accent", "main", 0],
+  "accent-hover": ["accent", "main", 0.14],
+  "accent-pressed": ["accent", "main", 0.26],
+  "on-accent": ["sub", "main", 0]
+};
+var colorTokens = Object.fromEntries(Object.entries(colorRecipes).map(
+  ([key, [base, overlay, amount]]) => [key, mix(palette[base], palette[overlay], amount)]
+));
+var primitives = {
+  "font": 'system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif',
+  "text-xs": "0.75rem",
+  "text-sm": "0.875rem",
+  "text-base": "1rem",
+  "text-md": "1.125rem",
+  "text-lg": "1.5rem",
+  "text-xl": "2rem",
+  "title-mobile": "1.75rem",
+  "metric-size": "2.5rem",
+  "regular": "400",
+  "medium": "500",
+  "semibold": "600",
+  "leading": "1.75",
+  "heading-leading": "1.4",
+  "section-leading": "1.5",
+  "label-leading": "1.5",
+  "letter-normal": "0",
+  "space-0": "0",
+  "space-1": "0.25rem",
+  "space-2": "0.5rem",
+  "space-3": "0.75rem",
+  "space-4": "1rem",
+  "space-5": "1.5rem",
+  "space-6": "2rem",
+  "space-7": "3rem",
+  "space-9": "6rem",
+  "radius-sm": "0.5rem",
+  "radius-card": "0.75rem",
+  "radius-panel": "1rem",
+  "radius-pill": "999px",
+  "border-width": "1px",
+  "focus-width": "2px",
+  "focus-gap": "3px",
+  "action": "3rem",
+  "touch": "2.75rem",
+  "row": "3.5rem",
+  "icon": "1.25rem",
+  "sidebar": "5.5rem",
+  "topbar": "4rem",
+  "content-max": "96rem",
+  "reading": "45rem",
+  "aside": "21rem",
+  "table-min": "52rem",
+  "field-min": "8rem",
+  "dialog-max": "44rem",
+  "desktop-gutter": "3rem",
+  "mobile-gutter": "1.5rem",
+  "backdrop": alpha(palette.main, 0.35),
+  "floating-shadow": `0 16px 64px ${alpha(palette.main, 0.14)}`,
+  "fast": "160ms",
+  "reduced-motion": "0ms",
+  "disabled-opacity": "0.55",
+  "nav-z": "10",
+  "toast-z": "30"
+};
+var componentTokens = {
+  "type-page": primitives["text-xl"],
+  "type-page-mobile": primitives["title-mobile"],
+  "type-section": primitives["text-lg"],
+  "type-subheading": primitives["text-md"],
+  "type-body": primitives["text-base"],
+  "type-label": primitives["text-sm"],
+  "type-caption": primitives["text-xs"],
+  "gap-related": primitives["space-3"],
+  "gap-group": primitives["space-5"],
+  "gap-section": primitives["space-7"],
+  "panel-padding": primitives["space-5"],
+  "swatch-height": primitives["space-9"],
+  "rail-padding": primitives["space-4"],
+  "tooltip-max": "14rem",
+  "notification-dot": primitives["space-2"],
+  "narrow-gutter": primitives["space-4"],
+  "tablet-gutter": primitives["space-6"],
+  "viewport-block": "100dvh",
+  "viewport-offset": "0px",
+  "mobile-header-height": "4.25rem"
+};
+var tokens = { ...colorTokens, ...primitives, ...componentTokens };
+
+// src/server/page.ts
+function loginPage(locale, ready, denied) {
+  const t = (key) => translate(locale, key);
+  return `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><meta name="theme-color" content="${palette.sub}"><title>${brand}</title><link rel="stylesheet" href="/assets/styles.css"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icons/icon-180.png"><script defer src="/assets/session.js"></script></head><body><main class="auth-page"><div class="stack"><h1>${brand}</h1><p role="status">${t(denied ? "authDenied" : ready ? "loginHint" : "authSetup")}</p>${ready ? `<a class="button primary" href="/api/auth/start">${t("googleSignIn")}</a>` : ""}<a href="/?lang=${locale === "ja" ? "en" : "ja"}" lang="${locale === "ja" ? "en" : "ja"}">${localeNames[locale === "ja" ? "en" : "ja"]}</a></div></main></body></html>`;
+}
+
+// src/server/handler.ts
+var readRoutes = /* @__PURE__ */ new Set(["page", "app", "session", "destinations", "start", "callback", "calendar-status", "calendar-callback", "mcp-tokens"]);
 async function handle(request) {
   const url = new URL(request.url), route = url.searchParams.get("route") ?? "";
   const locale = url.searchParams.get("lang") === "en" ? "en" : "ja";
   try {
-    if (!["page", "app", "session", "destinations", "start", "callback", "logout", "code", "destination", "notify", "webhook"].includes(route)) throw new ApiError(404, "missing");
+    if (!["page", "app", "session", "destinations", "start", "callback", "logout", "code", "destination", "notify", "webhook", "calendar-status", "calendar-callback", "calendar-connect", "calendar-disconnect", "schedule-propose", "schedule-book", "mcp", "mcp-tokens", "mcp-token", "mcp-revoke"].includes(route)) throw new ApiError(404, "missing");
     if (request.method !== (readRoutes.has(route) ? "GET" : "POST")) throw new ApiError(405, "method");
     if (configured() && url.origin !== origin()) {
       if (route === "page") return new Response(null, { status: 303, headers: { Location: origin() + "/" } });
@@ -807,13 +1206,25 @@ async function handle(request) {
       await webhook(await limitedBody(request), request.headers.get("x-line-signature"));
       return Response.json({ ok: true });
     }
+    if (route === "mcp") return await handleMcp(request, await limitedBody(request));
     const identity = await session(request);
     if (!identity) throw new ApiError(401, "unauthorized");
     if (request.method === "POST" && !sameOrigin(request)) throw new ApiError(403, "origin");
     if (route === "app") return new Response(await readFile("prototype/assets/app.js", "utf8"), { headers: { "Content-Type": "text/javascript; charset=utf-8" } });
     if (route === "session") return Response.json({ email: identity.email, subject: identity.subject, lineReady: lineConfigured() });
     if (route === "logout") return await logout(request);
-    if (!lineConfigured()) throw new ApiError(503, "configuration");
+    if (route === "calendar-status") return Response.json(await calendarStatus(identity));
+    if (route === "calendar-callback") return await finishCalendar(request, identity);
+    if (route === "calendar-connect") {
+      const started = await startCalendar(identity);
+      return Response.json({ url: started.headers.get("location") }, { headers: { "Set-Cookie": started.headers.get("set-cookie") } });
+    }
+    if (route === "calendar-disconnect") {
+      await disconnectCalendar(identity);
+      return Response.json({ ok: true });
+    }
+    if (route === "mcp-tokens") return Response.json(await listMcpTokens(identity));
+    if (["destinations", "code", "destination", "notify"].includes(route) && !lineConfigured()) throw new ApiError(503, "configuration");
     if (route === "destinations") return Response.json(await destinations(identity));
     let input;
     try {
@@ -823,6 +1234,15 @@ async function handle(request) {
       throw new ApiError(400, "invalid");
     }
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new ApiError(400, "invalid");
+    if (route === "mcp-token") return Response.json(await issueMcpToken(identity, input.permission));
+    if (route === "mcp-revoke") {
+      await revokeMcpToken(identity, input.id);
+      return Response.json({ ok: true });
+    }
+    if (route === "schedule-propose" || route === "schedule-book") {
+      await integrationLimit(identity);
+      return Response.json(route === "schedule-propose" ? await proposeSchedule(identity, input) : await bookSlot(identity, input.proposalId));
+    }
     if (route === "code") return Response.json(await issueCode(identity, input.kind));
     if (route === "destination") {
       await changeDestination(identity, input.id, input.action);
@@ -831,7 +1251,7 @@ async function handle(request) {
     if (route === "notify") return Response.json(await notify(identity, input));
     throw new ApiError(404, "missing");
   } catch (error) {
-    return Response.json({ error: error instanceof ApiError ? error.code : "unavailable" }, { status: error instanceof ApiError ? error.status : 503 });
+    return Response.json({ error: error instanceof ApiError ? error.code : error instanceof ZodError || error instanceof RangeError ? "invalid" : "unavailable" }, { status: error instanceof ApiError ? error.status : error instanceof ZodError || error instanceof RangeError ? 400 : 503 });
   }
 }
 async function limitedBody(request) {

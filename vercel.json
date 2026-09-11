@@ -6,7 +6,7 @@
   "functions": {
     "api/relay.mjs": {
       "includeFiles": "prototype/{index.html,assets/app.js}",
-      "maxDuration": 30
+      "maxDuration": 60
     }
   },
   "routes": [
@@ -79,6 +79,46 @@
     {
       "src": "/api/line/webhook",
       "dest": "/api/relay?route=webhook"
+    },
+    {
+      "src": "/api/calendar/status",
+      "dest": "/api/relay?route=calendar-status"
+    },
+    {
+      "src": "/api/calendar/connect",
+      "dest": "/api/relay?route=calendar-connect"
+    },
+    {
+      "src": "/api/calendar/callback",
+      "dest": "/api/relay?route=calendar-callback"
+    },
+    {
+      "src": "/api/calendar/disconnect",
+      "dest": "/api/relay?route=calendar-disconnect"
+    },
+    {
+      "src": "/api/schedule/propose",
+      "dest": "/api/relay?route=schedule-propose"
+    },
+    {
+      "src": "/api/schedule/book",
+      "dest": "/api/relay?route=schedule-book"
+    },
+    {
+      "src": "/api/mcp",
+      "dest": "/api/relay?route=mcp"
+    },
+    {
+      "src": "/api/mcp/tokens",
+      "dest": "/api/relay?route=mcp-tokens"
+    },
+    {
+      "src": "/api/mcp/token",
+      "dest": "/api/relay?route=mcp-token"
+    },
+    {
+      "src": "/api/mcp/revoke",
+      "dest": "/api/relay?route=mcp-revoke"
     },
     {
       "handle": "filesystem"

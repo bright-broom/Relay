@@ -6,7 +6,7 @@
 
 Google OpenID ConnectのAuthorization Code + PKCEを `openid-client` 6.8.8で処理する。state・nonce・署名・issuer・audience・有効期限を検証。Google確認済みメールかつサーバーの `ALLOWED_GOOGLE_EMAILS` に完全一致したアカウントだけを許可する。GmailおよびGoogleが管理するWorkspaceアカウントが対象。許可リストはカンマ区切り、大文字小文字を区別しない。ドメイン全体許可・自動登録はない。
 
-ログイン試行は10分、一度だけ消費する。セッションは8時間固定期限。ブラウザーにはランダムな識別子をSecure / HttpOnly / SameSite=Lax / __Host- Cookieで渡し、DBにはそのSHA-256ハッシュのみ保存する。Googleトークンは保存・ブラウザー配布しない。毎回のセッション照会で現在の許可リストを確認するため、リストから外したアカウントは再利用できない（Vercel環境変数変更後は再デプロイが必要）。ログアウトでDBセッションも削除する。
+ログイン試行は10分、一度だけ消費する。セッションは8時間固定期限。ブラウザーにはランダムな識別子をSecure / HttpOnly / SameSite=Lax / __Host- Cookieで渡し、DBにはそのSHA-256ハッシュのみ保存する。ログイン用のGoogleトークンは保存・ブラウザー配布しない。カレンダー接続の追加権限と暗号化保存は [CALENDAR_MCP.md](CALENDAR_MCP.md) を参照。毎回のセッション照会で現在の許可リストを確認するため、リストから外したアカウントは再利用できない（Vercel環境変数変更後は再デプロイが必要）。ログアウトでDBセッションも削除する。
 
 Vercelのルートを静的ファイル配信より先に評価し、`/`、`/index.html`、`/assets/app.js`を認証ゲートへ通す。APIはそれぞれセッションを確認し、変更操作はPOSTおよび同一Originを要求する。認証関連・アプリの応答はCDNを含めno-store。サーバー用コードと環境変数はブラウザーのビルドへ含めない。
 

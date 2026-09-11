@@ -116,15 +116,15 @@ const expiring=await api.issueCode(owner,'user',db);await db.query("UPDATE relay
 const revoked=await api.issueCode(owner,'user',db);process.env.ALLOWED_GOOGLE_EMAILS=second.email;await deliver(event(revoked.code));assert.equal((await api.destinations(owner,db)).length,0);
 // No external network is used to prove fail-closed hosting.
 delete process.env.GOOGLE_CLIENT_ID;delete process.env.GOOGLE_CLIENT_SECRET;delete process.env.DATABASE_URL;
-for(const route of ['app','session','destinations','start','callback']){
+for(const route of ['app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']){
  const response=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route));assert.equal(response.status,503);assert.equal(response.headers.get('cache-control'),'private, no-store');
 }
-for(const route of ['notify','destination','logout','code','webhook']){
+for(const route of ['notify','destination','logout','code','webhook','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-token','mcp-revoke']){
  const response=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route,{method:'POST'}));assert.equal(response.status,503);
 }
 process.env.GOOGLE_CLIENT_ID='synthetic-client';process.env.GOOGLE_CLIENT_SECRET='synthetic-secret';process.env.DATABASE_URL='postgres://unused:unused@localhost/unused';
-for(const route of ['app','session','destinations'])assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route))).status,401);
-for(const route of ['logout','code','destination','notify'])assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route,{method:'POST'}))).status,401);
+for(const route of ['app','session','destinations','calendar-status','calendar-callback','mcp-tokens'])assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route))).status,401);
+for(const route of ['logout','code','destination','notify','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-token','mcp-revoke'])assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route,{method:'POST'}))).status,401);
 assert.equal((await api.endpoint.fetch(new Request('https://old-deployment.test/api/relay?route=session'))).status,403);
 assert.equal((await api.endpoint.fetch(new Request('https://old-deployment.test/api/relay?route=page'))).headers.get('location'),'https://relay.test/');
 delete process.env.GOOGLE_CLIENT_ID;

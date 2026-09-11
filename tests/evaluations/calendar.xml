@@ -1,0 +1,43 @@
+<?xml version='1.0' encoding='utf-8'?>
+<evaluation>
+  <qa_pair>
+    <question>接続が有効か確認し、日本時間の月曜に60分の予定を入れる最も早い候補をUTCで返してください。前後15分の余裕を確保します。</question>
+    <answer>2026-09-14T02:15:00Z</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>接続状態を確認し、同じ月曜日の60分の候補を、前後の余裕を0分にした場合と標準の場合で比較してください。0分の場合の最初の開始時刻をUTCで返してください。</question>
+    <answer>2026-09-14T02:00:00Z</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>同じ月曜日で、60分の打ち合わせよりも早く15分の作業を入れられるか調べてください。余裕は標準のまま、15分作業の最も早い開始時刻をUTCで返してください。</question>
+    <answer>2026-09-14T00:00:00Z</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>土曜日から3日間を検索し、平日に60分を確保できる最も早い候補をUTCで返してください。接続確認と平日の判定を行ってください。</question>
+    <answer>2026-09-14T02:15:00Z</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>接続が有効な状態で、土曜から2日間だけ検索します。平日限定の標準条件なら候補はいくつありますか。0件なら数値0のみ返してください。</question>
+    <answer>0</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>月曜日の午前の予定を避け、営業時間を14時から18時に絞った場合の最も早い60分候補を確認してください。開始時刻をUTCで返してください。</question>
+    <answer>2026-09-14T05:00:00Z</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>移動時間を見込み、月曜日の前後の余裕を60分に広げます。標準条件との違いを調べ、60分の余裕がある最も早い候補開始時刻をUTCで返してください。</question>
+    <answer>2026-09-14T03:00:00Z</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>月曜と火曜の候補を比較し、火曜日から検索した場合の最も早い60分候補をUTCで返してください。標準の営業時間・余裕を使います。</question>
+    <answer>2026-09-15T00:00:00Z</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>月曜日だけを対象に、営業時間を9時から11時までに縮めたとき、標準の60分打ち合わせを入れられる候補数を返してください。接続と空き時間を確認してください。</question>
+    <answer>0</answer>
+  </qa_pair>
+  <qa_pair>
+    <question>月曜日の候補を3件まで取得し、開始時刻順で最後の候補を返してください。接続確認後、60分・標準の余裕で検索し、結果はUTCにしてください。</question>
+    <answer>2026-09-14T02:45:00Z</answer>
+  </qa_pair>
+</evaluation>

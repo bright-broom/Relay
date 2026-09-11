@@ -9,6 +9,7 @@ Relayは、日々の会話や活動から情報を整理し、案件の進行と
 案件画面は架空データのプロトタイプです。Googleホワイトリスト認証とLINE個人・グループ通知の接続基盤を実装しました。利用開始にはOAuth・PostgreSQL・Messaging APIの接続設定が必要です。案件のサーバー同期・AI接続・自動期限通知は未実装です。
 
 - [Google認証・LINE通知の設定](docs/AUTH_LINE.md)
+- [Googleカレンダー・MCPの日程調整](docs/CALENDAR_MCP.md)
 
 - [プロダクト・システム設計](docs/DESIGN.md)
 - [開発要件](docs/DEVELOPMENT.md)
