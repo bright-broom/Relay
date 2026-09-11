@@ -9,8 +9,8 @@ export async function installApp():Promise<boolean>{
  try{await event.prompt();return (await event.userChoice).outcome==='accepted'}catch{return false}
 }
 export function initPwa(){
- window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();pending=e as InstallPrompt;window.dispatchEvent(new Event('relay-install-change'))});
- window.addEventListener('appinstalled',()=>{pending=null;window.dispatchEvent(new Event('relay-install-change'))});
+ window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();pending=e as InstallPrompt});
+ window.addEventListener('appinstalled',()=>{pending=null});
  if(hosted()&&'serviceWorker' in navigator){
   window.addEventListener('load',()=>{navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'}).catch(()=>window.dispatchEvent(new Event('relay-offline-unavailable')))},{once:true});
  }

@@ -1,8 +1,13 @@
 import type {MessageKey} from '../i18n/messages';
+export const caseStages=['stageSchedule','stageContract','stageInstall'] as const satisfies readonly MessageKey[];
+export const caseDueDates=['dueNow','dueDay','dueUnknown','overdueDate','futureDate'] as const satisfies readonly MessageKey[];
+export const caseStatuses=['todo','doing','awaiting','done'] as const;
+export const caseLevels=['today','overdue','unknown','upcoming'] as const;
+export type CaseDue=typeof caseDueDates[number];
 export interface CaseRecord {
-  id:number; name:string; area:string; stage:MessageKey; title:string; owner:string;
-  waiting:string; due:MessageKey; level:'today'|'overdue'|'unknown'|'upcoming';
-  status:'todo'|'doing'|'awaiting'|'done'; reason:string; next:string; evidence:string;
+  id:number; name:string; area:string; stage:typeof caseStages[number]; title:string; owner:string;
+  waiting:string; due:CaseDue; level:typeof caseLevels[number];
+  status:typeof caseStatuses[number]; reason:string; next:string; evidence:string;
   history:readonly (readonly [string,string])[]; notes:string[]; version:number;
 }
 // Fictional source records are shown in their original language, independent of UI locale.
