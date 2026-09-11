@@ -1,5 +1,7 @@
 {
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@types/node": "22.20.2",
     "esbuild": "0.28.2",
     "typescript": "7.0.2"
   },
@@ -10,7 +12,16 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs",
-    "check": "npm run typecheck && npm run build && node scripts/check.mjs && npm run audit",
-    "audit": "node scripts/audit.mjs"
+    "check": "npm run typecheck && npm run build && node scripts/check.mjs && npm run audit && npm run test:server",
+    "audit": "node scripts/audit.mjs",
+    "test:server": "node tests/server.mjs",
+    "db:migrate": "node scripts/migrate.mjs"
+  },
+  "dependencies": {
+    "openid-client": "6.8.8",
+    "postgres": "3.4.9"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }

@@ -12,3 +12,6 @@ coverage/
 *.tsbuildinfo
 private/
 imports/
+
+# Generated public-only deployment assets
+public/

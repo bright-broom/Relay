@@ -2,10 +2,86 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "buildCommand": "npm run build",
-  "outputDirectory": "prototype",
-  "headers": [
-    {"source": "/sw.js", "headers": [{"key": "Cache-Control", "value": "no-cache"}]},
-    {"source": "/manifest.webmanifest", "headers": [{"key": "Content-Type", "value": "application/manifest+json"}, {"key": "Cache-Control", "value": "no-cache"}]},
-    {"source": "/(.*)", "headers": [{"key": "X-Content-Type-Options", "value": "nosniff"}]}
+  "outputDirectory": "public",
+  "functions": {
+    "api/relay.mjs": {
+      "includeFiles": "prototype/{index.html,assets/app.js}",
+      "maxDuration": 30
+    }
+  },
+  "routes": [
+    {
+      "src": "/sw.js",
+      "headers": {
+        "Cache-Control": "no-cache"
+      },
+      "continue": true
+    },
+    {
+      "src": "/manifest.webmanifest",
+      "headers": {
+        "Content-Type": "application/manifest+json",
+        "Cache-Control": "no-cache"
+      },
+      "continue": true
+    },
+    {
+      "src": "/(.*)",
+      "headers": {
+        "X-Content-Type-Options": "nosniff"
+      },
+      "continue": true
+    },
+    {
+      "src": "/",
+      "dest": "/api/relay?route=page"
+    },
+    {
+      "src": "/index.html",
+      "dest": "/api/relay?route=page"
+    },
+    {
+      "src": "/assets/app.js",
+      "dest": "/api/relay?route=app"
+    },
+    {
+      "src": "/api/session",
+      "dest": "/api/relay?route=session"
+    },
+    {
+      "src": "/api/auth/start",
+      "dest": "/api/relay?route=start"
+    },
+    {
+      "src": "/api/auth/callback",
+      "dest": "/api/relay?route=callback"
+    },
+    {
+      "src": "/api/auth/logout",
+      "dest": "/api/relay?route=logout"
+    },
+    {
+      "src": "/api/line/destinations",
+      "dest": "/api/relay?route=destinations"
+    },
+    {
+      "src": "/api/line/code",
+      "dest": "/api/relay?route=code"
+    },
+    {
+      "src": "/api/line/destination",
+      "dest": "/api/relay?route=destination"
+    },
+    {
+      "src": "/api/line/notify",
+      "dest": "/api/relay?route=notify"
+    },
+    {
+      "src": "/api/line/webhook",
+      "dest": "/api/relay?route=webhook"
+    },
+    {
+      "handle": "filesystem"
+    }
   ]
 }

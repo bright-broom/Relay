@@ -1,6 +1,5 @@
 import {writeFile,mkdir,readFile,copyFile} from 'node:fs/promises';
 import {deflateSync} from 'node:zlib';
-import {createHash} from 'node:crypto';
 import {build} from 'esbuild';
 
 // Rasterize Relay's own vector mark. Opaque background and inset mark support OS masks.
@@ -30,7 +29,5 @@ export async function buildPwa(palette){
  await writeFile('prototype/manifest.webmanifest',JSON.stringify(manifest,null,2)+'\n');
  await mkdir('prototype/docs',{recursive:true});
  for(const name of ['DESIGN_GUIDELINES.md','STACK_DECISION.md'])await copyFile(`docs/${name}`,`prototype/docs/${name}`);
- const assets=['index.html','assets/app.js','assets/styles.css','manifest.webmanifest','icons/icon-180.png','icons/icon-192.png','icons/icon-512.png'];
- const digest=createHash('sha256');for(const asset of assets)digest.update(await readFile(`prototype/${asset}`));
- await build({entryPoints:['src/pwa/worker.ts'],outfile:'prototype/sw.js',bundle:true,format:'iife',target:['safari16','chrome110'],minify:true,define:{__CACHE_VERSION__:JSON.stringify(digest.digest('hex').slice(0,16)),__PRECACHE__:JSON.stringify(assets)}});
+ await build({entryPoints:['src/pwa/worker.ts'],outfile:'prototype/sw.js',bundle:true,format:'iife',target:['safari16','chrome110'],minify:true});
 }

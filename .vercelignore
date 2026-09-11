@@ -1,0 +1,11 @@
+.git
+.env
+.env.*
+node_modules
+.vercel
+private
+imports
+tests
+coverage
+
+public
