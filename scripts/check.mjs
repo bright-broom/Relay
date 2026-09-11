@@ -45,3 +45,31 @@ assert.equal(parsedCss.warnings.length,0,'Generated CSS syntax warnings');
 const html=await readFile('prototype/index.html','utf8');
 for(const [,file] of html.matchAll(/(?:src|href)="([^"#]+)"/g))await readFile('prototype/'+file);
 console.log('Locale parity, interpolation, three-color recipes, semantic typography, token references, text/control contrast and build assets: OK.');
+
+// A selected response must never silently mark a task complete.
+const {emptyReport,validateReport,saveReport}=await load('src/prototype/report.ts');
+const {initialCases}=await load('src/prototype/data.ts');
+const fresh=()=>structuredClone(initialCases[0]);
+const initial=fresh();
+assert.equal(validateReport(emptyReport()).field,'report-channel');
+assert.equal(saveReport(initial,emptyReport(),'ja'),false);
+assert.deepEqual(initial,fresh(),'Invalid draft changed the case');
+for(const outcome of ['resultAgreed','resultNoAnswer','resultFollowup']){
+ const c=fresh();const d={channel:'channelPhone',outcome,note:'',mode:'record'};
+ assert.equal(saveReport(c,d,'ja'),true,'Preset report should require no typed text');
+ assert.equal(c.notes.length,1);assert.equal(c.status,'doing');assert.equal(c.next,initial.next);assert.equal(c.waiting,initial.waiting);
+ const blocked=fresh();assert.equal(saveReport(blocked,{...d,mode:'complete'},'ja'),false);
+ assert.deepEqual(blocked,fresh(),'A response was incorrectly treated as task completion');
+}
+const completed=fresh();const completeDraft={channel:'channelEmail',outcome:'resultCompleted',note:'',mode:'complete'};
+assert.equal(saveReport(completed,completeDraft,'en'),true);
+assert.equal(completed.status,'done');assert.equal(completed.notes.length,1);
+assert.equal(completed.notes[0],'Email: This action completed');
+assert.equal(saveReport(completed,completeDraft,'en'),false,'Duplicate completion');
+assert.equal(completed.notes.length,1);
+const recordOnly=fresh();assert.equal(saveReport(recordOnly,{...completeDraft,mode:'record'},'en'),true);assert.equal(recordOnly.status,'doing');
+const other={channel:'channelOther',outcome:'resultOther',note:' ',mode:'record'};
+assert.equal(validateReport(other).field,'report');
+assert.equal(validateReport({...other,note:'Specific outcome'}),null);
+assert.ok(validateReport({...other,channel:'unknown'}));
+console.log('Zero-typing reports, validation, explicit completion, duplicate completion and unchanged appointments: OK.');

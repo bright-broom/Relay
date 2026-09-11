@@ -41,8 +41,8 @@ const primitives = {
   'radius-sm': '0.5rem', 'radius-card': '0.75rem', 'radius-panel': '1rem', 'radius-pill': '999px',
   'border-width': '1px', 'focus-width': '2px', 'focus-gap': '3px',
   'action': '3rem', 'touch': '2.75rem', 'row': '3.5rem', 'icon': '1.25rem',
-  'sidebar': '15rem', 'topbar': '4rem', 'content-max': '96rem', 'reading': '45rem',
-  'aside': '19rem', 'table-min': '52rem', 'field-min': '8rem', 'dialog-max': '44rem',
+  'sidebar': '5.5rem', 'topbar': '4rem', 'content-max': '96rem', 'reading': '45rem',
+  'aside': '21rem', 'table-min': '52rem', 'field-min': '8rem', 'dialog-max': '44rem',
   'desktop-gutter': '3rem', 'mobile-gutter': '1.5rem', 'mobile-nav-top': '4rem',
   'backdrop': alpha(palette.main, 0.35), 'floating-shadow': `0 16px 64px ${alpha(palette.main, 0.14)}`,
   'fast': '160ms', 'panel-motion': '280ms', 'reduced-motion': '0ms',
@@ -59,6 +59,7 @@ export const componentTokens = {
   'gap-related': primitives['space-3'], 'gap-group': primitives['space-5'],
   'gap-section': primitives['space-7'], 'panel-padding': primitives['space-5'],
   'swatch-height': primitives['space-9'],
+  'rail-padding': primitives['space-4'], 'tooltip-max': '14rem', 'notification-dot': primitives['space-2'],
 } as const;
 
 export const tokens = { ...colorTokens, ...primitives, ...componentTokens } as const;
