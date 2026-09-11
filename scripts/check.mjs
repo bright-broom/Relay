@@ -73,3 +73,32 @@ assert.equal(validateReport(other).field,'report');
 assert.equal(validateReport({...other,note:'Specific outcome'}),null);
 assert.ok(validateReport({...other,channel:'unknown'}));
 console.log('Zero-typing reports, validation, explicit completion, duplicate completion and unchanged appointments: OK.');
+
+const {restore,persist,validSnapshot,storageKey}=await load('src/prototype/storage.ts');
+const snapshot={locale:'ja',cases:structuredClone(initialCases),drafts:{4:{channel:'channelPhone',outcome:'resultAgreed',note:'draft',mode:'record'}},review:'pending',reviewOwner:'Owner',reviewDue:'dueNow',imported:false};
+const memory=new Map();const storage={getItem:key=>memory.get(key)??null,setItem:(key,value)=>memory.set(key,value)};
+assert.equal(persist(storage,snapshot),true);assert.deepEqual(restore(storage),snapshot);
+assert.equal(validSnapshot({...snapshot,cases:[snapshot.cases[0]]}),false);
+assert.equal(validSnapshot({...snapshot,drafts:{4:{channel:'bad',outcome:'bad',note:'',mode:'complete'}}}),false);
+assert.equal(validSnapshot({...snapshot,cases:snapshot.cases.map(c=>({...c,notes:[42]}))}),false);
+memory.set(storageKey,'{broken');assert.equal(restore(storage),null);
+assert.equal(persist({setItem(){throw new Error('quota')}},snapshot),false);
+const manifest=JSON.parse(await readFile('prototype/manifest.webmanifest','utf8'));
+assert.equal(manifest.display,'standalone');assert.equal(manifest.start_url,'./');assert.equal(manifest.scope,'./');
+assert.equal(manifest.theme_color,palette.sub);
+for(const size of [180,192,512]){const bytes=await readFile(`prototype/icons/icon-${size}.png`);assert.equal(bytes.readUInt32BE(16),size);assert.equal(bytes.readUInt32BE(20),size)}
+assert.ok(manifest.icons.some(i=>i.purpose.includes('maskable')));
+const config=JSON.parse(await readFile('vercel.json','utf8'));assert.equal(config.outputDirectory,'prototype');
+assert.ok(config.headers.some(rule=>rule.source==='/sw.js'&&rule.headers.some(h=>h.key==='Cache-Control'&&h.value==='no-cache')));
+// Exercise worker behavior with in-memory caches; no browser or external requests.
+const {runInNewContext}=await import('node:vm');
+const events={};const cacheStore=new Map();let cacheAssets=[];
+const cachesMock={open:async name=>{if(!cacheStore.has(name))cacheStore.set(name,{addAll:async requests=>{cacheAssets=requests.map(r=>r.url)},match:async url=>cacheAssets.includes(url)?new Response('cached'):undefined});return cacheStore.get(name)},keys:async()=>[...cacheStore.keys()],delete:async name=>cacheStore.delete(name)};
+runInNewContext(await readFile('prototype/sw.js','utf8'),{self:{registration:{scope:'https://relay.test/'},addEventListener:(name,fn)=>events[name]=fn},caches:cachesMock,URL,Request,Response,fetch:()=>{throw new Error('Unexpected network request')}});
+let job;events.install({waitUntil:value=>job=value});await job;
+assert.ok(cacheAssets.includes('https://relay.test/index.html'));
+for(const path of ['https://relay.test/api/cases','https://other.test/assets/app.js'])events.fetch({request:{method:'GET',url:path,mode:'cors'},respondWith:()=>assert.fail('Worker intercepted non-shell request')});
+let response;events.fetch({request:{method:'GET',url:'https://relay.test/',mode:'navigate'},respondWith:value=>response=value});assert.equal(await (await response).text(),'cached');
+cacheStore.set('unrelated-cache',{});cacheStore.set('relay-shell-/-old',{});events.activate({waitUntil:value=>job=value});await job;
+assert.ok(cacheStore.has('unrelated-cache'));assert.ok(!cacheStore.has('relay-shell-/-old'));
+console.log('Device persistence, invalid storage, PWA metadata, PNG sizes and offline shell scope: OK.');
