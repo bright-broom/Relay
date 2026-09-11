@@ -39,7 +39,7 @@ assert.ok(!/\.section-head h2\s*\{/.test(css),'Section title scale overridden');
 assert.ok(!/var\(--text-(?:xs|sm|base|md|lg|xl)\)/.test(css),'Component bypasses type role');
 assert.ok(!/\.panel\.inverse/.test(css),'Decorative inverse panel reintroduced');
 const generatedCss=await readFile('prototype/assets/styles.css','utf8');
-assert.ok(!/__MOBILE__|__COMPACT__/.test(generatedCss),'Unresolved breakpoint');
+assert.ok(!/__\w+__/.test(generatedCss),'Unresolved breakpoint');
 const parsedCss=await transform(generatedCss,{loader:'css',logLevel:'silent'});
 assert.equal(parsedCss.warnings.length,0,'Generated CSS syntax warnings');
 const html=await readFile('prototype/index.html','utf8');

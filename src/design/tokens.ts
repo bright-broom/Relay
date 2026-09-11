@@ -60,8 +60,11 @@ export const componentTokens = {
   'gap-section': primitives['space-7'], 'panel-padding': primitives['space-5'],
   'swatch-height': primitives['space-9'],
   'rail-padding': primitives['space-4'], 'tooltip-max': '14rem', 'notification-dot': primitives['space-2'],
+  'narrow-gutter': primitives['space-4'], 'tablet-gutter': primitives['space-6'],
+  'viewport-block': '100dvh', 'viewport-offset': '0px',
+  'mobile-header-height': '4.25rem',
 } as const;
 
 export const tokens = { ...colorTokens, ...primitives, ...componentTokens } as const;
 
-export const breakpoints = { mobile: '48rem', compact: '75rem' } as const;
+export const breakpoints = { narrow: '30rem', mobile: '48rem', compact: '64rem', short: '32rem' } as const;
