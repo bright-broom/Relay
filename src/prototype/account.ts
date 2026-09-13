@@ -1,12 +1,14 @@
-import {translate, type Locale, type MessageKey} from '../i18n/messages';
+import type {MessageKey} from '../i18n/messages';
+import type {UiContext} from '../i18n/context';
+import {actionClass,actionLabel,actionContent} from '../ui/icons';
 import {storageKey} from './storage';
 type Destination = {id: string; kind: 'user' | 'group'; enabled: boolean; reference: string};
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 const pendingNotifications = new Map<string, string>();
-export async function showAccount(locale: Locale, show: (title: MessageKey, body: string) => void) {
-  const t = (key: MessageKey) => translate(locale, key);
+export async function showAccount(ui: UiContext, show: (title: MessageKey, body: string) => void) {
+  const {t}=ui;
   if (location.protocol === 'file:') { show('account', `<p>${t('authOnline')}</p>`); return; }
-  const button = (key: MessageKey, action: string, id = '') => `<button class="button" data-account="${action}" data-id="${id}">${t(key)}</button>`;
+  const button = (key: MessageKey, action: string, id = '') => `<button class="${actionClass(key)}" data-account="${action}" data-id="${id}" ${actionLabel(ui,key)}>${actionContent(ui,key)}</button>`;
   const request = async (path: string, body?: Record<string, unknown>) => {
     const response = await fetch(`/api/${path}`, {method: body ? 'POST' : 'GET', cache: 'no-store', credentials: 'same-origin', ...(body ? {headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)} : {})});
     const result = await response.json();
@@ -37,7 +39,7 @@ export async function showAccount(locale: Locale, show: (title: MessageKey, body
         if (action === 'notify') {
           const retryId = pendingNotifications.get(id) ?? crypto.randomUUID();
           pendingNotifications.set(id, retryId);
-          await request('line/notify', {id: retryId, destinationId: id, locale});
+          await request('line/notify', {id: retryId, destinationId: id, locale:ui.language});
           pendingNotifications.delete(id);
         }
         await refresh(action === 'notify' ? t('lineSent') : '');

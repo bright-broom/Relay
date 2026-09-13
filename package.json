@@ -13,17 +13,20 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs",
-    "check": "npm run typecheck && npm run build && node scripts/check.mjs && npm run audit && npm run test:server && npm run test:calendar && npm run test:pricing",
+    "check": "npm run typecheck && npm run build && node scripts/check.mjs && npm run audit && npm run test:server && npm run test:calendar && npm run test:pricing && npm run test:i18n",
     "audit": "node scripts/audit.mjs",
     "test:server": "node tests/server.mjs",
     "db:migrate": "node scripts/migrate.mjs",
     "test:calendar": "node tests/calendar.mjs",
-    "test:pricing": "node tests/pricing.mjs"
+    "test:pricing": "node tests/pricing.mjs",
+    "test:i18n": "node tests/i18n.mjs"
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.5.1",
     "@modelcontextprotocol/server": "2.0.0",
     "decimal.js": "10.6.0",
+    "i18next": "26.4.2",
+    "lucide": "1.45.0",
     "openid-client": "6.8.8",
     "postgres": "3.4.9",
     "zod": "4.6.2"

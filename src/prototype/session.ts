@@ -1,6 +1,8 @@
 import {storageKey} from './storage';
-import {translate, type Locale} from '../i18n/messages';
-const locale: Locale = document.documentElement.lang === 'en' ? 'en' : 'ja';
+import {createUiContext,browserLocale,persistLocale} from '../i18n/context';
+const initialLocale=browserLocale();
+persistLocale(initialLocale);
+const {t}=createUiContext(initialLocale);
 const root = document.getElementById('app');
 const localPreview = location.protocol === 'file:';
 let checking = false;
@@ -23,11 +25,11 @@ async function verify() {
     if (disconnected) { location.reload(); return; }
     if (!started) {
       const script = document.createElement('script'); script.src = 'assets/app.js';
-      script.onerror = () => { root.textContent = translate(locale, 'authOnline'); };
+      script.onerror = () => { root.textContent = t('authOnline'); };
       document.head.append(script); started = true;
     }
     root.hidden = false;
-  } catch { root.hidden = true; disconnected = true; const notice = document.createElement('p'); notice.textContent = translate(locale, 'authOnline'); notice.setAttribute('role', 'alert'); root.after(notice); }
+  } catch { root.hidden = true; disconnected = true; const notice = document.createElement('p'); notice.textContent = t('authOnline'); notice.setAttribute('role', 'alert'); root.after(notice); }
   finally { checking = false; }
 }
 function clearLocal() {

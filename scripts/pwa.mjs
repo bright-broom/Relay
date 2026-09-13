@@ -22,10 +22,10 @@ function png(size,background,foreground){
  const header=Buffer.alloc(13);header.writeUInt32BE(size);header.writeUInt32BE(size,4);header[8]=8;header[9]=2;
  return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',header),chunk('IDAT',deflateSync(rows)),chunk('IEND',Buffer.alloc(0))]);
 }
-export async function buildPwa(palette){
+export async function buildPwa(palette,brand){
  await mkdir('prototype/icons',{recursive:true});
  for(const size of [180,192,512])await writeFile(`prototype/icons/icon-${size}.png`,png(size,palette.main,palette.sub));
- const manifest={id:'./',name:'Relay',short_name:'Relay',lang:'ja',start_url:'./',scope:'./',display:'standalone',background_color:palette.sub,theme_color:palette.sub,icons:[{src:'icons/icon-192.png',sizes:'192x192',type:'image/png',purpose:'any'},{src:'icons/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
+ const manifest={id:'./',name:brand,short_name:brand,lang:'ja',start_url:'./',scope:'./',display:'standalone',background_color:palette.sub,theme_color:palette.sub,icons:[{src:'icons/icon-192.png',sizes:'192x192',type:'image/png',purpose:'any'},{src:'icons/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
  await writeFile('prototype/manifest.webmanifest',JSON.stringify(manifest,null,2)+'\n');
  await rm('prototype/docs',{recursive:true,force:true});
  await build({entryPoints:['src/pwa/worker.ts'],outfile:'prototype/sw.js',bundle:true,format:'iife',target:['safari16','chrome110'],minify:true});

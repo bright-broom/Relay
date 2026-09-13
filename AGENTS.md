@@ -51,4 +51,6 @@
 - `npm run check` に含まれる文言・CSSの参照監査を通す。動的参照は明示的なマップへ置く。未参照候補は実際の用途を確認して削除し、プレビュー・PWAで使用する生成物をデッドコード扱いしない。
 - UIを変えるなら390 / 768 / 1440px、長い文言、キーボード、通常・例外状態を確認する。確認できなかった項目は未検証と報告する。
 - 計算・権限・状態遷移の変更では、それらの意味を保証するテストを優先する。
-- `prototype/index.html` はデザイン検討用。ソースは `src/prototype/`、中央トークンは `src/design/tokens.ts`、UI文言は `src/i18n/messages.ts`。生成物を直接編集せず `npm run check` で検証・生成する。本番では描画・状態管理をReact等へ置き換える。
+- `prototype/index.html` はデザイン検討用。ソースは `src/prototype/`、中央トークンは `src/design/tokens.ts`、UI文言は `src/i18n/locales/`、共通の翻訳・書式は `src/i18n/context.ts`。生成物を直接編集せず `npm run check` で検証・生成する。本番では描画・状態管理をReact等へ置き換える。
+
+- 画面・文言・アイコンを変更する場合は [国際化と操作部品](docs/I18N_UX.md) を参照する。各画面にUiContextを渡し、共有i18nextの現在言語をリクエストごとに変更しない。全言語の拡張対応を翻訳済みと表現しない。

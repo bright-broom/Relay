@@ -1,14 +1,16 @@
 import {compareCosts,comparisonSchema,type ComparisonResult} from '../pricing/comparison';
 import {fixedCostProfile} from '../pricing/profiles';
-import {translate,type Locale,type MessageKey} from '../i18n/messages';
+import type {MessageKey} from '../i18n/messages';
+import type {UiContext} from '../i18n/context';
+import {actionClass,actionLabel,actionContent} from '../ui/icons';
 const escape=(value:string)=>value.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 
-export function showPricing(locale:Locale,customer:string,show:(title:MessageKey,body:string)=>void){
- const t=(key:MessageKey,params:Record<string,string|number>={})=>translate(locale,key,params);
- const money=(value:string)=>new Intl.NumberFormat(locale,{style:'currency',currency:'JPY',maximumFractionDigits:0}).format(BigInt(value));
- const field=(id:string,label:MessageKey,value='')=>`<div class="field"><label for="price-${id}">${t(label)}</label><input id="price-${id}" name="${id}" type="text" inputmode="numeric" pattern="[0-9]+" maxlength="10" required value="${value}" aria-describedby="price-validation"></div>`;
+export function showPricing(ui:UiContext,customer:string,show:(title:MessageKey,body:string)=>void){
+ const {t}=ui;
+ const {money}=ui;
+ const field=(id:string,label:MessageKey,value='')=>`<div class="field"><label for="price-${id}">${t(label)}</label><input id="price-${id}" name="${id}" type="text" inputmode="numeric" maxlength="10" required value="${value}" aria-describedby="price-validation"></div>`;
  const select=(id:string,label:MessageKey,values:readonly number[],selected:number)=>`<div class="field"><label for="price-${id}">${t(label)}</label><select id="price-${id}" name="${id}">${values.map(v=>`<option value="${v}" ${v===selected?'selected':''}>${v===0?t('pricingNoPayment'):t('pricingMonths',{count:v})}</option>`).join('')}</select></div>`;
- show('pricing',`<section id="pricing" class="stack">${customer?`<p>${escape(customer)}</p>`:''}<p class="notice">${t('pricingEstimate')}</p><form id="price-form" novalidate><div class="form-grid">${field('currentMonthly','pricingCurrent')}${field('proposedMonthly','pricingRunning')}${field('upfront','pricingUpfront')}${select('horizonMonths','pricingHorizon',fixedCostProfile.horizonOptions,120)}</div><details class="disclosure"><summary>${t('pricingPayment')}</summary><div class="form-grid disclosure-body">${field('installmentMonthly','pricingPayment','0')}${select('installmentMonths','pricingTerm',fixedCostProfile.installmentOptions,0)}</div></details><p id="price-validation" class="field-error" role="status"></p><div class="field"><label for="price-source">${t('pricingSource')}</label><input id="price-source" name="source" type="text" maxlength="200"></div><label class="row block-gap pricing-confirm"><input id="price-confirm" type="checkbox">${t('pricingConfirm')}</label><p class="meta">${t('pricingSession')}</p></form><div id="price-results" aria-live="polite"></div><p id="price-presentation-hint" class="meta">${t('pricingEvidenceNeeded')}</p><div class="form-actions"><button id="price-present" class="button primary" disabled>${t('pricingPresent')}</button><button id="price-edit" class="button" hidden>${t('pricingEdit')}</button></div></section>`);
+ show('pricing',`<section id="pricing" class="stack">${customer?`<p>${escape(customer)}</p>`:''}<p class="notice">${t('pricingEstimate')}</p><form id="price-form" novalidate><div class="form-grid">${field('currentMonthly','pricingCurrent')}${field('proposedMonthly','pricingRunning')}${field('upfront','pricingUpfront')}${select('horizonMonths','pricingHorizon',fixedCostProfile.horizonOptions,120)}</div><details class="disclosure"><summary>${t('pricingPayment')}</summary><div class="form-grid disclosure-body">${field('installmentMonthly','pricingPayment','0')}${select('installmentMonths','pricingTerm',fixedCostProfile.installmentOptions,0)}</div></details><p id="price-validation" class="field-error" role="status"></p><div class="field"><label for="price-source">${t('pricingSource')}</label><input id="price-source" name="source" type="text" maxlength="200"></div><label class="row block-gap pricing-confirm"><input id="price-confirm" type="checkbox">${t('pricingConfirm')}</label><p class="meta">${t('pricingSession')}</p></form><div id="price-results" aria-live="polite"></div><p id="price-presentation-hint" class="meta">${t('pricingEvidenceNeeded')}</p><div class="form-actions"><button id="price-present" class="button primary" ${actionLabel(ui,'pricingPresent')} disabled>${actionContent(ui,'pricingPresent')}</button><button id="price-edit" class="${actionClass('pricingEdit')}" ${actionLabel(ui,'pricingEdit')} hidden>${actionContent(ui,'pricingEdit')}</button></div></section>`);
  const dialog=document.getElementById('modal') as HTMLDialogElement;
  const panel=document.getElementById('pricing')!;
  const form=document.getElementById('price-form') as HTMLFormElement;
@@ -29,7 +31,7 @@ export function showPricing(locale:Locale,customer:string,show:(title:MessageKey
  };
  const update=()=>{
   const values=Object.fromEntries(new FormData(form));
-  const parsed=comparisonSchema.safeParse({currency:fixedCostProfile.currency,currentMonthly:values.currentMonthly,proposedMonthly:values.proposedMonthly,upfront:values.upfront,installmentMonthly:values.installmentMonthly,installmentMonths:Number(values.installmentMonths),horizonMonths:Number(values.horizonMonths)});
+  const parsed=comparisonSchema.safeParse({currency:fixedCostProfile.currency,currentMonthly:ui.normalizeDigits(String(values.currentMonthly??'')),proposedMonthly:ui.normalizeDigits(String(values.proposedMonthly??'')),upfront:ui.normalizeDigits(String(values.upfront??'')),installmentMonthly:ui.normalizeDigits(String(values.installmentMonthly??'')),installmentMonths:Number(values.installmentMonths),horizonMonths:Number(values.horizonMonths)});
   result=parsed.success?compareCosts(parsed.data):null;
   const hasAmount=Boolean(values.currentMonthly||values.proposedMonthly||values.upfront);
   validation.textContent=!parsed.success&&hasAmount?t('pricingInvalid'):'';

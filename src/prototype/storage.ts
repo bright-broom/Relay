@@ -1,3 +1,4 @@
+import {canonicalLocale} from '../i18n/messages';
 import type {Locale} from '../i18n/messages';
 import {initialCases,caseStages,caseDueDates,caseStatuses,caseLevels,type CaseRecord} from './data';
 import {channels,outcomes,type ReportDraft} from './report';
@@ -7,7 +8,7 @@ const member=(value:unknown,values:readonly string[])=>typeof value==='string'&&
 const fixtureIds=new Set(initialCases.map(c=>c.id));
 const object=(value:unknown):value is Record<string,unknown>=>Boolean(value)&&typeof value==='object'&&!Array.isArray(value);
 export function validSnapshot(value:unknown):value is Snapshot{
- if(!object(value)||!member(value.locale,['ja','en'])||!Array.isArray(value.cases)||value.cases.length!==fixtureIds.size||!object(value.drafts))return false;
+ if(!object(value)||!canonicalLocale(value.locale)||!Array.isArray(value.cases)||value.cases.length!==fixtureIds.size||!object(value.drafts))return false;
  if(!member(value.review,['pending','approved','rejected'])||typeof value.reviewOwner!=='string'||!member(value.reviewDue,['dueNow','futureDate','dueUnknown'])||typeof value.imported!=='boolean')return false;
  const ids=new Set<number>();
  for(const c of value.cases){

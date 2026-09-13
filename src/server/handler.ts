@@ -1,3 +1,4 @@
+import {normalizeLocale} from '../i18n/messages';
 import {ZodError} from 'zod';
 import {calendarStatus,startCalendar,finishCalendar,disconnectCalendar,proposeSchedule,bookSlot,integrationLimit} from './calendar';
 import {handleMcp,listMcpTokens,issueMcpToken,revokeMcpToken} from './mcp';
@@ -10,7 +11,7 @@ import {ApiError, destinations, issueCode, changeDestination, webhook, notify} f
 const readRoutes = new Set(['page','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
 export async function handle(request: Request): Promise<Response> {
   const url = new URL(request.url), route = url.searchParams.get('route') ?? '';
-  const locale = url.searchParams.get('lang') === 'en' ? 'en' : 'ja';
+  const locale = normalizeLocale(url.searchParams.get('lang')??request.headers.get('cookie')?.split('; ').find(value=>value.startsWith('relay-locale='))?.slice(13)??request.headers.get('accept-language')?.split(',')[0]?.split(';')[0]);
   try {
     if (!['page','app','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
     if (request.method !== (readRoutes.has(route) ? 'GET' : 'POST')) throw new ApiError(405, 'method');

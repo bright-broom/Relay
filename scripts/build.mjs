@@ -4,8 +4,10 @@ import {readFile, writeFile, mkdir, copyFile, cp, rm} from 'node:fs/promises';
 // Build the same token source for browsers and future framework adapters.
 const tokenModule = await build({entryPoints:['src/design/tokens.ts'],bundle:true,write:false,format:'esm',platform:'node'});
 const {tokens,breakpoints,palette}=await import('data:text/javascript;base64,'+Buffer.from(tokenModule.outputFiles[0].text).toString('base64'));
+const brandModule=await build({entryPoints:['src/i18n/messages.ts'],bundle:true,write:false,format:'esm',platform:'node'});
+const {brand}=await import('data:text/javascript;base64,'+Buffer.from(brandModule.outputFiles[0].text).toString('base64'));
 await mkdir('prototype/assets',{recursive:true});
-await writeFile('prototype/index.html',(await readFile('src/prototype/index.html','utf8')).replaceAll('__THEME_COLOR__',palette.sub));
+await writeFile('prototype/index.html',(await readFile('src/prototype/index.html','utf8')).replaceAll('__THEME_COLOR__',palette.sub).replaceAll('__APP_NAME__',brand));
 let css=await readFile('src/prototype/styles.css','utf8');
 for(const [name,width] of Object.entries(breakpoints)) css=css.replaceAll(`__${name.toUpperCase()}__`,width);
 await writeFile('prototype/assets/styles.css','/* Generated from src/design/tokens.ts and src/prototype/styles.css */\n:root {\n'+Object.entries(tokens).map(([k,v])=>`  --${k}: ${v};`).join('\n')+'\n}\n'+css);
@@ -13,7 +15,7 @@ await build({entryPoints:['src/prototype/app.ts'],outfile:'prototype/assets/app.
 await build({entryPoints:['src/prototype/session.ts'],outfile:'prototype/assets/session.js',bundle:true,format:'iife',target:['safari16','chrome110'],minify:true});
 await mkdir('api',{recursive:true});
 await build({entryPoints:['src/server/handler.ts'],outfile:'api/relay.mjs',bundle:true,packages:'external',platform:'node',format:'esm',target:'node24',banner:{js:'// Generated from src/server/handler.ts. Do not edit.'}});
-await buildPwa(palette);
+await buildPwa(palette,brand);
 // Only explicitly public files reach the static CDN. Private app files live in the function bundle.
 await rm('public',{recursive:true,force:true});
 await mkdir('public/assets',{recursive:true});

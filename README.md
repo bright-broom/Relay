@@ -28,9 +28,9 @@ Relayは、日々の会話や活動から情報を整理し、案件の進行と
 
 iOS / Android向けのホーム画面アプリ（PWA）に対応。[公開版を開く](https://relay-brightbroom.vercel.app/)。SafariまたはChromeから追加します。`prototype/index.html` をファイルとして開く場合はインストール・オフライン機能を利用できません。[導入と検証手順](docs/MOBILE_APP.md)
 
-画面サンプルはデザインガイドに沿って刷新しました。白・黒・グレーと青い主要操作、専用の案件詳細画面、日英UI切り替えを備えます。業務データ・元の発言は架空の日本語データのまま表示します。
+画面サンプルはデザインガイドに沿って刷新しました。白・黒・グレーと青い主要操作、専用の案件詳細画面、共通i18nとLucideアイコンを備えます。言語設定は左サイドバーから変更でき、日本語・英語以外は英語へフォールバックします。[国際化・操作部品の仕様](docs/I18N_UX.md)。業務データ・元の発言は架空の日本語データのまま表示します。
 
-TypeScriptのソースは `src/prototype/`、スタイルの値は `src/design/tokens.ts`、UI文言は `src/i18n/messages.ts` で管理します。`prototype/assets/` は生成物です。直接編集しないでください。
+TypeScriptのソースは `src/prototype/`、スタイルの値は `src/design/tokens.ts`、UI文言は `src/i18n/locales/` で管理します。`prototype/assets/` は生成物です。直接編集しないでください。
 
 ```sh
 npm ci
