@@ -50,7 +50,7 @@
   --touch: 2.75rem;
   --row: 3.5rem;
   --icon: 1.25rem;
-  --sidebar: 5.5rem;
+  --sidebar: 4.5rem;
   --topbar: 3rem;
   --content-max: 96rem;
   --reading: 45rem;
@@ -84,9 +84,9 @@
   --gap-group: 1.5rem;
   --gap-section: 3rem;
   --panel-padding: 1.5rem;
-  --sidebar-mobile: 4.25rem;
-  --sidebar-mobile-padding: 0.5rem;
-  --rail-padding: 1rem;
+  --sidebar-mobile: 4rem;
+  --sidebar-mobile-padding: calc((var(--sidebar-mobile) - var(--touch) - var(--border-width)) / 2);
+  --rail-padding: calc((var(--sidebar) - var(--touch) - var(--border-width)) / 2);
   --tooltip-max: 14rem;
   --notification-dot: 0.5rem;
   --narrow-gutter: 1rem;
@@ -605,7 +605,7 @@ main{container:content / inline-size;min-inline-size:0;padding-block:var(--space
 .button.ghost:hover{background:var(--subtle)}
 .button.icon-button{padding:var(--space-0);inline-size:var(--touch);min-inline-size:var(--touch);min-block-size:var(--action)}
 /* Keep navigation states above the shared ghost button rules in the cascade. */
-.button.nav-link{padding:var(--space-3);inline-size:100%;min-inline-size:var(--space-0);border-radius:var(--radius-sm);background:transparent;color:var(--muted)}
+.button.nav-link{padding:var(--space-3) var(--space-2);inline-size:100%;min-inline-size:var(--touch);border-radius:var(--radius-sm);background:transparent;color:var(--muted)}
 .button.nav-link:hover,.button.nav-link[aria-current=page],.button.nav-link[aria-expanded=true]{background:transparent;color:var(--ink)}
 .button.nav-link[aria-current=page]::after,.button.nav-link[aria-expanded=true]::after{content:"";position:absolute;inset-inline:var(--space-0);inset-block-end:var(--space-1);margin-inline:auto;inline-size:var(--space-4);border-block-end:var(--focus-width) solid currentColor;pointer-events:none}
 .button.link-button{text-decoration:underline;border-color:transparent}
