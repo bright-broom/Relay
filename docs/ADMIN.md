@@ -67,6 +67,8 @@ Googleに登録するリダイレクトURIは既存の `APP_ORIGIN + /api/auth/c
 
 本番ビルド（`VERCEL_ENV=production`）の最初に `check:auth-config -- --deployment` を実行する。検査対象は認証変数の形式、管理者と利用者リストの整合性、`APP_ORIGIN` と `public-links.ts` の公開先の一致、ログイン用DBの列・権限。DB検査は読取専用で、顧客行・セッション行の取得、マイグレーション、通知送信は行わない。接続・SQLの待ち時間を制限し、失敗したビルドを公開しない。
 
+Google設定とDB接続は独立して検査する。Google設定などに不足があっても、DB URLの形式が正しければDB接続を確認し、両方の問題を同じ実行で報告する。DB URLが未設定・形式不正なら接続しない。DBだけが成功しても他の設定エラーが残る間は終了コード1を維持し、デプロイを通さない。
+
 ログには設定名と理由コードだけを出す。`publicOriginMismatch` は公開先の不一致、`connectionSchemaOrPermissions` はDB接続・認証テーブル・権限のいずれかに問題があることを示す。機密設定を取得し直したり、既存の許可リストを自動で上書きしたりしない。VercelのSensitive変数は管理APIから値を読めないため、取得結果が空でも未設定とは判断しない。
 
 この検査は実際のGoogleクライアントの有効性・同意画面・登録済みコールバックURIまでは証明しない。Google側には `https://relay-chi-ecru.vercel.app/api/auth/callback` の完全一致登録が必要。ドメインを変更するときは公開先・APP_ORIGIN・Google側登録を一緒に更新する。

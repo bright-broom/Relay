@@ -295,6 +295,14 @@ for (const [settings,expected] of [[validSettings,0],[{...validSettings,ADMIN_GO
  if(expected===1) assert.match(check.stderr,/ADMIN_GOOGLE_EMAILS: adminNotAllowed/);
 }
 
-const mismatch=spawnSync(process.execPath,['scripts/check-auth-config.mjs','--deployment'],{env:{...process.env,...validSettings},encoding:'utf8'});
+const mismatch=spawnSync(process.execPath,['scripts/check-auth-config.mjs','--deployment'],{env:{...process.env,...validSettings,DATABASE_URL:'invalid-fixture-url'},encoding:'utf8'});
 assert.equal(mismatch.status,1);assert.match(mismatch.stderr,/APP_ORIGIN: publicOriginMismatch/);
 assert.ok(!mismatch.stderr.includes(validSettings.APP_ORIGIN));
+assert.match(mismatch.stderr,/DATABASE_URL: invalid/);
+assert.doesNotMatch(mismatch.stderr,/connectionSchemaOrPermissions/);
+// A separate OAuth configuration error must not hide a database connection failure.
+const independent=spawnSync(process.execPath,['scripts/check-auth-config.mjs','--deployment'],{env:{...process.env,...validSettings,GOOGLE_CLIENT_SECRET:'',DATABASE_URL:'postgres://fixture:private-fixture-password@127.0.0.1:1/relay'},encoding:'utf8',timeout:15000});
+assert.equal(independent.status,1);
+assert.match(independent.stderr,/GOOGLE_CLIENT_SECRET: missing/);
+assert.match(independent.stderr,/DATABASE_URL: connectionSchemaOrPermissions/);
+assert.doesNotMatch(independent.stdout+independent.stderr,/private-fixture-password|127\.0\.0\.1|synthetic-client|owner@gmail\.com/);
