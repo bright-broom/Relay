@@ -50,7 +50,7 @@
   --touch: 2.75rem;
   --row: 3.5rem;
   --icon: 1.25rem;
-  --sidebar: 5.5rem;
+  --sidebar: 4.5rem;
   --topbar: 3rem;
   --content-max: 96rem;
   --reading: 45rem;
@@ -84,9 +84,9 @@
   --gap-group: 1.5rem;
   --gap-section: 3rem;
   --panel-padding: 1.5rem;
-  --sidebar-mobile: 4.25rem;
-  --sidebar-mobile-padding: 0.5rem;
-  --rail-padding: 1rem;
+  --sidebar-mobile: 4rem;
+  --sidebar-mobile-padding: calc((var(--sidebar-mobile) - var(--touch) - var(--border-width)) / 2);
+  --rail-padding: calc((var(--sidebar) - var(--touch) - var(--border-width)) / 2);
   --tooltip-max: 14rem;
   --notification-dot: 0.5rem;
   --narrow-gutter: 1rem;
@@ -416,9 +416,7 @@ h3{font-size:var(--type-subheading);font-weight:var(--semibold)}small{font-size:
 .sidebar-top{flex-shrink:0}
 .sidebar-footer{margin-block-start:auto;padding-block-start:var(--space-5)}.sidebar nav{display:grid;gap:var(--space-2);margin-block:var(--space-5);flex-shrink:0}
 .nav-link{inline-size:100%;flex-shrink:0;position:relative;display:flex;gap:var(--space-3);align-items:center;justify-content:center;color:var(--muted);text-decoration:none;font-size:var(--type-label);min-block-size:var(--action);padding:var(--space-3);border-radius:var(--radius-sm)}
-.nav-link[aria-current=page]{box-shadow:inset var(--focus-width) var(--space-0) var(--ink)}
-.nav-link:hover{background:var(--subtle);color:var(--ink)}
-.nav-link[aria-current=page],.nav-link[aria-expanded=true]{background:var(--subtle);color:var(--ink);font-weight:var(--semibold)}main{container:content / inline-size;min-inline-size:0;padding-block:var(--space-0) max(var(--space-7),env(safe-area-inset-bottom));padding-inline:max(var(--desktop-gutter),var(--safe-inline-start)) max(var(--desktop-gutter),var(--safe-inline-end));max-inline-size:var(--content-max);inline-size:100%;margin-inline:auto}
+main{container:content / inline-size;min-inline-size:0;padding-block:var(--space-0) max(var(--space-7),env(safe-area-inset-bottom));padding-inline:max(var(--desktop-gutter),var(--safe-inline-start)) max(var(--desktop-gutter),var(--safe-inline-end));max-inline-size:var(--content-max);inline-size:100%;margin-inline:auto}
 .topbar{padding-block-start:env(safe-area-inset-top);min-block-size:var(--topbar);display:flex;align-items:center;justify-content:space-between;gap:var(--space-4);border-block-end:var(--border-width) solid var(--line)}
 .page-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:var(--space-5);margin-block:var(--space-6) var(--space-5)}
 .page-head p{color:var(--muted);margin-block-start:var(--space-3)}
@@ -593,7 +591,6 @@ h3{font-size:var(--type-subheading);font-weight:var(--semibold)}small{font-size:
 
 @layer components {
 :root[dir=rtl] .directional-icon{transform:scaleX(-1)}
-:root[dir=rtl] .nav-link[aria-current=page]{box-shadow:inset calc(var(--focus-width) * -1) var(--space-0) var(--ink)}
 .icon-button svg *{stroke-width:inherit}
 }
 
@@ -607,7 +604,10 @@ h3{font-size:var(--type-subheading);font-weight:var(--semibold)}small{font-size:
 .button.ghost{border-color:transparent;background:transparent}
 .button.ghost:hover{background:var(--subtle)}
 .button.icon-button{padding:var(--space-0);inline-size:var(--touch);min-inline-size:var(--touch);min-block-size:var(--action)}
-.button.nav-link{padding:var(--space-3);inline-size:100%;min-inline-size:var(--space-0);border-radius:var(--radius-sm)}
+/* Keep navigation states above the shared ghost button rules in the cascade. */
+.button.nav-link{padding:var(--space-3) var(--space-2);inline-size:100%;min-inline-size:var(--touch);border-radius:var(--radius-sm);background:transparent;color:var(--muted)}
+.button.nav-link:hover,.button.nav-link[aria-current=page],.button.nav-link[aria-expanded=true]{background:transparent;color:var(--ink)}
+.button.nav-link[aria-current=page]::after,.button.nav-link[aria-expanded=true]::after{content:"";position:absolute;inset-inline:var(--space-0);inset-block-end:var(--space-1);margin-inline:auto;inline-size:var(--space-4);border-block-end:var(--focus-width) solid currentColor;pointer-events:none}
 .button.link-button{text-decoration:underline;border-color:transparent}
 [data-slot=input],[data-slot=textarea],[data-slot=native-select-wrapper]{inline-size:100%;min-inline-size:0}
 [data-slot=native-select-wrapper]{position:relative}
