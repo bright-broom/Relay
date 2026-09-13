@@ -1816,6 +1816,8 @@ var componentTokens = {
   "overlay-z": "20",
   "dialog-z": "21",
   "tooltip-z": "40",
+  "safe-inline-start": "env(safe-area-inset-left)",
+  "safe-inline-end": "env(safe-area-inset-right)",
   "viewport-block": "100dvh",
   "viewport-offset": "0px"
 };
