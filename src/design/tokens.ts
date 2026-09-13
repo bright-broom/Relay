@@ -51,6 +51,11 @@ export const componentTokens = {
   'type-section': primitives['text-lg'], 'type-subheading': primitives['text-md'],
   'type-body': primitives['text-base'], 'type-label': primitives['text-sm'],
   'type-caption': primitives['text-xs'],
+  'price-amount': '3rem', 'price-amount-wide': '4rem',
+  'price-secondary': primitives['text-xl'], 'price-content-max': '68rem',
+  'price-bar-height': primitives['space-3'],
+  // Runtime comparison ratio; it does not define a new design value.
+  'comparison-share': '0%',
   'gap-related': primitives['space-3'], 'gap-group': primitives['space-5'],
   'gap-section': primitives['space-7'], 'panel-padding': primitives['space-5'],
   'sidebar-mobile': '4.25rem', 'sidebar-mobile-padding': primitives['space-2'],
