@@ -1,6 +1,7 @@
 import {createHash, randomBytes} from 'node:crypto';
 import * as oidc from 'openid-client';
 import {allowed, origin} from './config';
+import {administratorAllowed, administratorIssues} from './access';
 import {database, type Database} from './database';
 
 export const sessionCookie = '__Host-relay-session';
@@ -26,6 +27,8 @@ export function google() {
   return provider ??= oidc.discovery(new URL('https://accounts.google.com'), process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_CLIENT_SECRET!, undefined, {execute: [oidc.enableNonRepudiationChecks]}).catch(error => { provider = undefined; throw error; });
 }
 export async function startLogin(db: Database = database(), configuration?: oidc.Configuration, destination: '/' | '/admin' = '/') {
+  if (destination === '/admin' && administratorIssues().length)
+    return new Response(null, {status:303, headers:{Location:'/admin'}});
   const config = configuration ?? await google();
   const token = randomToken(), state = (destination === '/admin' ? 'admin.' : '') + oidc.randomState(), nonce = oidc.randomNonce(), verifier = oidc.randomPKCECodeVerifier();
   await db.query('DELETE FROM relay_private.oauth_attempts WHERE expires_at < now()');
@@ -60,7 +63,7 @@ export async function finishLogin(request: Request, db: Database = database(), c
       pkceCodeVerifier: attempt.verifier, expectedState: attempt.state, expectedNonce: attempt.nonce, idTokenExpected: true,
     });
     const identity = verifiedIdentity(tokens.claims());
-    if (!identity) return failure();
+    if (!identity || (destination === '/admin' && !administratorAllowed(identity.email))) return failure();
     const newToken = randomToken();
     await db.query('DELETE FROM relay_private.sessions WHERE expires_at < now() OR token_hash=$1', [hash(readCookie(request, sessionCookie))]);
     await db.query('INSERT INTO relay_private.sessions(token_hash,subject,email,expires_at) VALUES($1,$2,$3,now()+interval \'8 hours\')', [hash(newToken),identity.subject,identity.email]);

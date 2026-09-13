@@ -28,6 +28,26 @@ function sameOrigin(request) {
 import { createHash, randomBytes } from "node:crypto";
 import * as oidc from "openid-client";
 
+// src/server/access.ts
+import { z } from "zod";
+function addresses(raw) {
+  return (raw ?? "").split(",").map((value) => value.trim().toLowerCase());
+}
+function administratorIssues(env = process.env) {
+  const issues = [];
+  for (const field of ["ALLOWED_GOOGLE_EMAILS", "ADMIN_GOOGLE_EMAILS"]) {
+    if (!env[field]?.trim()) issues.push({ field, code: "missing" });
+    else if (addresses(env[field]).some((value) => !z.email().safeParse(value).success))
+      issues.push({ field, code: "invalid" });
+  }
+  if (!issues.length && addresses(env.ADMIN_GOOGLE_EMAILS).some((email) => !allowed(email, env.ALLOWED_GOOGLE_EMAILS)))
+    issues.push({ field: "ADMIN_GOOGLE_EMAILS", code: "adminNotAllowed" });
+  return issues;
+}
+function administratorAllowed(email) {
+  return administratorIssues().length === 0 && allowed(email) && allowed(email, process.env.ADMIN_GOOGLE_EMAILS ?? "");
+}
+
 // src/server/database.ts
 import postgres from "postgres";
 function wrap(sql) {
@@ -79,6 +99,8 @@ function google() {
   });
 }
 async function startLogin(db = database(), configuration, destination = "/") {
+  if (destination === "/admin" && administratorIssues().length)
+    return new Response(null, { status: 303, headers: { Location: "/admin" } });
   const config = configuration ?? await google();
   const token = randomToken(), state = (destination === "/admin" ? "admin." : "") + oidc.randomState(), nonce = oidc.randomNonce(), verifier = oidc.randomPKCECodeVerifier();
   await db.query("DELETE FROM relay_private.oauth_attempts WHERE expires_at < now()");
@@ -122,7 +144,7 @@ async function finishLogin(request, db = database(), configuration) {
       idTokenExpected: true
     });
     const identity = verifiedIdentity(tokens2.claims());
-    if (!identity) return failure();
+    if (!identity || destination === "/admin" && !administratorAllowed(identity.email)) return failure();
     const newToken = randomToken();
     await db.query("DELETE FROM relay_private.sessions WHERE expires_at < now() OR token_hash=$1", [hash(readCookie(request, sessionCookie))]);
     await db.query("INSERT INTO relay_private.sessions(token_hash,subject,email,expires_at) VALUES($1,$2,$3,now()+interval '8 hours')", [hash(newToken), identity.subject, identity.email]);
@@ -913,13 +935,10 @@ async function notify(identity, input, db = database(), send = fetch) {
 }
 
 // src/server/admin.ts
-function isAdmin(email) {
-  return allowed(email) && allowed(email, process.env.ADMIN_GOOGLE_EMAILS ?? "");
-}
 async function adminOverview(request, db = database()) {
   const identity = await session(request, db);
   if (!identity) throw new ApiError(401, "unauthorized");
-  if (!isAdmin(identity.email)) throw new ApiError(403, "forbidden");
+  if (!administratorAllowed(identity.email)) throw new ApiError(403, "forbidden");
   const rows = await db.query(
     "SELECT lower(email) AS email, count(*)::int AS sessions FROM relay_private.sessions WHERE expires_at > now() GROUP BY lower(email)"
   );
@@ -927,7 +946,7 @@ async function adminOverview(request, db = database()) {
   const emails = [...new Set((process.env.ALLOWED_GOOGLE_EMAILS ?? "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean))].sort();
   return {
     viewer: identity.email,
-    accounts: emails.map((email) => ({ email, role: isAdmin(email) ? "admin" : "member", sessions: counts.get(email) ?? 0 })),
+    accounts: emails.map((email) => ({ email, role: administratorAllowed(email) ? "admin" : "member", sessions: counts.get(email) ?? 0 })),
     // Configuration presence is not evidence of a successful provider connection.
     configuration: { google: configured(), database: true, line: lineConfigured(), calendar: Boolean(process.env.TOKEN_ENCRYPTION_KEY) }
   };
@@ -939,7 +958,7 @@ import { ZodError } from "zod";
 // src/server/calendar.ts
 import * as oidc2 from "openid-client";
 import { randomUUID as randomUUID2 } from "node:crypto";
-import { z as z2 } from "zod";
+import { z as z3 } from "zod";
 
 // src/server/vault.ts
 import { createCipheriv, createDecipheriv, randomBytes as randomBytes2 } from "node:crypto";
@@ -975,17 +994,17 @@ function unseal(value, subject) {
 
 // src/scheduling/slots.ts
 import { Temporal } from "@js-temporal/polyfill";
-import { z } from "zod";
-var searchSchema = z.object({
-  fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  days: z.number().int().min(1).max(14).default(7),
-  timeZone: z.string().min(1).max(80).default("Asia/Tokyo"),
-  durationMinutes: z.union([z.literal(15), z.literal(30), z.literal(45), z.literal(60), z.literal(90), z.literal(120)]).default(60),
-  startHour: z.number().int().min(0).max(23).default(9),
-  endHour: z.number().int().min(1).max(24).default(18),
-  weekdays: z.array(z.number().int().min(1).max(7)).min(1).max(7).default([1, 2, 3, 4, 5]),
-  bufferMinutes: z.number().int().min(0).max(60).default(15),
-  limit: z.number().int().min(1).max(10).default(5)
+import { z as z2 } from "zod";
+var searchSchema = z2.object({
+  fromDate: z2.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  days: z2.number().int().min(1).max(14).default(7),
+  timeZone: z2.string().min(1).max(80).default("Asia/Tokyo"),
+  durationMinutes: z2.union([z2.literal(15), z2.literal(30), z2.literal(45), z2.literal(60), z2.literal(90), z2.literal(120)]).default(60),
+  startHour: z2.number().int().min(0).max(23).default(9),
+  endHour: z2.number().int().min(1).max(24).default(18),
+  weekdays: z2.array(z2.number().int().min(1).max(7)).min(1).max(7).default([1, 2, 3, 4, 5]),
+  bufferMinutes: z2.number().int().min(0).max(60).default(15),
+  limit: z2.number().int().min(1).max(10).default(5)
 }).strict().refine((v) => v.startHour < v.endHour, { message: "invalidWorkingHours" });
 function searchWindow(input, now) {
   const today = Temporal.Instant.from(now).toZonedDateTimeISO(input.timeZone).toPlainDate();
@@ -1024,10 +1043,10 @@ var calendarScopes = ["https://www.googleapis.com/auth/calendar.events.freebusy"
 var connectCookie = "__Host-relay-calendar";
 var callbackPath = "/api/calendar/callback";
 var nowISO = () => (/* @__PURE__ */ new Date()).toISOString();
-var proposalSchema = searchSchema.safeExtend({ title: z2.string().trim().min(1).max(120) });
+var proposalSchema = searchSchema.safeExtend({ title: z3.string().trim().min(1).max(120) });
 function parseProposal(input) {
   const { title, ...criteria } = input;
-  return { title: z2.string().trim().min(1).max(120).parse(title), search: searchSchema.parse(criteria) };
+  return { title: z3.string().trim().min(1).max(120).parse(title), search: searchSchema.parse(criteria) };
 }
 async function calendarStatus(identity, db = database()) {
   if (!calendarConfigured()) return { ready: false, connected: false };
@@ -1095,7 +1114,7 @@ async function calendarClient(identity, db = database(), configuration, send = f
       const payload = await response.json();
       const calendar = payload.calendars?.primary;
       if (!calendar || calendar.errors?.length || !Array.isArray(calendar.busy)) throw new ApiError(502, "calendarUnavailable");
-      return z2.array(z2.object({ start: z2.string().datetime({ offset: true }), end: z2.string().datetime({ offset: true }) }).refine((item) => Date.parse(item.end) > Date.parse(item.start))).max(1e4).parse(calendar.busy);
+      return z3.array(z3.object({ start: z3.string().datetime({ offset: true }), end: z3.string().datetime({ offset: true }) }).refine((item) => Date.parse(item.end) > Date.parse(item.start))).max(1e4).parse(calendar.busy);
     },
     async get(id) {
       const response = await call("calendars/primary/events/" + encodeURIComponent(id));
@@ -1142,7 +1161,7 @@ async function proposeSchedule(identity, input, db = database(), client, now = n
   return { proposals, expiresIn: 900 };
 }
 async function bookSlot(identity, input, db = database(), client, now = nowISO()) {
-  const id = z2.uuid().parse(input);
+  const id = z3.uuid().parse(input);
   return db.transaction(async (tx) => {
     await tx.query("SELECT pg_advisory_xact_lock(hashtext($1))", ["calendar:" + identity.subject]);
     const [proposal] = await tx.query("SELECT * FROM relay_private.schedule_proposals WHERE id=$1 AND owner_subject=$2 FOR UPDATE", [id, identity.subject]);
@@ -1173,7 +1192,7 @@ async function bookSlot(identity, input, db = database(), client, now = nowISO()
 
 // src/server/mcp.ts
 import { McpServer, createMcpHandler } from "@modelcontextprotocol/server";
-import { z as z3 } from "zod";
+import { z as z4 } from "zod";
 import { randomUUID as randomUUID3 } from "node:crypto";
 async function issueMcpToken(identity, permission, db = database()) {
   if (permission !== "read" && permission !== "book") throw new ApiError(400, "invalid");
@@ -1191,7 +1210,7 @@ async function listMcpTokens(identity, db = database()) {
   return db.query("SELECT id,permission,expires_at FROM relay_private.mcp_tokens WHERE owner_subject=$1 AND expires_at>now() ORDER BY created_at DESC", [identity.subject]);
 }
 async function revokeMcpToken(identity, id, db = database()) {
-  const rows = await db.query("DELETE FROM relay_private.mcp_tokens WHERE id=$1 AND owner_subject=$2 RETURNING id", [z3.uuid().parse(id), identity.subject]);
+  const rows = await db.query("DELETE FROM relay_private.mcp_tokens WHERE id=$1 AND owner_subject=$2 RETURNING id", [z4.uuid().parse(id), identity.subject]);
   if (!rows.length) throw new ApiError(404, "missing");
 }
 async function mcpIdentity(request, db = database()) {
@@ -1202,7 +1221,7 @@ async function mcpIdentity(request, db = database()) {
 }
 function schedulingMcp(identity, db = database(), client, now) {
   const t = (key) => translate("en", key);
-  const slot = z3.object({ start: z3.string(), end: z3.string(), timeZone: z3.string() });
+  const slot = z4.object({ start: z4.string(), end: z4.string(), timeZone: z4.string() });
   const read = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
   return createMcpHandler(() => {
     const server = new McpServer({ name: "relay-mcp-server", version: "0.3.0" });
@@ -1214,11 +1233,11 @@ function schedulingMcp(identity, db = database(), client, now) {
         return { content: [{ type: "text", text: t(error instanceof ApiError && ["calendarConnect", "calendarReconnect"].includes(error.code) ? "mcpConnectHelp" : "mcpRetryHelp") + " " + (error instanceof ApiError ? error.code : "invalidRequest") }], isError: true };
       }
     };
-    server.registerTool("relay_get_calendar_status", { description: t("mcpStatusDescription"), inputSchema: z3.object({}).strict(), outputSchema: z3.object({ ready: z3.boolean(), connected: z3.boolean() }), annotations: read }, () => result(() => calendarStatus(identity, db)));
-    server.registerTool("relay_find_slots", { description: t("mcpFindDescription"), inputSchema: searchSchema, outputSchema: z3.object({ slots: z3.array(slot), timeZone: z3.string(), checkedAt: z3.string() }), annotations: read }, (input) => result(() => availableSlots(identity, input, db, client, now)));
+    server.registerTool("relay_get_calendar_status", { description: t("mcpStatusDescription"), inputSchema: z4.object({}).strict(), outputSchema: z4.object({ ready: z4.boolean(), connected: z4.boolean() }), annotations: read }, () => result(() => calendarStatus(identity, db)));
+    server.registerTool("relay_find_slots", { description: t("mcpFindDescription"), inputSchema: searchSchema, outputSchema: z4.object({ slots: z4.array(slot), timeZone: z4.string(), checkedAt: z4.string() }), annotations: read }, (input) => result(() => availableSlots(identity, input, db, client, now)));
     if (identity.permission === "book") {
-      server.registerTool("relay_propose_schedule", { description: t("mcpProposeDescription"), inputSchema: proposalSchema, outputSchema: z3.object({ proposals: z3.array(slot.extend({ id: z3.string(), title: z3.string() })), expiresIn: z3.number() }), annotations: { ...read, readOnlyHint: false, idempotentHint: false } }, (input) => result(() => proposeSchedule(identity, input, db, client, now)));
-      server.registerTool("relay_book_slot", { description: t("mcpBookDescription"), inputSchema: z3.object({ proposalId: z3.uuid() }).strict(), outputSchema: slot.extend({ id: z3.string(), title: z3.string(), state: z3.literal("booked") }), annotations: { ...read, readOnlyHint: false } }, (input) => result(() => bookSlot(identity, input.proposalId, db, client, now)));
+      server.registerTool("relay_propose_schedule", { description: t("mcpProposeDescription"), inputSchema: proposalSchema, outputSchema: z4.object({ proposals: z4.array(slot.extend({ id: z4.string(), title: z4.string() })), expiresIn: z4.number() }), annotations: { ...read, readOnlyHint: false, idempotentHint: false } }, (input) => result(() => proposeSchedule(identity, input, db, client, now)));
+      server.registerTool("relay_book_slot", { description: t("mcpBookDescription"), inputSchema: z4.object({ proposalId: z4.uuid() }).strict(), outputSchema: slot.extend({ id: z4.string(), title: z4.string(), state: z4.literal("booked") }), annotations: { ...read, readOnlyHint: false } }, (input) => result(() => bookSlot(identity, input.proposalId, db, client, now)));
     }
     return server;
   }, { responseMode: "json", maxSubscriptions: 0, keepAliveMs: 0 });
@@ -1967,10 +1986,11 @@ async function handle(request, db) {
       throw new ApiError(403, "origin");
     }
     if (route === "page" || route === "admin-page") {
-      const ready = configured(), adminEntry = route === "admin-page";
+      const adminEntry = route === "admin-page";
+      const ready = configured() && (!adminEntry || administratorIssues().length === 0);
       const identity2 = ready ? await session(request, db) : null;
-      if (identity2 && (!adminEntry || isAdmin(identity2.email))) {
-        const html = (await readFile("prototype/index.html", "utf8")).replace('<div id="app">', `<div id="app" data-admin="${isAdmin(identity2.email)}">`);
+      if (identity2 && (!adminEntry || administratorAllowed(identity2.email))) {
+        const html = (await readFile("prototype/index.html", "utf8")).replace('<div id="app">', `<div id="app" data-admin="${administratorAllowed(identity2.email)}">`);
         return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
       }
       return new Response(loginPage(locale, ready, Boolean(identity2) || url.searchParams.get("auth") === "denied", adminEntry), { status: identity2 ? 403 : 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
@@ -1989,7 +2009,7 @@ async function handle(request, db) {
     if (request.method === "POST" && !sameOrigin(request)) throw new ApiError(403, "origin");
     if (route === "app") return new Response(await readFile("prototype/assets/app.js", "utf8"), { headers: { "Content-Type": "text/javascript; charset=utf-8" } });
     if (route === "admin-overview") return Response.json(await adminOverview(request, db));
-    if (route === "session") return Response.json({ isAdmin: isAdmin(identity.email), email: identity.email, subject: identity.subject, lineReady: lineConfigured() });
+    if (route === "session") return Response.json({ isAdmin: administratorAllowed(identity.email), email: identity.email, subject: identity.subject, lineReady: lineConfigured() });
     if (route === "logout") return await logout(request);
     if (route === "calendar-status") return Response.json(await calendarStatus(identity));
     if (route === "calendar-callback") return await finishCalendar(request, identity);
