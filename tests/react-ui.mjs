@@ -57,7 +57,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 await mkdir(".vercel/check-react", { recursive: true });
 await build({
   stdin: {
-    contents: `export * from './src/app/app';export * from './src/app/root';export * from './src/app/admin';export * from './src/app/store';export * from './src/app/scheduling';export * from './src/app/account';export * from './src/i18n/context';export * from './src/components/ui/tooltip';`,
+    contents: `export * from './src/app/app';export * from './src/app/root';export * from './src/app/admin';export * from './src/app/store';export * from './src/app/scheduling';export * from './src/app/my-page';export * from './src/i18n/context';export * from './src/components/ui/tooltip';`,
     resolveDir: process.cwd(),
   },
   bundle: true,
@@ -293,10 +293,12 @@ assert.equal(
   "Editing must not book an event",
 );
 cleanup();
+let failLine = false;
 globalThis.fetch = async (url, options = {}) => {
   const path = String(url).replace("/api/", "");
   const body = options.body ? JSON.parse(options.body) : undefined;
   calls.push({ path, body });
+  if (failLine && path === "line/destinations") throw new Error("fixtureFailure");
   if (!["session", "line/destinations", "line/code"].includes(path))
     throw new Error("Unexpected fixture request: " + path);
   return {
@@ -304,16 +306,19 @@ globalThis.fetch = async (url, options = {}) => {
     status: 200,
     json: async () =>
       path === "session"
-        ? { email: "fixture@example.test", lineReady: true }
+        ? { email: "fixture@example.test", isAdmin: false, lineReady: true }
         : path === "line/destinations"
           ? []
           : { code: "fixture-code" },
   };
 };
-render(
-  createElement(api.TooltipProvider, null, createElement(api.Account, { ui })),
-);
+const profileWorkspace = api.createWorkspace(null, 'en', true, '#mypage');
+render(createElement(api.App, { workspace: profileWorkspace }));
+await screen.findByRole('heading',{name:t('myPage'),level:1});
+assert.equal(screen.getByRole('link',{name:t('myPage')}).getAttribute('aria-current'),'page');
 await screen.findByText("fixture@example.test");
+assert.equal(calls.some(call=>call.path==='line/destinations'),false,'My page does not fetch notifications until opened');
+await user.click(screen.getByRole('button',{name:t('myNotifications')}));
 await user.selectOptions(
   screen.getByRole("combobox", { name: t("lineDestination") }),
   "group",
@@ -327,6 +332,22 @@ assert.equal(
 assert.deepEqual(calls.find((call) => call.path === "line/code").body, {
   kind: "group",
 });
+const lineReads = calls.filter(call=>call.path==='line/destinations').length;
+await user.click(screen.getByRole('button',{name:t('myNotifications')}));
+assert.equal(screen.queryByRole('combobox',{name:t('lineDestination')}),null);
+await user.click(screen.getByRole('button',{name:t('myNotifications')}));
+assert.equal(screen.getByRole('combobox',{name:t('lineDestination')}).value,'group');
+assert.ok(screen.getByText('fixture-code'));
+assert.equal(calls.filter(call=>call.path==='line/destinations').length,lineReads,'Reopening keeps state without refetching');
+cleanup();
+failLine = true;
+render(createElement(api.TooltipProvider,null,createElement(api.MyPage,{ui,onLanguage:()=>{}})));
+await screen.findByText('fixture@example.test');
+await user.click(screen.getByRole('button',{name:t('myNotifications')}));
+await screen.findByText(t('integrationFailure'));
+assert.ok(screen.getByText('fixture@example.test'));
+assert.equal(screen.getByRole('button',{name:t('signOut')}).disabled,false,'Notification failures leave sign-out usable');
+failLine = false;
 cleanup();
 // Administration never grants itself access from local state; denial removes old data.
 let adminStatus = 200;

@@ -122,9 +122,8 @@ assert.equal(activeNavigation('detail'),'cases');
 for(const hash of ['#case/2','#case/0','#case/01','#case/4/extra','#case/1e0','#case/9007199254740992'])assert.deepEqual(resolveRoute(hash,[1,4]),{page:'cases'},'Invalid case URLs must not silently open another customer');
 for(const hash of ['','#system','#unknown'])assert.deepEqual(resolveRoute(hash,[1,4]),{page:'today'});
 assert.equal(resolveRoute('#main',[1,4]),null,'Skip link must not remount the page');
-assert.equal(visibleNavigation(true).some(item=>item.id==='install-info'),false);
-assert.equal(visibleNavigation(false).some(item=>item.id==='install-info'),true);
-console.log('Navigation: valid and invalid routes, case identity, current section, skip-link and installed-app visibility: OK.');
-
-assert.equal(visibleNavigation(false).some(item=>item.id==='admin'),false);
-assert.equal(visibleNavigation(false,true).some(item=>item.id==='admin'),true);
+assert.deepEqual(visibleNavigation().map(item=>item.id),['today','cases','pricing','scheduling','reviews','imports','mypage','preview-info']);
+assert.equal(visibleNavigation().some(item=>item.id==='admin'),false);
+assert.equal(visibleNavigation(true).some(item=>item.id==='admin'),true);
+assert.equal(navigationItems.some(item=>['account','install-info'].includes(item.id)),false);
+console.log('Navigation: priority order, admin visibility, routes and removed install/account destinations: OK.');

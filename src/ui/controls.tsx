@@ -86,19 +86,22 @@ export function Fold({
   children,
   required = false,
   defaultOpen = false,
+  deferMount = false,
 }: {
   ui: UiContext;
   label: MessageKey;
   children: ReactNode;
   required?: boolean;
   defaultOpen?: boolean;
+  deferMount?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [activated, setActivated] = useState(!deferMount || defaultOpen || required);
   return (
     <Collapsible
       className="disclosure"
       open={required || open}
-      onOpenChange={setOpen}
+      onOpenChange={(value) => { if (value) setActivated(true); setOpen(value); }}
     >
       <CollapsibleTrigger asChild>
         <Button variant="ghost" className="disclosure-trigger">
@@ -111,7 +114,7 @@ export function Fold({
         forceMount
         hidden={!(required || open)}
       >
-        {children}
+        {(activated || required) && children}
       </CollapsibleContent>
     </Collapsible>
   );
