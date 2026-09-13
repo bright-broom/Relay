@@ -32,13 +32,13 @@ const primitives = {
   'font': 'system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif',
   'text-xs': '0.75rem', 'text-sm': '0.875rem', 'text-base': '1rem',
   'text-md': '1.125rem', 'text-lg': '1.5rem', 'text-xl': '2rem',
-  'title-mobile': '1.75rem', 'metric-size': '2.5rem',
+  'title-mobile': '1.5rem', 'metric-size': '1.5rem',
   'regular': '400', 'medium': '500', 'semibold': '600', 'leading': '1.75', 'heading-leading': '1.4', 'section-leading': '1.5', 'label-leading': '1.5', 'letter-normal': '0', 'space-0': '0', 'space-1': '0.25rem', 'space-2': '0.5rem', 'space-3': '0.75rem',
   'space-4': '1rem', 'space-5': '1.5rem', 'space-6': '2rem', 'space-7': '3rem',
-  'space-9': '6rem', 'radius-sm': '0.5rem', 'radius-card': '0.75rem', 'radius-panel': '1rem', 'radius-pill': '999px',
+  'space-9': '6rem', 'radius-sm': '0.25rem', 'radius-card': '0.25rem', 'radius-panel': '0.5rem', 'radius-pill': '999px',
   'border-width': '1px', 'focus-width': '2px', 'focus-gap': '3px',
   'action': '3rem', 'touch': '2.75rem', 'row': '3.5rem', 'icon': '1.25rem',
-  'sidebar': '5.5rem', 'topbar': '4rem', 'content-max': '96rem', 'reading': '45rem',
+  'sidebar': '5.5rem', 'topbar': '3rem', 'content-max': '96rem', 'reading': '45rem',
   'aside': '21rem', 'table-min': '52rem', 'field-min': '8rem', 'dialog-max': '44rem',
   'desktop-gutter': '3rem', 'mobile-gutter': '1.5rem', 'backdrop': alpha(palette.main, 0.35), 'floating-shadow': `0 16px 64px ${alpha(palette.main, 0.14)}`,
   'fast': '160ms', 'reduced-motion': '0ms',
@@ -47,8 +47,8 @@ const primitives = {
 
 /** Roles are bound once here; component CSS must not pick a new size. */
 export const componentTokens = {
-  'type-page': primitives['text-xl'], 'type-page-mobile': primitives['title-mobile'],
-  'type-section': primitives['text-lg'], 'type-subheading': primitives['text-md'],
+  'type-page': primitives['text-lg'], 'type-page-mobile': primitives['title-mobile'],
+  'type-section': primitives['text-md'], 'type-subheading': primitives['text-md'],
   'type-body': primitives['text-base'], 'type-label': primitives['text-sm'],
   'type-caption': primitives['text-xs'],
   'price-amount': '3rem', 'price-amount-wide': '4rem',

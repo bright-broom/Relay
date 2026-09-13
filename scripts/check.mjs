@@ -32,9 +32,9 @@ for(const [base,overlay,amount] of Object.values(colorRecipes)){
 }
 assert.ok(!/var\(--(?:success|warning|error|selected)(?:-surface)?\)/.test(css),'Independent status color reintroduced');
 assert.equal(tokens['type-body'],'1rem');
-assert.equal(tokens['type-section'],'1.5rem');
-assert.equal(tokens['type-page'],'2rem');
-assert.equal(tokens['type-page-mobile'],'1.75rem');
+assert.equal(tokens['type-section'],'1.125rem');
+assert.equal(tokens['type-page'],'1.5rem');
+assert.equal(tokens['type-page-mobile'],'1.5rem');
 assert.ok(!/var\(--text-(?:xs|sm|base|md|lg|xl)\)/.test(css),'Component bypasses type role');
 const generatedCss=await readFile('prototype/assets/styles.css','utf8');
 assert.ok(!/__\w+__/.test(generatedCss),'Unresolved breakpoint');

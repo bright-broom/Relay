@@ -1,6 +1,5 @@
 import type React from "react";
 import {
-  Workflow,
   ShieldCheck,
   LockKeyhole,
   UserRound,
@@ -39,7 +38,6 @@ import {
 } from "lucide-react";
 import type { MessageKey } from "../i18n/messages";
 const icons: Record<string, LucideIcon> = {
-  brand: Workflow,
   admin: ShieldCheck,
   adminLocked: LockKeyhole,
   user: UserRound,
