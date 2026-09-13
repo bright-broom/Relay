@@ -67,8 +67,12 @@ export async function finishLogin(request: Request, db: Database = database(), c
     if (!identity || (destination === '/admin' && !administratorAllowed(identity.email))) return failure();
     verified = true;
     const newToken = randomToken();
-    await db.query('DELETE FROM relay_private.sessions WHERE expires_at < now() OR token_hash=$1', [hash(readCookie(request, sessionCookie))]);
-    await db.query('INSERT INTO relay_private.sessions(token_hash,subject,email,expires_at) VALUES($1,$2,$3,now()+interval \'8 hours\')', [hash(newToken),identity.subject,identity.email]);
+    // Preserve the existing session if issuing its replacement fails.
+    // Consume OAuth outside this transaction so failures never allow callback replay.
+    await db.transaction(async tx => {
+      await tx.query('DELETE FROM relay_private.sessions WHERE expires_at < now() OR token_hash=$1', [hash(readCookie(request, sessionCookie))]);
+      await tx.query('INSERT INTO relay_private.sessions(token_hash,subject,email,expires_at) VALUES($1,$2,$3,now()+interval \'8 hours\')', [hash(newToken),identity.subject,identity.email]);
+    });
     headers.append('Set-Cookie', cookie(sessionCookie, newToken, 28800));
     // The destination is bound to the stored, single-use OAuth state; never trust a callback URL parameter.
     headers.set('Location', destination);

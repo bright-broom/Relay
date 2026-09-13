@@ -9,7 +9,7 @@ import {handleMcp,listMcpTokens,issueMcpToken,revokeMcpToken} from './mcp';
 import {readFile} from 'node:fs/promises';
 import {configured, lineConfigured, sameOrigin, origin} from './config';
 import {session, startLogin, finishLogin, logout, cookie, oauthCookie} from './auth';
-import {loginPage} from './page';
+import {loginPage, type LoginStatus} from './page';
 import {ApiError, destinations, issueCode, changeDestination, webhook, notify} from './line';
 
 const readRoutes = new Set(['admin-page','admin-overview','page','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
@@ -31,11 +31,15 @@ export async function handle(request: Request, db?: Database, authProvider?: Con
       const adminEntry = route === 'admin-page';
       const ready = configured() && (!adminEntry || administratorIssues().length === 0);
       const identity = ready ? await session(request, db) : null;
-      if (identity && (!adminEntry || isAdmin(identity.email))) {
+      const authOutcome = url.searchParams.get('auth');
+      const failedLogin = authOutcome === 'denied' || authOutcome === 'unavailable';
+      if (identity && (!adminEntry || isAdmin(identity.email)) && !failedLogin) {
         const html = (await readFile('prototype/index.html', 'utf8')).replace('<div id="app">', `<div id="app" data-admin="${isAdmin(identity.email)}">`);
         return new Response(html, {headers: {'Content-Type': 'text/html; charset=utf-8'}});
       }
-      return new Response(loginPage(locale, !ready ? 'setup' : Boolean(identity) || url.searchParams.get('auth') === 'denied' ? 'denied' : url.searchParams.get('auth') === 'unavailable' ? 'unavailable' : 'ready', adminEntry), {status: identity ? 403 : !ready ? 503 : 200, headers: {'Content-Type': 'text/html; charset=utf-8'}});
+      const loginStatus: LoginStatus = !ready ? 'setup' : authOutcome === 'unavailable' ? 'unavailable' : identity || authOutcome === 'denied' ? 'denied' : 'ready';
+      const status = loginStatus === 'setup' || loginStatus === 'unavailable' ? 503 : loginStatus === 'denied' ? 403 : 200;
+      return new Response(loginPage(locale, loginStatus, adminEntry), {status, headers: {'Content-Type': 'text/html; charset=utf-8'}});
     }
     if (!configured()) throw new ApiError(503, 'configuration');
     if (route === 'start') {

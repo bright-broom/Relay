@@ -148,8 +148,10 @@ async function finishLogin(request, db = database(), configuration) {
     if (!identity || destination === "/admin" && !administratorAllowed(identity.email)) return failure();
     verified = true;
     const newToken = randomToken();
-    await db.query("DELETE FROM relay_private.sessions WHERE expires_at < now() OR token_hash=$1", [hash(readCookie(request, sessionCookie))]);
-    await db.query("INSERT INTO relay_private.sessions(token_hash,subject,email,expires_at) VALUES($1,$2,$3,now()+interval '8 hours')", [hash(newToken), identity.subject, identity.email]);
+    await db.transaction(async (tx) => {
+      await tx.query("DELETE FROM relay_private.sessions WHERE expires_at < now() OR token_hash=$1", [hash(readCookie(request, sessionCookie))]);
+      await tx.query("INSERT INTO relay_private.sessions(token_hash,subject,email,expires_at) VALUES($1,$2,$3,now()+interval '8 hours')", [hash(newToken), identity.subject, identity.email]);
+    });
     headers.append("Set-Cookie", cookie(sessionCookie, newToken, 28800));
     headers.set("Location", destination);
     return new Response(null, { status: 303, headers });
@@ -2015,11 +2017,15 @@ async function handle(request, db, authProvider) {
       const adminEntry = route === "admin-page";
       const ready = configured() && (!adminEntry || administratorIssues().length === 0);
       const identity2 = ready ? await session(request, db) : null;
-      if (identity2 && (!adminEntry || administratorAllowed(identity2.email))) {
+      const authOutcome = url.searchParams.get("auth");
+      const failedLogin = authOutcome === "denied" || authOutcome === "unavailable";
+      if (identity2 && (!adminEntry || administratorAllowed(identity2.email)) && !failedLogin) {
         const html = (await readFile("prototype/index.html", "utf8")).replace('<div id="app">', `<div id="app" data-admin="${administratorAllowed(identity2.email)}">`);
         return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
       }
-      return new Response(loginPage(locale, !ready ? "setup" : Boolean(identity2) || url.searchParams.get("auth") === "denied" ? "denied" : url.searchParams.get("auth") === "unavailable" ? "unavailable" : "ready", adminEntry), { status: identity2 ? 403 : !ready ? 503 : 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
+      const loginStatus = !ready ? "setup" : authOutcome === "unavailable" ? "unavailable" : identity2 || authOutcome === "denied" ? "denied" : "ready";
+      const status = loginStatus === "setup" || loginStatus === "unavailable" ? 503 : loginStatus === "denied" ? 403 : 200;
+      return new Response(loginPage(locale, loginStatus, adminEntry), { status, headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
     if (!configured()) throw new ApiError(503, "configuration");
     if (route === "start") {

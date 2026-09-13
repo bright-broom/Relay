@@ -52,7 +52,7 @@ config[oidc.customFetch]=async(url,options)=>{
  const signature=sign('RSA-SHA256',Buffer.from(payload),privateKey).toString('base64url');
  return Response.json({access_token:'synthetic-access',token_type:'Bearer',id_token:payload+'.'+(tamper?'AAAA'+signature.slice(4):signature)});
 };
-async function callback(overrides={},badState=false,badSignature=false,destination='/',beforeFinish=()=>{}){
+async function callback(overrides={},badState=false,badSignature=false,destination='/',beforeFinish=()=>{},previousSession=''){
  claimOverride=overrides;tamper=badSignature;
  const start=await api.handle(new Request('https://relay.test/api/auth/start?route=start&lang=ar-EG&destination='+(destination==='/admin'?'admin':'untrusted')),db,config);
  assert.ok(start.headers.getSetCookie().some(value=>value.startsWith('relay-locale=ar-EG;')),'OAuth preserves the normalized language without JavaScript');
@@ -62,7 +62,7 @@ async function callback(overrides={},badState=false,badSignature=false,destinati
  const browserCookie=start.headers.getSetCookie().find(value=>value.startsWith(api.oauthCookie+'=')).split(';')[0];
  const attempt=(await db.query('SELECT verifier FROM relay_private.oauth_attempts WHERE token_hash=$1',[api.hash(browserCookie.split('=')[1])]))[0];expectedVerifier=attempt.verifier;
  currentNonce=authorization.searchParams.get('nonce');
- const req=new Request('https://relay.test/api/auth/callback?route=callback&code=synthetic&state='+(badState?'wrong-state':authorization.searchParams.get('state')),{headers:{cookie:browserCookie}});
+ const req=new Request('https://relay.test/api/auth/callback?route=callback&code=synthetic&state='+(badState?'wrong-state':authorization.searchParams.get('state')),{headers:{cookie:browserCookie+(previousSession?'; '+api.sessionCookie+'='+previousSession:'')}});
  await beforeFinish();
  return {result:await api.handle(req,db,config),req};
 }
@@ -220,10 +220,37 @@ const startUrl=new URL(startBeforeFailure.headers.get('location'));
 const failedCookie=startBeforeFailure.headers.getSetCookie()[0].split(';')[0];
 const [failedAttempt]=await db.query('SELECT verifier FROM relay_private.oauth_attempts WHERE token_hash=$1',[api.hash(failedCookie.split('=')[1])]);
 expectedVerifier=failedAttempt.verifier;currentNonce=startUrl.searchParams.get('nonce');claimOverride={};tamper=false;
-const failWrites={query:(text,values)=>text.startsWith('INSERT INTO relay_private.sessions')?Promise.reject(new Error('secret-db-error')):db.query(text,values)};
-const failedSession=await api.handle(new Request('https://relay.test/api/auth/callback?route=callback&code=synthetic&state='+startUrl.searchParams.get('state'),{headers:{cookie:failedCookie}}),failWrites,config);
+// Fail the actual INSERT inside SQL transactions as well as the old non-transactional path.
+const oldSessionRequest=new Request('https://relay.test',{headers:{cookie:api.cookie(api.sessionCookie,memberToken,28800)}});
+assert.deepEqual(await api.session(oldSessionRequest,db),second);
+const sessionsBeforeFailure=await db.query('SELECT token_hash,subject,email,expires_at FROM relay_private.sessions ORDER BY token_hash');
+let rejectedInserts=0;
+const withFailedInsert=client=>({...client,query:(text,values)=>{
+ if(text.startsWith('INSERT INTO relay_private.sessions')){rejectedInserts++;throw new Error('secret-db-error');}
+ return client.query(text,values);
+}});
+const failWrites={...withFailedInsert(db),transaction:work=>db.transaction(tx=>work(withFailedInsert(tx)))};
+const failedSession=await api.handle(new Request('https://relay.test/api/auth/callback?route=callback&code=synthetic&state='+startUrl.searchParams.get('state'),{headers:{cookie:failedCookie+'; '+api.sessionCookie+'='+memberToken}}),failWrites,config);
+assert.equal(rejectedInserts,1,'The test must reach the failed session write');
 assert.equal(failedSession.headers.get('location'),'/admin?auth=unavailable');
 assert.equal(failedSession.headers.getSetCookie().some(value=>value.startsWith(api.sessionCookie+'=')),false);
+assert.deepEqual(await api.session(oldSessionRequest,db),second,'Failed reauthentication preserves the previous session');
+assert.deepEqual(await db.query('SELECT token_hash,subject,email,expires_at FROM relay_private.sessions ORDER BY token_hash'),sessionsBeforeFailure,'Partial session changes must roll back');
+assert.equal((await db.query('SELECT token_hash FROM relay_private.oauth_attempts WHERE token_hash=$1',[api.hash(failedCookie.split('=')[1])])).length,0,'Failed persistence must not make the consumed Google callback reusable');
+const retryPage=await api.handle(new Request('https://relay.test/admin?route=admin-page&auth=unavailable&lang=en',{headers:oldSessionRequest.headers}),db);
+assert.equal(retryPage.status,503);
+assert.ok((await retryPage.text()).includes('The sign-in service could not be reached'),'Previous member session must not hide an operational error behind permission denial');
+const replacement=await callback({},false,false,'/admin',()=>{},memberToken);
+assert.equal(replacement.result.headers.get('location'),'/admin');
+assert.equal(await api.session(oldSessionRequest,db),null,'Successful reauthentication revokes the previous session');
+const replacementCookie=replacement.result.headers.getSetCookie().find(value=>value.startsWith(api.sessionCookie+'='));
+assert.ok(replacementCookie);
+assert.deepEqual(await api.session(new Request('https://relay.test',{headers:{cookie:replacementCookie}}),db),owner);
+for(const [outcome,status] of [['denied',403],['unavailable',503]]) {
+ const feedback=await api.handle(new Request('https://relay.test/admin?route=admin-page&auth='+outcome,{headers:{cookie:replacementCookie}}),db);
+ assert.equal(feedback.status,status);
+ assert.ok(!(await feedback.text()).includes('assets/app.js'),'An existing admin session must not conceal a failed new sign-in');
+}
 const beforePreflight=await db.query('SELECT count(*)::int AS count FROM relay_private.sessions');
 assert.equal(await api.loginDatabaseReady(db),true);
 assert.deepEqual(await db.query('SELECT count(*)::int AS count FROM relay_private.sessions'),beforePreflight);
