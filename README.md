@@ -46,3 +46,7 @@ Next.js / TypeScript + Vercel、Supabase、Inngest、LLM API。詳細は設計�
 ## 公開方針
 
 初期はCI/CDの無料枠を節約するため、公開リポジトリとして運用します。顧客情報・業務会話・秘密鍵・個人の環境設定はコミットせず、Previewには架空データを使います。
+
+## 共通UI
+
+2026-09-13に全画面をReact＋shadcn/ui＋lucide-reactへ移行。構成・置換範囲・検証は[共通部品](docs/COMPONENTS.md)を参照。

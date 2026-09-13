@@ -2,8 +2,16 @@
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
     "@modelcontextprotocol/client": "2.0.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
     "@types/node": "22.20.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
     "esbuild": "0.28.2",
+    "jsdom": "29.1.1",
+    "postcss": "8.5.28",
+    "tailwindcss": "4.3.3",
     "typescript": "7.0.2"
   },
   "name": "relay-design-preview",
@@ -13,23 +21,30 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs",
-    "check": "npm run typecheck && npm run build && node scripts/check.mjs && npm run audit && npm run test:server && npm run test:calendar && npm run test:pricing && npm run test:i18n && npm run test:inputs",
+    "check": "npm run typecheck && npm run build && node scripts/check.mjs && npm run audit && npm run test:server && npm run test:calendar && npm run test:pricing && npm run test:i18n && npm run test:inputs && npm run test:ui",
     "audit": "node scripts/audit.mjs",
     "test:server": "node tests/server.mjs",
     "db:migrate": "node scripts/migrate.mjs",
     "test:calendar": "node tests/calendar.mjs",
     "test:pricing": "node tests/pricing.mjs",
     "test:i18n": "node tests/i18n.mjs",
-    "test:inputs": "node tests/input-ux.mjs"
+    "test:inputs": "node tests/input-ux.mjs",
+    "test:ui": "node tests/react-ui.mjs"
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.5.1",
     "@modelcontextprotocol/server": "2.0.0",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
     "decimal.js": "10.6.0",
     "i18next": "26.4.2",
-    "lucide": "1.45.0",
+    "lucide-react": "1.45.0",
     "openid-client": "6.8.8",
     "postgres": "3.4.9",
+    "radix-ui": "1.6.7",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tailwind-merge": "3.7.0",
     "zod": "4.6.2"
   },
   "engines": {

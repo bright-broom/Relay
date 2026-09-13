@@ -1,4 +1,6 @@
 export const ja = {
+  lineDestination: "通知先",
+  loading: "読み込み中",
   customValue: "その他・直接入力",
   customFor: "{field}を直接入力",
   languageTag: "言語コードを指定",

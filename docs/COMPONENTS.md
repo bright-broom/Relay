@@ -1,0 +1,57 @@
+# Relay 共通部品とReact移行
+
+2026-09-13 / UI構成 v0.3
+
+全画面の描画をReactへ移し、shadcn/uiの部品とlucide-reactへ統一した。文字列HTML、全画面のinnerHTML差し替え、document全体へのクリック委譲は廃止。料金計算・認証・カレンダーのサーバー側の契約は変更しない。
+
+## 置換範囲
+
+| 用途 | 共通部品 |
+|---|---|
+| 操作・アイコン操作・ナビゲーション | Button / Tooltip |
+| 金額・日付・自由入力・メモ | Input / Textarea / Label |
+| 担当・状態・期間・言語・通知先 | Native Select |
+| 料金条件の確認 | Checkbox |
+| 料金・日程・アカウント・言語・引き継ぎ | Dialog |
+| サンプルデータのリセット確認 | Alert Dialog |
+| 補足・履歴・詳細条件 | Collapsible |
+| 案件カード・入力領域 | Card |
+| 案件一覧表 | Table |
+| 状態・期限 | Badge |
+| 読み込み・エラー・操作結果 | Alert |
+| 意味を持つ操作アイコン | lucide-react |
+
+選択はshadcn/uiのNative Selectを採用し、OSの選択操作とキーボードを維持する。日付はInputのtype=dateでOSの日付選択を使う。ログイン画面だけはJavaScriptなしの言語変更を維持するため、折りたたみにHTMLのdetailsを残す。一般のリンク・見出し・業務データのリスト、レイアウト、PWAのブランド画像は役割に合う標準HTML／既存トークンを使用する。左メニューはスマートフォンでも常設するため、非表示になるモバイルメニューへ変更しない。
+
+## ソースと依存関係
+
+- `src/components/ui/`：shadcn CLI 4.21.0、new-yorkレジストリから取得した14部品。ソース所有型の導入であり、shadcnという実行時パッケージは不要。
+- `src/ui/controls.tsx`：翻訳済み操作名、Lucide、標準候補と直接入力、折りたたみ、通知を共通化。
+- `src/ui/icons.tsx`：操作の意味とlucide-reactの名前付きインポート。古いLucideのSVG文字列生成器を削除。
+- `src/app/`：全画面のReact描画、画面状態、連携APIの呼び出し。料金・日程・アカウントは分離。
+- `src/app/store.ts`：既存の端末保存形式を継承。保存失敗・他ウィンドウとの競合で入力を消さず、保存成功と表示しない。
+- `src/server/page.tsx`：Googleログイン画面をReactで静的描画。同じLanguageFormとshadcn入力部品を使用。
+- `src/design/tokens.ts`：色・寸法・階層の正本。`src/design/components.css`でTailwindへ接続し、`src/prototype/styles.css`で意味付き部品へ適用。
+
+導入時のnpm公式レジストリでReact / React DOM 19.3.0、Tailwind CSS 4.3.3、lucide-react 1.45.0を確認して固定。Radix UIは1.6.7。TypeScriptと既存の計算ライブラリは継続使用。依存関係の再現はpackage-lock.jsonに従う。
+
+shadcn標準の色・寸法・ダークテーマをそのまま重ねず、Relayの墨黒・白・青と既存のタッチ領域へ接続した。Radixのフォーカス制御・Escape・ポータル・チェック状態、shadcnの型と合成方法は保持する。`asChild`によるdata-slotの上書きにも影響されないよう、ボタンの見た目は意味付きクラスで指定する。外部ライブラリがフォーカス制御等のために実行時生成するstyleは、アプリによるデザイン値の直書きとは区別する。
+
+レジストリを再取得して上書きする場合は、トークン適用・Closeの翻訳・各共通部品の操作テストを比較する。出典ライセンスは`licenses/shadcn-ui.txt`。
+
+## 引き継いだ動作
+
+- 下書き・選択状態をReactで制御し、再描画で入力を消さない。折りたたみ内部も保持する。
+- 料金入力・出典・提示はメモリー内のみ。閉じたら破棄。費用や出典を変更すると確認を解除する。
+- 支払い計算と500通りの独立した明細照合を維持する。
+- 同意・返答待ちだけで業務を完了にしない。完了結果と完了保存を明示的に選択する。
+- 日程条件の変更で古い候補を消す。APIの二重操作を防ぎ、通信失敗後も条件を保持する。
+- 公開静的ファイルと認証が必要なアプリを引き続き分離。実Google・LINE・DBの設定は別の利用開始条件。
+
+## 検証
+
+`npm run check`で型・ビルド・文言／CSS監査・認証／LINE・カレンダー／MCP・計算・国際化を確認する。`test:ui`はjsdomとReact Testing Libraryで、架空データとモックAPIだけを使う。料金の確認ゲート、分割金額の保持、提示終了、DialogのEscapeとフォーカス復帰、RTL、保存失敗、日程変更、LINE通知先の保持を操作して確認する。
+
+このテストはブラウザーによる見た目・タッチ操作の証拠ではない。ローカル画面のブラウザーアクセス制限は回避していない。390 / 768 / 1440pxの実表示、スマートフォン実機、実Google／LINE連携は未検証。
+
+公式資料：[shadcn導入](https://ui.shadcn.com/docs/installation/manual)、[Native Select](https://ui.shadcn.com/docs/components/native-select)、[Lucide React](https://lucide.dev/guide/react)、[React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)。

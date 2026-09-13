@@ -1,5 +1,7 @@
 import type {ja} from './ja';
 export const en: Record<keyof typeof ja,string> = {
+  lineDestination: "Notification destination",
+  loading: "Loading",
   customValue: "Other / custom",
   customFor: "Custom {field}",
   languageTag: "Enter a language tag",

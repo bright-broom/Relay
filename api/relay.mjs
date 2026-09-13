@@ -5,6 +5,8 @@ import { createInstance } from "i18next";
 
 // src/i18n/locales/ja.ts
 var ja = {
+  lineDestination: "\u901A\u77E5\u5148",
+  loading: "\u8AAD\u307F\u8FBC\u307F\u4E2D",
   customValue: "\u305D\u306E\u4ED6\u30FB\u76F4\u63A5\u5165\u529B",
   customFor: "{field}\u3092\u76F4\u63A5\u5165\u529B",
   languageTag: "\u8A00\u8A9E\u30B3\u30FC\u30C9\u3092\u6307\u5B9A",
@@ -282,6 +284,8 @@ var ja = {
 
 // src/i18n/locales/en.ts
 var en = {
+  lineDestination: "Notification destination",
+  loading: "Loading",
   customValue: "Other / custom",
   customFor: "Custom {field}",
   languageTag: "Enter a language tag",
@@ -1162,6 +1166,9 @@ async function handleMcp(request, raw, db = database()) {
 // src/server/handler.ts
 import { readFile } from "node:fs/promises";
 
+// src/server/page.tsx
+import { renderToStaticMarkup } from "react-dom/server";
+
 // src/i18n/context.ts
 function createUiContext(requested) {
   const locale = normalizeLocale(requested), language = translationLanguage(locale);
@@ -1183,23 +1190,520 @@ function createUiContext(requested) {
   });
 }
 
-// src/ui/icons.ts
-import { UserRound, CalendarDays, Copy, Search, NotebookPen, ChevronDown, TriangleAlert, Clock, Check, Download, Info, House, Folder, ClipboardCheck, Upload, ArrowRight, ArrowLeft, X, Calculator, RefreshCw, LogOut, Unlink, Languages, Eye, Pencil, RotateCcw, FileText, SlidersHorizontal, Hourglass, Circle } from "lucide";
-var escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-var icons = { user: UserRound, calendar: CalendarDays, copy: Copy, search: Search, note: NotebookPen, chevron: ChevronDown, alert: TriangleAlert, clock: Clock, check: Check, install: Download, info: Info, home: House, cases: Folder, reviews: ClipboardCheck, imports: Upload, arrow: ArrowRight, back: ArrowLeft, close: X, calculator: Calculator, refresh: RefreshCw, logout: LogOut, unlink: Unlink, language: Languages, present: Eye, edit: Pencil, reset: RotateCcw, file: FileText, options: SlidersHorizontal, waiting: Hourglass, todo: Circle };
-function icon(name) {
-  const node = icons[name];
-  if (!node) throw new Error(`Unknown icon: ${name}`);
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" ${name === "arrow" || name === "back" ? 'class="directional-icon"' : ""}>${node.map(([tag, attrs]) => `<${tag} ${Object.entries(attrs).map(([key, value]) => `${key}="${escapeHtml(String(value))}"`).join(" ")}></${tag}>`).join("")}</svg>`;
+// src/ui/language.tsx
+import { useState as useState2 } from "react";
+
+// src/ui/controls.tsx
+import { useId, useState } from "react";
+
+// src/ui/icons.tsx
+import {
+  Workflow,
+  UserRound,
+  CalendarDays,
+  Copy,
+  Search,
+  NotebookPen,
+  ChevronDown,
+  TriangleAlert,
+  Clock,
+  Check,
+  Download,
+  Info,
+  House,
+  Folder,
+  ClipboardCheck,
+  Upload,
+  ArrowRight,
+  ArrowLeft,
+  X,
+  Calculator,
+  RefreshCw,
+  LogOut,
+  Unlink,
+  Languages,
+  Eye,
+  Pencil,
+  RotateCcw,
+  FileText,
+  SlidersHorizontal,
+  Hourglass,
+  Circle
+} from "lucide-react";
+import { jsx } from "react/jsx-runtime";
+var icons = {
+  brand: Workflow,
+  user: UserRound,
+  calendar: CalendarDays,
+  copy: Copy,
+  search: Search,
+  note: NotebookPen,
+  chevron: ChevronDown,
+  alert: TriangleAlert,
+  clock: Clock,
+  check: Check,
+  install: Download,
+  info: Info,
+  home: House,
+  cases: Folder,
+  reviews: ClipboardCheck,
+  imports: Upload,
+  arrow: ArrowRight,
+  back: ArrowLeft,
+  close: X,
+  calculator: Calculator,
+  refresh: RefreshCw,
+  logout: LogOut,
+  unlink: Unlink,
+  language: Languages,
+  present: Eye,
+  edit: Pencil,
+  reset: RotateCcw,
+  file: FileText,
+  options: SlidersHorizontal,
+  waiting: Hourglass,
+  todo: Circle
+};
+function Icon({
+  name,
+  ...props
+}) {
+  const Component = icons[name];
+  if (!Object.hasOwn(icons, name) || !Component) throw new Error(`Unknown icon: ${name}`);
+  return /* @__PURE__ */ jsx(
+    Component,
+    {
+      "aria-hidden": "true",
+      focusable: "false",
+      ...props,
+      className: [
+        name === "arrow" || name === "back" ? "directional-icon" : "",
+        props.className
+      ].filter(Boolean).join(" ")
+    }
+  );
+}
+var iconOnly = {
+  signOut: "logout",
+  refreshConnections: "refresh",
+  copyLinkCode: "copy",
+  lineRemove: "unlink",
+  calendarDisconnect: "unlink",
+  mcpCopy: "copy",
+  mcpRevoke: "unlink",
+  pricingEdit: "edit",
+  copy: "copy",
+  close: "close",
+  resetFilters: "reset",
+  handoff: "note"
+};
+var labeled = {
+  pricingPresent: "present",
+  scheduleFind: "search",
+  scheduleBook: "calendar",
+  calendarConnect: "calendar",
+  lineConnect: "user",
+  lineConfirm: "check",
+  lineTest: "info",
+  mcpIssue: "user",
+  saveRecord: "note",
+  saveComplete: "check",
+  approve: "check",
+  reject: "close",
+  sample: "imports",
+  sampleShown: "check",
+  reviewOpen: "reviews",
+  installNow: "install"
+};
+
+// src/components/ui/button.tsx
+import { cva } from "class-variance-authority";
+
+// src/lib/utils.ts
+import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+function cn(...inputs) {
+  return twMerge(clsx(inputs));
 }
 
-// src/ui/language.ts
-var suggestions = ["ja", "en", "ko", "zh-CN", "zh-TW", "fr", "es", "de", "pt-BR", "ar", "he", "hi", "id", "th", "vi"];
-function languageForm(ui) {
+// src/components/ui/button.tsx
+import { Slot } from "radix-ui";
+import { jsx as jsx2 } from "react/jsx-runtime";
+var buttonVariants = cva("button", {
+  variants: {
+    variant: {
+      default: "primary",
+      destructive: "",
+      outline: "",
+      secondary: "",
+      ghost: "ghost",
+      link: "link-button"
+    },
+    size: {
+      default: "",
+      xs: "",
+      sm: "",
+      lg: "",
+      icon: "icon-button",
+      "icon-xs": "icon-button",
+      "icon-sm": "icon-button",
+      "icon-lg": "icon-button"
+    }
+  },
+  defaultVariants: { variant: "default", size: "default" }
+});
+function Button({
+  className,
+  variant = "default",
+  size = "default",
+  asChild = false,
+  ...props
+}) {
+  const Comp = asChild ? Slot.Root : "button";
+  return /* @__PURE__ */ jsx2(
+    Comp,
+    {
+      "data-slot": "button",
+      "data-variant": variant,
+      "data-size": size,
+      className: cn(buttonVariants({ variant, size, className })),
+      ...props
+    }
+  );
+}
+
+// src/components/ui/native-select.tsx
+import { ChevronDownIcon } from "lucide-react";
+import { jsx as jsx3, jsxs } from "react/jsx-runtime";
+function NativeSelect({
+  className,
+  size = "default",
+  ...props
+}) {
+  return /* @__PURE__ */ jsxs("div", { className: "", "data-slot": "native-select-wrapper", children: [
+    /* @__PURE__ */ jsx3(
+      "select",
+      {
+        "data-slot": "native-select",
+        "data-size": size,
+        className: cn(className),
+        ...props
+      }
+    ),
+    /* @__PURE__ */ jsx3(
+      ChevronDownIcon,
+      {
+        className: "",
+        "aria-hidden": "true",
+        "data-slot": "native-select-icon"
+      }
+    )
+  ] });
+}
+function NativeSelectOption({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsx3(
+    "option",
+    {
+      "data-slot": "native-select-option",
+      className: cn(className),
+      ...props
+    }
+  );
+}
+
+// src/components/ui/input.tsx
+import { jsx as jsx4 } from "react/jsx-runtime";
+function Input({ className, type, ...props }) {
+  return /* @__PURE__ */ jsx4("input", { type, "data-slot": "input", className: cn(className), ...props });
+}
+
+// src/components/ui/label.tsx
+import { Label as LabelPrimitive } from "radix-ui";
+import { jsx as jsx5 } from "react/jsx-runtime";
+function Label({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsx5(
+    LabelPrimitive.Root,
+    {
+      "data-slot": "label",
+      className: cn(className),
+      ...props
+    }
+  );
+}
+
+// src/components/ui/tooltip.tsx
+import { Tooltip as TooltipPrimitive } from "radix-ui";
+import { jsx as jsx6, jsxs as jsxs2 } from "react/jsx-runtime";
+function Tooltip({
+  ...props
+}) {
+  return /* @__PURE__ */ jsx6(TooltipPrimitive.Root, { "data-slot": "tooltip", ...props });
+}
+function TooltipTrigger({
+  ...props
+}) {
+  return /* @__PURE__ */ jsx6(TooltipPrimitive.Trigger, { "data-slot": "tooltip-trigger", ...props });
+}
+function TooltipContent({
+  className,
+  sideOffset = 0,
+  children,
+  ...props
+}) {
+  return /* @__PURE__ */ jsx6(TooltipPrimitive.Portal, { children: /* @__PURE__ */ jsxs2(
+    TooltipPrimitive.Content,
+    {
+      "data-slot": "tooltip-content",
+      sideOffset,
+      className: cn(className),
+      ...props,
+      children: [
+        children,
+        /* @__PURE__ */ jsx6(TooltipPrimitive.Arrow, { className: "" })
+      ]
+    }
+  ) });
+}
+
+// src/components/ui/collapsible.tsx
+import { Collapsible as CollapsiblePrimitive } from "radix-ui";
+import { jsx as jsx7 } from "react/jsx-runtime";
+function Collapsible({
+  ...props
+}) {
+  return /* @__PURE__ */ jsx7(CollapsiblePrimitive.Root, { "data-slot": "collapsible", ...props });
+}
+function CollapsibleTrigger({
+  ...props
+}) {
+  return /* @__PURE__ */ jsx7(
+    CollapsiblePrimitive.CollapsibleTrigger,
+    {
+      "data-slot": "collapsible-trigger",
+      ...props
+    }
+  );
+}
+function CollapsibleContent({
+  ...props
+}) {
+  return /* @__PURE__ */ jsx7(
+    CollapsiblePrimitive.CollapsibleContent,
+    {
+      "data-slot": "collapsible-content",
+      ...props
+    }
+  );
+}
+
+// src/components/ui/alert.tsx
+import { cva as cva2 } from "class-variance-authority";
+import { jsx as jsx8 } from "react/jsx-runtime";
+var alertVariants = cva2("notice", {
+  variants: { variant: { default: "", destructive: "" } },
+  defaultVariants: { variant: "default" }
+});
+
+// src/ui/controls.tsx
+import { jsx as jsx9, jsxs as jsxs3 } from "react/jsx-runtime";
+function Action({
+  ui,
+  label,
+  symbol,
+  iconOnly: only,
+  children,
+  ...props
+}) {
+  const name = symbol ?? iconOnly[label] ?? labeled[label];
+  const compact = only ?? Boolean(iconOnly[label]);
+  const control = /* @__PURE__ */ jsxs3(
+    Button,
+    {
+      type: "button",
+      size: compact ? "icon" : "default",
+      "aria-label": ui.t(label),
+      ...props,
+      children: [
+        name && /* @__PURE__ */ jsx9(Icon, { name }),
+        " ",
+        !compact && /* @__PURE__ */ jsx9("span", { children: children ?? ui.t(label) })
+      ]
+    }
+  );
+  return compact ? /* @__PURE__ */ jsxs3(Tooltip, { children: [
+    /* @__PURE__ */ jsx9(TooltipTrigger, { asChild: true, children: control }),
+    /* @__PURE__ */ jsx9(TooltipContent, { children: ui.t(label) })
+  ] }) : control;
+}
+function Fold({
+  ui,
+  label,
+  children,
+  required = false,
+  defaultOpen = false
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return /* @__PURE__ */ jsxs3(
+    Collapsible,
+    {
+      className: "disclosure",
+      open: required || open,
+      onOpenChange: setOpen,
+      children: [
+        /* @__PURE__ */ jsx9(CollapsibleTrigger, { asChild: true, children: /* @__PURE__ */ jsxs3(Button, { variant: "ghost", className: "disclosure-trigger", children: [
+          ui.t(label),
+          /* @__PURE__ */ jsx9(Icon, { name: "chevron" })
+        ] }) }),
+        /* @__PURE__ */ jsx9(
+          CollapsibleContent,
+          {
+            className: "disclosure-body",
+            forceMount: true,
+            hidden: !(required || open),
+            children
+          }
+        )
+      ]
+    }
+  );
+}
+function SelectField({
+  ui,
+  label,
+  options,
+  id,
+  hideLabel = false,
+  ...props
+}) {
+  const unique = useId();
+  const fieldId = id ?? unique;
+  return /* @__PURE__ */ jsxs3("div", { className: "field", children: [
+    /* @__PURE__ */ jsx9(Label, { htmlFor: fieldId, className: hideLabel ? "sr-only" : void 0, children: ui.t(label) }),
+    /* @__PURE__ */ jsx9(NativeSelect, { id: fieldId, ...props, children: options.map((option) => /* @__PURE__ */ jsx9(
+      NativeSelectOption,
+      {
+        value: option.value,
+        disabled: option.disabled,
+        children: option.label
+      },
+      option.value
+    )) })
+  ] });
+}
+
+// src/ui/language.tsx
+import { jsx as jsx10, jsxs as jsxs4 } from "react/jsx-runtime";
+var suggestions = [
+  "ja",
+  "en",
+  "ko",
+  "zh-CN",
+  "zh-TW",
+  "fr",
+  "es",
+  "de",
+  "pt-BR",
+  "ar",
+  "he",
+  "hi",
+  "id",
+  "th",
+  "vi"
+];
+function LanguageForm({
+  ui,
+  onApply
+}) {
+  const [selected, setSelected] = useState2(ui.locale), [custom, setCustom] = useState2(ui.locale), [error, setError] = useState2(false);
   const names = new Intl.DisplayNames([ui.language], { type: "language" });
-  const options = [.../* @__PURE__ */ new Set([...Object.keys(catalogs), ...suggestions, ui.locale])];
-  const submit = `<button class="button primary" type="submit">${icon("check")}${ui.t("applyLanguage")}</button>`;
-  return `<div class="stack"><form id="language-form" action="/" method="get" class="stack"><div class="field"><label for="language-tag">${ui.t("language")}</label><select id="language-tag" name="lang" aria-describedby="language-help">${options.map((tag) => `<option value="${escapeHtml(tag)}" ${tag === ui.locale ? "selected" : ""}>${escapeHtml(names.of(tag) ?? tag)}</option>`).join("")}</select></div>${submit}</form><details class="disclosure"><summary>${ui.t("languageTag")}</summary><form id="language-custom-form" action="/" method="get" class="stack disclosure-body"><div class="field"><label for="language-custom-tag">${ui.t("languageTag")}</label><input id="language-custom-tag" name="lang" value="${escapeHtml(ui.locale)}" maxlength="100" required autocapitalize="none" spellcheck="false" aria-describedby="language-help language-error"></div><p id="language-error" role="alert"></p>${submit}</form></details><p id="language-help" class="meta">${ui.t("languageCoverage")}</p></div>`;
+  const options = [
+    .../* @__PURE__ */ new Set([...Object.keys(catalogs), ...suggestions, ui.locale])
+  ].map((value) => ({ value, label: names.of(value) ?? value }));
+  function submit(event, value) {
+    if (!onApply) return;
+    event.preventDefault();
+    const locale = canonicalLocale(value);
+    if (!locale) {
+      setError(true);
+      requestAnimationFrame(() => document.getElementById("language-custom-tag")?.focus());
+      return;
+    }
+    onApply(locale);
+  }
+  const customForm = /* @__PURE__ */ jsxs4(
+    "form",
+    {
+      id: "language-custom-form",
+      action: "/",
+      method: "get",
+      className: "stack",
+      onSubmit: (event) => submit(event, custom),
+      children: [
+        /* @__PURE__ */ jsxs4("div", { className: "field", children: [
+          /* @__PURE__ */ jsx10(Label, { htmlFor: "language-custom-tag", children: ui.t("languageTag") }),
+          /* @__PURE__ */ jsx10(
+            Input,
+            {
+              id: "language-custom-tag",
+              name: "lang",
+              value: custom,
+              onChange: (event) => {
+                setError(false);
+                setCustom(event.target.value);
+              },
+              maxLength: 100,
+              required: true,
+              autoCapitalize: "none",
+              spellCheck: false,
+              "aria-invalid": error,
+              "aria-describedby": "language-help language-error"
+            }
+          )
+        ] }),
+        /* @__PURE__ */ jsx10("p", { id: "language-error", role: "alert", children: error ? ui.t("invalidLanguage") : "" }),
+        /* @__PURE__ */ jsx10(Action, { ui, label: "applyLanguage", symbol: "check", type: "submit" })
+      ]
+    }
+  );
+  return /* @__PURE__ */ jsxs4("div", { className: "stack", children: [
+    /* @__PURE__ */ jsxs4(
+      "form",
+      {
+        id: "language-form",
+        action: "/",
+        method: "get",
+        className: "stack",
+        onSubmit: (event) => submit(event, selected),
+        children: [
+          /* @__PURE__ */ jsx10(
+            SelectField,
+            {
+              ui,
+              id: "language-tag",
+              label: "language",
+              name: "lang",
+              value: selected,
+              options,
+              onChange: (event) => setSelected(event.target.value),
+              "aria-describedby": "language-help"
+            }
+          ),
+          /* @__PURE__ */ jsx10(Action, { ui, label: "applyLanguage", symbol: "check", type: "submit" })
+        ]
+      }
+    ),
+    onApply ? /* @__PURE__ */ jsx10(Fold, { ui, label: "languageTag", children: customForm }) : /* @__PURE__ */ jsxs4("details", { className: "disclosure", children: [
+      /* @__PURE__ */ jsx10("summary", { children: ui.t("languageTag") }),
+      customForm
+    ] }),
+    /* @__PURE__ */ jsx10("p", { id: "language-help", className: "meta", children: ui.t("languageCoverage") })
+  ] });
 }
 
 // src/design/tokens.ts
@@ -1307,15 +1811,50 @@ var componentTokens = {
   "notification-dot": primitives["space-2"],
   "narrow-gutter": primitives["space-4"],
   "tablet-gutter": primitives["space-6"],
+  "confirmation-overlay-z": "30",
+  "confirmation-z": "31",
+  "overlay-z": "20",
+  "dialog-z": "21",
+  "tooltip-z": "40",
   "viewport-block": "100dvh",
   "viewport-offset": "0px"
 };
 var tokens = { ...colorTokens, ...primitives, ...componentTokens };
 
-// src/server/page.ts
+// src/server/page.tsx
+import { jsx as jsx11, jsxs as jsxs5 } from "react/jsx-runtime";
 function loginPage(locale, ready, denied) {
   const ui = createUiContext(locale), { t } = ui;
-  return `<!doctype html><html lang="${ui.language}" dir="${ui.dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="robots" content="noindex"><meta name="theme-color" content="${palette.sub}"><title>${brand}</title><link rel="stylesheet" href="/assets/styles.css"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icons/icon-180.png"><script defer src="/assets/session.js"></script></head><body><main class="auth-page"><div class="stack"><h1>${brand}</h1><p role="status">${t(denied ? "authDenied" : ready ? "loginHint" : "authSetup")}</p>${ready ? `<a class="button primary" href="/api/auth/start">${t("googleSignIn")}</a>` : ""}<details class="disclosure"><summary>${t("language")}</summary>${languageForm(ui)}</details></div></main></body></html>`;
+  return "<!doctype html>" + renderToStaticMarkup(
+    /* @__PURE__ */ jsxs5("html", { lang: ui.language, dir: ui.dir, children: [
+      /* @__PURE__ */ jsxs5("head", { children: [
+        /* @__PURE__ */ jsx11("meta", { charSet: "utf-8" }),
+        /* @__PURE__ */ jsx11(
+          "meta",
+          {
+            name: "viewport",
+            content: "width=device-width,initial-scale=1,viewport-fit=cover"
+          }
+        ),
+        /* @__PURE__ */ jsx11("meta", { name: "robots", content: "noindex" }),
+        /* @__PURE__ */ jsx11("meta", { name: "theme-color", content: palette.sub }),
+        /* @__PURE__ */ jsx11("title", { children: brand }),
+        /* @__PURE__ */ jsx11("link", { rel: "stylesheet", href: "/assets/styles.css" }),
+        /* @__PURE__ */ jsx11("link", { rel: "manifest", href: "/manifest.webmanifest" }),
+        /* @__PURE__ */ jsx11("link", { rel: "apple-touch-icon", href: "/icons/icon-180.png" }),
+        /* @__PURE__ */ jsx11("script", { defer: true, src: "/assets/session.js" })
+      ] }),
+      /* @__PURE__ */ jsx11("body", { children: /* @__PURE__ */ jsx11("main", { className: "auth-page", children: /* @__PURE__ */ jsxs5("div", { className: "stack", children: [
+        /* @__PURE__ */ jsx11("h1", { children: brand }),
+        /* @__PURE__ */ jsx11("p", { role: "status", children: t(denied ? "authDenied" : ready ? "loginHint" : "authSetup") }),
+        ready && /* @__PURE__ */ jsx11(Button, { asChild: true, children: /* @__PURE__ */ jsx11("a", { href: "/api/auth/start", children: t("googleSignIn") }) }),
+        /* @__PURE__ */ jsxs5("details", { className: "disclosure", children: [
+          /* @__PURE__ */ jsx11("summary", { children: t("language") }),
+          /* @__PURE__ */ jsx11(LanguageForm, { ui })
+        ] })
+      ] }) }) })
+    ] })
+  );
 }
 
 // src/server/handler.ts

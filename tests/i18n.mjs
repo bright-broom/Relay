@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import {createElement} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
 import {build} from 'esbuild';
 import {mkdir,readFile,readdir} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 await mkdir('.vercel/check-i18n',{recursive:true});
-await build({stdin:{contents:`export * from './src/i18n/messages';export * from './src/i18n/context';export * from './src/ui/icons';export * from './src/server/page';`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',outfile:'.vercel/check-i18n/index.mjs'});
+await build({stdin:{contents:`export * from './src/i18n/messages';export * from './src/i18n/context';export * from './src/ui/icons';export * from './src/ui/controls';export * from './src/components/ui/tooltip';export * from './src/server/page';`,resolveDir:process.cwd()},bundle:true,packages:'external',platform:'node',format:'esm',outfile:'.vercel/check-i18n/index.mjs'});
 const api=await import(pathToFileURL(process.cwd()+'/.vercel/check-i18n/index.mjs'));
 for(const invalid of ['','en_US','<img>','ar" onload="x',null,12,'x'.repeat(101)])assert.equal(api.canonicalLocale(invalid),null);
 assert.equal(api.canonicalLocale('EN-us'),'en-US');
@@ -22,17 +24,18 @@ for(const view of [ja,en,ar,fr]){
 assert.equal(api.direction('he'),'rtl');assert.equal(api.direction('fa'),'rtl');
 assert.match(api.loginPage('ar',true,false),/<html lang="en" dir="rtl">/);
 assert.ok(!api.loginPage('<script>',false,false).includes('<script>'));
-assert.equal(api.escapeHtml('<img onerror="x">'),'&lt;img onerror=&quot;x&quot;&gt;');
+assert.ok(!renderToStaticMarkup(createElement('p',null,'<img onerror="x">')).includes('<img'));
 for(let i=0;i<100;i++){assert.equal(ja.t('today'),api.ja.today);assert.equal(ar.t('today'),api.en.today);}
+const action=(key)=>renderToStaticMarkup(createElement(api.TooltipProvider,null,createElement(api.Action,{ui:en,label:key})));
 for(const key of ['copy','refreshConnections','lineRemove','mcpRevoke','pricingEdit']){
- assert.equal(api.actionClass(key),'icon-button tip');assert.match(api.actionContent(en,key),/<svg/);assert.match(api.actionLabel(en,key),/aria-label=/);
+ assert.match(action(key),/data-size="icon"/);assert.match(action(key),/<svg/);assert.match(action(key),/aria-label=/);
 }
-for(const key of ['approve','saveComplete','scheduleBook','lineTest','pricingPresent'])assert.match(api.actionContent(en,key),/<span>/,'Consequential action must keep an explicit label');
-assert.match(api.icon('back'),/directional-icon/);
-assert.throws(()=>api.icon('missing'));
+for(const key of ['approve','saveComplete','scheduleBook','lineTest','pricingPresent'])assert.match(action(key),/<span>/,'Consequential action must keep an explicit label');
+assert.match(renderToStaticMarkup(createElement(api.Icon,{name:'back'})),/directional-icon/);
+assert.throws(()=>renderToStaticMarkup(createElement(api.Icon,{name:'missing'})));
 // Check every view for untranslated literals, rather than only the app shell.
-for(const file of (await readdir('src/prototype')).filter(name=>name.endsWith('.ts')&&name!=='data.ts')){
- const source=await readFile('src/prototype/'+file,'utf8');assert.ok(!/[\u3040-\u30ff\u3400-\u9fff]/u.test(source),'UI literal outside catalog: '+file);
+for(const file of (await readdir('src/app')).filter(name=>/\.tsx?$/.test(name))){
+ const source=await readFile('src/app/'+file,'utf8');assert.ok(!/[\u3040-\u30ff\u3400-\u9fff]/u.test(source),'UI literal outside catalog: '+file);
 }
 console.log('i18n: regional locales, plural forms, fallback, RTL, exact currency, localized digits, SSR escaping, isolated contexts and semantic icons passed.');
 assert.equal(api.isoDateInZone('Asia/Tokyo',new Date('2026-09-13T23:30:00Z')),'2026-09-14');

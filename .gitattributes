@@ -1,0 +1,3 @@
+
+# Bundled Radix scroll-lock CSS contains intentional whitespace in template strings.
+prototype/assets/app.js whitespace=-blank-at-eol

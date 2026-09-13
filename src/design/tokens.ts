@@ -56,6 +56,8 @@ export const componentTokens = {
   'sidebar-mobile': '4.25rem', 'sidebar-mobile-padding': primitives['space-2'],
   'rail-padding': primitives['space-4'], 'tooltip-max': '14rem', 'notification-dot': primitives['space-2'],
   'narrow-gutter': primitives['space-4'], 'tablet-gutter': primitives['space-6'],
+  'confirmation-overlay-z': '30', 'confirmation-z': '31',
+  'overlay-z': '20', 'dialog-z': '21', 'tooltip-z': '40',
   'viewport-block': '100dvh', 'viewport-offset': '0px',
 } as const;
 

@@ -1,0 +1,18 @@
+@layer theme, base, utilities, layout, components, responsive;
+@import "tailwindcss" source(none);
+@source "../components";
+@source "../app";
+@source "../ui";
+@theme inline {
+ --color-*: initial;
+ --color-background: var(--surface);
+ --color-foreground: var(--ink);
+ --color-primary: var(--accent);
+ --color-primary-foreground: var(--on-accent);
+ --color-secondary: var(--subtle);
+ --color-secondary-foreground: var(--ink);
+ --color-border: var(--line);
+ --color-ring: var(--accent);
+ --font-sans: var(--font);
+ --spacing: var(--space-1);
+}
