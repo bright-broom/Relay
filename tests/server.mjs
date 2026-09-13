@@ -7,7 +7,7 @@ import {createHmac,randomUUID,generateKeyPairSync,sign} from 'node:crypto';
 import * as oidc from 'openid-client';
 import {PGlite} from '@electric-sql/pglite';
 await mkdir('.vercel/check-auth',{recursive:true});
-await build({stdin:{contents:`export * from './src/server/config'; export * from './src/server/access'; export * from './src/server/auth'; export * from './src/server/admin'; export {handle} from './src/server/handler'; export * from './src/server/line'; export {default as endpoint,limitedBody} from './src/server/handler';`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',outfile:'.vercel/check-auth/server.mjs'});
+await build({stdin:{contents:`export * from './src/server/config'; export * from './src/server/access'; export * from './src/server/readiness'; export * from './src/server/auth'; export * from './src/server/admin'; export {handle} from './src/server/handler'; export * from './src/server/line'; export {default as endpoint,limitedBody} from './src/server/handler';`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',outfile:'.vercel/check-auth/server.mjs'});
 const api=await import(pathToFileURL(process.cwd()+'/.vercel/check-auth/server.mjs'));
 const pg=new PGlite();
 const wrap=client=>({query:async(text,values)=>(await client.query(text,values)).rows,transaction:work=>client.transaction(tx=>work(wrap(tx)))});
@@ -17,6 +17,7 @@ await pg.exec(await readFile('migrations/001_identity_line.sql','utf8'));
 process.env.ALLOWED_GOOGLE_EMAILS='owner@gmail.com, second@gmail.com';
 process.env.ADMIN_GOOGLE_EMAILS='owner@gmail.com';
 process.env.APP_ORIGIN='https://relay.test';
+process.env.GOOGLE_CLIENT_ID='synthetic-client';process.env.GOOGLE_CLIENT_SECRET='synthetic-secret';process.env.DATABASE_URL='postgres://unused:unused@localhost/unused';
 process.env.LINE_CHANNEL_SECRET='synthetic-line-secret';
 process.env.LINE_CHANNEL_ACCESS_TOKEN='synthetic-line-token';
 const owner={email:'owner@gmail.com',subject:'subject-one'},second={email:'second@gmail.com',subject:'subject-two'};
@@ -53,16 +54,17 @@ config[oidc.customFetch]=async(url,options)=>{
 };
 async function callback(overrides={},badState=false,badSignature=false,destination='/',beforeFinish=()=>{}){
  claimOverride=overrides;tamper=badSignature;
- const start=await api.startLogin(db,config,destination);
+ const start=await api.handle(new Request('https://relay.test/api/auth/start?route=start&lang=ar-EG&destination='+(destination==='/admin'?'admin':'untrusted')),db,config);
+ assert.ok(start.headers.getSetCookie().some(value=>value.startsWith('relay-locale=ar-EG;')),'OAuth preserves the normalized language without JavaScript');
  const authorization=new URL(start.headers.get('location'));
  assert.equal(authorization.searchParams.get('code_challenge_method'),'S256');
  assert.equal(authorization.searchParams.get('scope'),'openid email');
- const browserCookie=start.headers.get('set-cookie').split(';')[0];
+ const browserCookie=start.headers.getSetCookie().find(value=>value.startsWith(api.oauthCookie+'=')).split(';')[0];
  const attempt=(await db.query('SELECT verifier FROM relay_private.oauth_attempts WHERE token_hash=$1',[api.hash(browserCookie.split('=')[1])]))[0];expectedVerifier=attempt.verifier;
  currentNonce=authorization.searchParams.get('nonce');
- const req=new Request('https://relay.test/api/auth/callback?code=synthetic&state='+(badState?'wrong-state':authorization.searchParams.get('state')),{headers:{cookie:browserCookie}});
+ const req=new Request('https://relay.test/api/auth/callback?route=callback&code=synthetic&state='+(badState?'wrong-state':authorization.searchParams.get('state')),{headers:{cookie:browserCookie}});
  await beforeFinish();
- return {result:await api.finishLogin(req,db,config),req};
+ return {result:await api.handle(req,db,config),req};
 }
 const success=await callback();assert.equal(success.result.headers.get('location'),'/');
 const sessionHeader=success.result.headers.getSetCookie().find(value=>value.startsWith(api.sessionCookie+'='));
@@ -171,7 +173,9 @@ const adminHtml=await api.handle(adminRequest('admin-page',adminToken),db);
 assert.equal(adminHtml.status,200);assert.ok((await adminHtml.text()).includes('data-admin="true"'));
 const loginAdmin=await api.handle(adminRequest('admin-page'),db);
 assert.equal(loginAdmin.status,200);const adminLoginHtml=await loginAdmin.text();
-assert.ok(adminLoginHtml.includes('/api/auth/start?destination=admin'));
+assert.match(adminLoginHtml, /href="\/api\/auth\/start\?lang=ja&amp;destination=admin"/);
+assert.ok(!adminLoginHtml.includes('disabled'));
+assert.ok(adminLoginHtml.includes('aria-describedby="login-status"'));
 assert.ok(adminLoginHtml.includes('action="/admin"'),'Language forms retain the admin entry');
 assert.ok(!adminLoginHtml.includes('never@gmail.com'));
 assert.equal((await api.handle(adminRequest('admin-overview'),db)).status,401);
@@ -180,7 +184,9 @@ assert.equal((await api.handle(adminRequest('admin-overview',adminToken,'GET','h
 process.env.ADMIN_GOOGLE_EMAILS='';
 const unconfiguredAdminPage=await api.handle(adminRequest('admin-page'),db);
 const unconfiguredAdminHtml=await unconfiguredAdminPage.text();
-assert.ok(!unconfiguredAdminHtml.includes('/api/auth/start?destination=admin'));
+assert.equal(unconfiguredAdminPage.status,503);
+assert.ok(!unconfiguredAdminHtml.includes('/api/auth/start?'));
+assert.ok(unconfiguredAdminHtml.includes('href="/admin?lang=ja"'),'Setup state offers a real refresh, not a disabled login button');
 assert.ok(!unconfiguredAdminHtml.includes('assets/app.js'));
 assert.equal((await api.handle(adminRequest('admin-overview',adminToken),db)).status,403,'Existing sessions lose admin privileges immediately');
 process.env.ADMIN_GOOGLE_EMAILS=owner.email;
@@ -189,6 +195,40 @@ assert.equal((await api.handle(adminRequest('admin-overview',adminToken),db)).st
 process.env.ALLOWED_GOOGLE_EMAILS=owner.email+','+second.email;
 await db.query("UPDATE relay_private.sessions SET expires_at=now()-interval '1 second' WHERE token_hash=$1",[api.hash(adminToken)]);
 assert.equal((await api.handle(adminRequest('admin-overview',adminToken),db)).status,401);
+// HTML navigation recovers from provider/DB outages without exposing their error values.
+const unavailableDb={query:async()=>{throw new Error('postgres://private-secret@private-host/account');}};
+for(const [path,isAdmin] of [['admin?route=admin-page',true],['api/auth/start?route=start&destination=admin',true],['api/auth/callback?route=callback',false]]) {
+ const req=new Request('https://relay.test/'+path+'&lang=en',{headers:{cookie:api.cookie(path.startsWith('api/auth/callback')?api.oauthCookie:api.sessionCookie,memberToken,600)}});
+ const response=await api.handle(req,unavailableDb,config);
+ assert.equal(response.status,503);assert.match(response.headers.get('content-type'),/text\/html/);
+ const html=await response.text();assert.ok(html.includes('The sign-in service could not be reached'));
+ assert.ok(!html.includes('private-secret')&&!html.includes('assets/app.js'));
+ assert.ok(html.includes('/api/auth/start?lang=en'+(isAdmin?'&amp;destination=admin':'')));
+ if(path.startsWith('api/auth/callback'))assert.match(response.headers.get('set-cookie'),/Max-Age=0/);
+}
+const priorFetch=globalThis.fetch;
+try {
+ globalThis.fetch=async()=>{throw new Error('private-provider-error');};
+ const response=await api.handle(new Request('https://relay.test/api/auth/start?route=start&destination=admin&lang=ja'),db);
+ assert.equal(response.status,503);assert.ok(!(await response.text()).includes('private-provider-error'));
+} finally {globalThis.fetch=priorFetch;}
+const canonical=await api.handle(new Request('https://old.test/admin?route=admin-page&lang=ar-EG&next=https://evil.test'),db);
+assert.equal(canonical.headers.get('location'),'https://relay.test/admin?lang=ar-EG');
+// A verified Google identity does not become an account denial when session storage fails.
+const startBeforeFailure=await api.startLogin(db,config,'/admin');
+const startUrl=new URL(startBeforeFailure.headers.get('location'));
+const failedCookie=startBeforeFailure.headers.getSetCookie()[0].split(';')[0];
+const [failedAttempt]=await db.query('SELECT verifier FROM relay_private.oauth_attempts WHERE token_hash=$1',[api.hash(failedCookie.split('=')[1])]);
+expectedVerifier=failedAttempt.verifier;currentNonce=startUrl.searchParams.get('nonce');claimOverride={};tamper=false;
+const failWrites={query:(text,values)=>text.startsWith('INSERT INTO relay_private.sessions')?Promise.reject(new Error('secret-db-error')):db.query(text,values)};
+const failedSession=await api.handle(new Request('https://relay.test/api/auth/callback?route=callback&code=synthetic&state='+startUrl.searchParams.get('state'),{headers:{cookie:failedCookie}}),failWrites,config);
+assert.equal(failedSession.headers.get('location'),'/admin?auth=unavailable');
+assert.equal(failedSession.headers.getSetCookie().some(value=>value.startsWith(api.sessionCookie+'=')),false);
+const beforePreflight=await db.query('SELECT count(*)::int AS count FROM relay_private.sessions');
+assert.equal(await api.loginDatabaseReady(db),true);
+assert.deepEqual(await db.query('SELECT count(*)::int AS count FROM relay_private.sessions'),beforePreflight);
+assert.equal(await api.loginDatabaseReady({query:async text=>text.includes('AS ready')?[{ready:false}]:[]}),false);
+await assert.rejects(api.loginDatabaseReady(unavailableDb));
 delete process.env.ADMIN_GOOGLE_EMAILS;
 console.log('Admin: signed Google return path, anonymous/member denial, forged-role denial, dedicated allowlist, expiry/revocation, configuration redaction and page/API routing: OK.');
 // No external network is used to prove fail-closed hosting.
@@ -205,7 +245,7 @@ for(const route of ['logout','code','destination','notify','calendar-connect','c
 assert.equal((await api.endpoint.fetch(new Request('https://old-deployment.test/api/relay?route=session'))).status,403);
 assert.equal((await api.endpoint.fetch(new Request('https://old-deployment.test/api/relay?route=page'))).headers.get('location'),'https://relay.test/');
 delete process.env.GOOGLE_CLIENT_ID;
-const login=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route=page'));const html=await login.text();assert.equal(login.status,200);assert.ok(!html.includes('assets/app.js'));assert.ok(!html.includes(owner.email));assert.ok(!html.includes('href="/api/auth/start"'));
+const login=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route=page'));const html=await login.text();assert.equal(login.status,503);assert.ok(!html.includes('assets/app.js'));assert.ok(!html.includes(owner.email));assert.ok(!html.includes('href="/api/auth/start"'));
 await assert.rejects(api.limitedBody(new Request('https://relay.test',{method:'POST',body:'x'.repeat(65537)})),e=>e.status===413);
 await pg.close();
 console.log('Auth & LINE: real SQL migration, allowlist, verified claims, expiry/revocation, origin, signatures, pairing ownership/replay/expiry, group identity, notification idempotency/retry/quota and fail-closed routes: OK. No real messages sent.');
@@ -227,3 +267,7 @@ for (const [settings,expected] of [[validSettings,0],[{...validSettings,ADMIN_GO
  assert.ok(!(check.stdout+check.stderr).includes('synthetic-secret'));
  if(expected===1) assert.match(check.stderr,/ADMIN_GOOGLE_EMAILS: adminNotAllowed/);
 }
+
+const mismatch=spawnSync(process.execPath,['scripts/check-auth-config.mjs','--deployment'],{env:{...process.env,...validSettings},encoding:'utf8'});
+assert.equal(mismatch.status,1);assert.match(mismatch.stderr,/APP_ORIGIN: publicOriginMismatch/);
+assert.ok(!mismatch.stderr.includes(validSettings.APP_ORIGIN));

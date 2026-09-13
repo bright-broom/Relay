@@ -49,12 +49,13 @@ export async function finishLogin(request: Request, db: Database = database(), c
   const token = readCookie(request, oauthCookie);
   const headers = new Headers({'Set-Cookie': cookie(oauthCookie, '', 0)});
   let destination = '/';
-  const failure = () => { headers.set('Location', destination + '?auth=denied'); return new Response(null, {status: 303, headers}); };
+  const failure = (reason: 'denied' | 'unavailable' = 'denied') => { headers.set('Location', destination + '?auth=' + reason); return new Response(null, {status: 303, headers}); };
   if (!token) return failure();
   // Atomic consume prevents callback replay, including concurrent attempts.
   const [attempt] = await db.query<{state: string; nonce: string; verifier: string}>('DELETE FROM relay_private.oauth_attempts WHERE token_hash=$1 AND expires_at > now() RETURNING state,nonce,verifier', [hash(token)]);
   if (!attempt) return failure();
   destination = attempt.state.startsWith('admin.') ? '/admin' : '/';
+  let verified = false;
   try {
     const callback = new URL(`${origin()}/api/auth/callback`);
     const incoming = new URL(request.url);
@@ -64,6 +65,7 @@ export async function finishLogin(request: Request, db: Database = database(), c
     });
     const identity = verifiedIdentity(tokens.claims());
     if (!identity || (destination === '/admin' && !administratorAllowed(identity.email))) return failure();
+    verified = true;
     const newToken = randomToken();
     await db.query('DELETE FROM relay_private.sessions WHERE expires_at < now() OR token_hash=$1', [hash(readCookie(request, sessionCookie))]);
     await db.query('INSERT INTO relay_private.sessions(token_hash,subject,email,expires_at) VALUES($1,$2,$3,now()+interval \'8 hours\')', [hash(newToken),identity.subject,identity.email]);
@@ -71,7 +73,7 @@ export async function finishLogin(request: Request, db: Database = database(), c
     // The destination is bound to the stored, single-use OAuth state; never trust a callback URL parameter.
     headers.set('Location', destination);
     return new Response(null, {status: 303, headers});
-  } catch { return failure(); }
+  } catch { return failure(verified ? 'unavailable' : 'denied'); }
 }
 export async function logout(request: Request, db: Database = database()) {
   await db.query('DELETE FROM relay_private.sessions WHERE token_hash=$1', [hash(readCookie(request, sessionCookie))]);

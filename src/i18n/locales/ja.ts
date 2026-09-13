@@ -157,7 +157,8 @@ export const ja = {
 
   googleSignIn: "Googleでログイン",
   loginHint: "登録済みのGoogleアカウントでログインしてください。",
-  authSetup: "接続設定を準備しています。設定が完了するとログインできます。",
+  authUnavailable: "認証サービスに接続できませんでした。しばらく待ってから、もう一度Googleでログインしてください。",
+  authSetup: "ログインに必要な接続設定が完了していません。設定完了後に更新してください。",
   authDenied: "このアカウントでは利用できないか、ログインの有効期限が切れました。",
   signOut: "ログアウト",
   linePersonal: "個人のLINE",

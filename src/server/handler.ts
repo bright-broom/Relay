@@ -1,25 +1,30 @@
 import {isAdmin, adminOverview} from './admin';
 import {administratorIssues} from './access';
 import type {Database} from './database';
+import type {Configuration} from 'openid-client';
 import {normalizeLocale} from '../i18n/messages';
 import {ZodError} from 'zod';
 import {calendarStatus,startCalendar,finishCalendar,disconnectCalendar,proposeSchedule,bookSlot,integrationLimit} from './calendar';
 import {handleMcp,listMcpTokens,issueMcpToken,revokeMcpToken} from './mcp';
 import {readFile} from 'node:fs/promises';
 import {configured, lineConfigured, sameOrigin, origin} from './config';
-import {session, startLogin, finishLogin, logout} from './auth';
+import {session, startLogin, finishLogin, logout, cookie, oauthCookie} from './auth';
 import {loginPage} from './page';
 import {ApiError, destinations, issueCode, changeDestination, webhook, notify} from './line';
 
 const readRoutes = new Set(['admin-page','admin-overview','page','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
-export async function handle(request: Request, db?: Database): Promise<Response> {
+export async function handle(request: Request, db?: Database, authProvider?: Configuration): Promise<Response> {
   const url = new URL(request.url), route = url.searchParams.get('route') ?? '';
   const locale = normalizeLocale(url.searchParams.get('lang')??request.headers.get('cookie')?.split('; ').find(value=>value.startsWith('relay-locale='))?.slice(13)??request.headers.get('accept-language')?.split(',')[0]?.split(';')[0]);
   try {
     if (!['admin-page','admin-overview','page','app','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
     if (request.method !== (readRoutes.has(route) ? 'GET' : 'POST')) throw new ApiError(405, 'method');
     if (configured() && url.origin !== origin()) {
-      if (route === 'page' || route === 'admin-page') return new Response(null, {status: 303, headers: {Location: origin() + (route === 'admin-page' ? '/admin' : '/')}});
+      if (route === 'page' || route === 'admin-page') {
+        const target = new URL(route === 'admin-page' ? '/admin' : '/', origin());
+        if (url.searchParams.has('lang')) target.searchParams.set('lang', locale);
+        return new Response(null, {status: 303, headers: {Location: target.href}});
+      }
       throw new ApiError(403, 'origin');
     }
     if (route === 'page' || route === 'admin-page') {
@@ -30,11 +35,16 @@ export async function handle(request: Request, db?: Database): Promise<Response>
         const html = (await readFile('prototype/index.html', 'utf8')).replace('<div id="app">', `<div id="app" data-admin="${isAdmin(identity.email)}">`);
         return new Response(html, {headers: {'Content-Type': 'text/html; charset=utf-8'}});
       }
-      return new Response(loginPage(locale, ready, Boolean(identity) || url.searchParams.get('auth') === 'denied', adminEntry), {status: identity ? 403 : 200, headers: {'Content-Type': 'text/html; charset=utf-8'}});
+      return new Response(loginPage(locale, !ready ? 'setup' : Boolean(identity) || url.searchParams.get('auth') === 'denied' ? 'denied' : url.searchParams.get('auth') === 'unavailable' ? 'unavailable' : 'ready', adminEntry), {status: identity ? 403 : !ready ? 503 : 200, headers: {'Content-Type': 'text/html; charset=utf-8'}});
     }
     if (!configured()) throw new ApiError(503, 'configuration');
-    if (route === 'start') return await startLogin(db, undefined, url.searchParams.get('destination') === 'admin' ? '/admin' : '/');
-    if (route === 'callback') return await finishLogin(request);
+    if (route === 'start') {
+      const response = await startLogin(db, authProvider, url.searchParams.get('destination') === 'admin' ? '/admin' : '/');
+      // Keep the selected language through the external redirect, including without JavaScript.
+      response.headers.append('Set-Cookie', `relay-locale=${locale}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`);
+      return response;
+    }
+    if (route === 'callback') return await finishLogin(request, db, authProvider);
     if (route === 'webhook') {
       if (!lineConfigured()) throw new ApiError(503, 'configuration');
       await webhook(await limitedBody(request), request.headers.get('x-line-signature'));
@@ -72,6 +82,14 @@ export async function handle(request: Request, db?: Database): Promise<Response>
     if (route === 'notify') return Response.json(await notify(identity, input));
     throw new ApiError(404, 'missing');
   } catch (error) {
+    // Navigation failures remain usable HTML. API consumers keep their JSON contract.
+    if (request.method === 'GET' && ['page','admin-page','start','callback'].includes(route) && !(error instanceof ApiError && error.status < 500)) {
+      const admin = route === 'admin-page' || (route === 'start' && url.searchParams.get('destination') === 'admin');
+      const ready = configured() && (!admin || administratorIssues().length === 0);
+      const headers = new Headers({'Content-Type':'text/html; charset=utf-8', 'Retry-After':'30'});
+      if (route === 'callback') headers.set('Set-Cookie', cookie(oauthCookie, '', 0));
+      return new Response(loginPage(locale, ready ? 'unavailable' : 'setup', admin), {status:503, headers});
+    }
     return Response.json({error: error instanceof ApiError ? error.code : error instanceof ZodError || error instanceof RangeError ? 'invalid' : 'unavailable'}, {status: error instanceof ApiError ? error.status : error instanceof ZodError || error instanceof RangeError ? 400 : 503});
   }
 }

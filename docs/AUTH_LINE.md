@@ -32,7 +32,7 @@ LINEログインは使わず、LINE公式アカウントのMessaging APIを使�
 
 | 設定 | 内容 |
 |---|---|
-| APP_ORIGIN | `https://relay-brightbroom.vercel.app`（末尾パスなし） |
+| APP_ORIGIN | `https://relay-chi-ecru.vercel.app`（末尾パスなし） |
 | ALLOWED_GOOGLE_EMAILS | 許可するメールアドレス。初期の1件は別途Vercelに設定済み |
 | GOOGLE_CLIENT_ID | Google OAuthのWebアプリのクライアントID |
 | GOOGLE_CLIENT_SECRET | 同クライアントのシークレット |
@@ -44,7 +44,7 @@ LINEログインは使わず、LINE公式アカウントのMessaging APIを使�
 
 プロジェクトでOAuth同意画面を構成し、OAuthクライアント「ウェブアプリケーション」を作成。承認済みリダイレクトURIに次を完全一致で登録する。
 
-`https://relay-brightbroom.vercel.app/api/auth/callback`
+`https://relay-chi-ecru.vercel.app/api/auth/callback`
 
 要求スコープは `openid email` のみ。テスト公開の場合は、利用するアカウントをGoogle側のテストユーザーにも追加する。アプリ側ホワイトリストとは別の設定。
 
@@ -62,7 +62,7 @@ Supabaseでは `relay_private` を公開APIのExposed schemasに追加しない�
 
 公式アカウントのMessaging APIを有効化し、LINE Developersの対応チャネルから接続情報を取得する。Webhook URLは次。
 
-`https://relay-brightbroom.vercel.app/api/line/webhook`
+`https://relay-chi-ecru.vercel.app/api/line/webhook`
 
 Webhook利用・再送を有効化して「検証」。グループ利用には「グループ・複数人トークへの参加を許可」を有効化する。必要に応じて標準の応答メッセージ・あいさつを管理画面で調整する。LINE側プランの送信枠は別途適用される。
 
