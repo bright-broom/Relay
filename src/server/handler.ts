@@ -1,40 +1,63 @@
 import {isAdmin, adminOverview} from './admin';
 import {administratorIssues} from './access';
 import type {Database} from './database';
+import type {Configuration} from 'openid-client';
 import {normalizeLocale} from '../i18n/messages';
 import {ZodError} from 'zod';
 import {calendarStatus,startCalendar,finishCalendar,disconnectCalendar,proposeSchedule,bookSlot,integrationLimit} from './calendar';
 import {handleMcp,listMcpTokens,issueMcpToken,revokeMcpToken} from './mcp';
 import {readFile} from 'node:fs/promises';
 import {configured, lineConfigured, sameOrigin, origin} from './config';
-import {session, startLogin, finishLogin, logout} from './auth';
-import {loginPage} from './page';
+import {session, startLogin, finishLogin, logout, cookie, oauthCookie} from './auth';
+import {loginPage, type LoginStatus} from './page';
 import {ApiError, destinations, issueCode, changeDestination, webhook, notify} from './line';
 
-const readRoutes = new Set(['admin-page','admin-overview','page','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
-export async function handle(request: Request, db?: Database): Promise<Response> {
+const readRoutes = new Set(['login-page','admin-page','admin-overview','page','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
+export async function handle(request: Request, db?: Database, authProvider?: Configuration): Promise<Response> {
   const url = new URL(request.url), route = url.searchParams.get('route') ?? '';
   const locale = normalizeLocale(url.searchParams.get('lang')??request.headers.get('cookie')?.split('; ').find(value=>value.startsWith('relay-locale='))?.slice(13)??request.headers.get('accept-language')?.split(',')[0]?.split(';')[0]);
   try {
-    if (!['admin-page','admin-overview','page','app','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
+    if (!['login-page','admin-page','admin-overview','page','app','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
     if (request.method !== (readRoutes.has(route) ? 'GET' : 'POST')) throw new ApiError(405, 'method');
     if (configured() && url.origin !== origin()) {
-      if (route === 'page' || route === 'admin-page') return new Response(null, {status: 303, headers: {Location: origin() + (route === 'admin-page' ? '/admin' : '/')}});
+      if (route === 'page' || route === 'admin-page' || route === 'login-page') {
+        const target = new URL(route === 'admin-page' ? '/admin' : route === 'login-page' ? '/login' : '/', origin());
+        if (url.searchParams.has('lang')) target.searchParams.set('lang', locale);
+        return new Response(null, {status: 303, headers: {Location: target.href}});
+      }
       throw new ApiError(403, 'origin');
     }
-    if (route === 'page' || route === 'admin-page') {
+    // The bundle contains public UI and fictional fixtures only, never private records.
+    if (route === 'app') return new Response(await readFile('prototype/assets/app.js', 'utf8'), {headers: {'Content-Type': 'text/javascript; charset=utf-8'}});
+    if (route === 'page' && !['denied','unavailable'].includes(url.searchParams.get('auth') ?? '')) {
+      // Authentication failure cannot prevent access to the public workspace.
+      let identity = null;
+      try { if (configured()) identity = await session(request, db); } catch { /* Fall back to isolated public fixtures. */ }
+      const html = (await readFile('prototype/index.html', 'utf8')).replace('<div id="app">', `<div id="app" data-public-preview="${!identity}" data-admin="${identity ? isAdmin(identity.email) : false}">`);
+      return new Response(html, {headers: {'Content-Type': 'text/html; charset=utf-8'}});
+    }
+    if (route === 'page' || route === 'admin-page' || route === 'login-page') {
       const adminEntry = route === 'admin-page';
       const ready = configured() && (!adminEntry || administratorIssues().length === 0);
       const identity = ready ? await session(request, db) : null;
-      if (identity && (!adminEntry || isAdmin(identity.email))) {
+      const authOutcome = url.searchParams.get('auth');
+      const failedLogin = authOutcome === 'denied' || authOutcome === 'unavailable';
+      if (identity && (!adminEntry || isAdmin(identity.email)) && !failedLogin) {
         const html = (await readFile('prototype/index.html', 'utf8')).replace('<div id="app">', `<div id="app" data-admin="${isAdmin(identity.email)}">`);
         return new Response(html, {headers: {'Content-Type': 'text/html; charset=utf-8'}});
       }
-      return new Response(loginPage(locale, ready, Boolean(identity) || url.searchParams.get('auth') === 'denied', adminEntry), {status: identity ? 403 : 200, headers: {'Content-Type': 'text/html; charset=utf-8'}});
+      const loginStatus: LoginStatus = !ready ? 'setup' : authOutcome === 'unavailable' ? 'unavailable' : identity || authOutcome === 'denied' ? 'denied' : 'ready';
+      const status = loginStatus === 'setup' || loginStatus === 'unavailable' ? 503 : loginStatus === 'denied' ? 403 : 200;
+      return new Response(loginPage(locale, loginStatus, adminEntry), {status, headers: {'Content-Type': 'text/html; charset=utf-8'}});
     }
     if (!configured()) throw new ApiError(503, 'configuration');
-    if (route === 'start') return await startLogin(db, undefined, url.searchParams.get('destination') === 'admin' ? '/admin' : '/');
-    if (route === 'callback') return await finishLogin(request);
+    if (route === 'start') {
+      const response = await startLogin(db, authProvider, url.searchParams.get('destination') === 'admin' ? '/admin' : '/');
+      // Keep the selected language through the external redirect, including without JavaScript.
+      response.headers.append('Set-Cookie', `relay-locale=${locale}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`);
+      return response;
+    }
+    if (route === 'callback') return await finishLogin(request, db, authProvider);
     if (route === 'webhook') {
       if (!lineConfigured()) throw new ApiError(503, 'configuration');
       await webhook(await limitedBody(request), request.headers.get('x-line-signature'));
@@ -44,7 +67,6 @@ export async function handle(request: Request, db?: Database): Promise<Response>
     const identity = await session(request, db);
     if (!identity) throw new ApiError(401, 'unauthorized');
     if (request.method === 'POST' && !sameOrigin(request)) throw new ApiError(403, 'origin');
-    if (route === 'app') return new Response(await readFile('prototype/assets/app.js', 'utf8'), {headers: {'Content-Type': 'text/javascript; charset=utf-8'}});
     if (route === 'admin-overview') return Response.json(await adminOverview(request, db));
     if (route === 'session') return Response.json({isAdmin: isAdmin(identity.email), email: identity.email, subject: identity.subject, lineReady: lineConfigured()});
     if (route === 'logout') return await logout(request);
@@ -72,6 +94,14 @@ export async function handle(request: Request, db?: Database): Promise<Response>
     if (route === 'notify') return Response.json(await notify(identity, input));
     throw new ApiError(404, 'missing');
   } catch (error) {
+    // Navigation failures remain usable HTML. API consumers keep their JSON contract.
+    if (request.method === 'GET' && ['page','login-page','admin-page','start','callback'].includes(route) && !(error instanceof ApiError && error.status < 500)) {
+      const admin = route === 'admin-page' || (route === 'start' && url.searchParams.get('destination') === 'admin');
+      const ready = configured() && (!admin || administratorIssues().length === 0);
+      const headers = new Headers({'Content-Type':'text/html; charset=utf-8', 'Retry-After':'30'});
+      if (route === 'callback') headers.set('Set-Cookie', cookie(oauthCookie, '', 0));
+      return new Response(loginPage(locale, ready ? 'unavailable' : 'setup', admin), {status:503, headers});
+    }
     return Response.json({error: error instanceof ApiError ? error.code : error instanceof ZodError || error instanceof RangeError ? 'invalid' : 'unavailable'}, {status: error instanceof ApiError ? error.status : error instanceof ZodError || error instanceof RangeError ? 400 : 503});
   }
 }

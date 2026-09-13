@@ -158,7 +158,10 @@ export const en: Record<keyof typeof ja,string> = {
 
   googleSignIn: "Sign in with Google",
   loginHint: "Sign in with an approved Google account.",
-  authSetup: "Connection setup is in progress. Sign-in will be available once it is complete.",
+  publicPreviewHint: "Public demo · Fictional data · Changes stay in this tab",
+  publicSignInHint: "Sign in from My Page to use your account, notifications and calendar integrations.",
+  authUnavailable: "The sign-in service could not be reached. Wait a moment, then try signing in with Google again.",
+  authSetup: "Sign-in setup is incomplete. Refresh this page after setup is complete.",
   authDenied: "This account is not allowed, or the sign-in attempt has expired.",
   signOut: "Sign out",
   linePersonal: "Personal LINE",

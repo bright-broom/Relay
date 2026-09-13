@@ -22,8 +22,8 @@ for(const view of [ja,en,ar,fr]){
  for(const key of Object.keys(api.ja)){const values=Object.fromEntries([...api.ja[key].matchAll(/\{(\w+)\}/g)].map(m=>[m[1],m[1]==='count'?2:'x']));assert.ok(!view.t(key,values).includes('{'),'No unresolved parameter: '+key);}
 }
 assert.equal(api.direction('he'),'rtl');assert.equal(api.direction('fa'),'rtl');
-assert.match(api.loginPage('ar',true,false),/<html lang="en" dir="rtl">/);
-assert.ok(!api.loginPage('<script>',false,false).includes('<script>'));
+assert.match(api.loginPage('ar','ready'),/<html lang="en" dir="rtl">/);
+assert.ok(!api.loginPage('<script>','setup').includes('<script>'));
 assert.ok(!renderToStaticMarkup(createElement('p',null,'<img onerror="x">')).includes('<img'));
 for(let i=0;i<100;i++){assert.equal(ja.t('today'),api.ja.today);assert.equal(ar.t('today'),api.en.today);}
 const action=(key)=>renderToStaticMarkup(createElement(api.TooltipProvider,null,createElement(api.Action,{ui:en,label:key})));

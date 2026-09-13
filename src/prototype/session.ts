@@ -1,11 +1,14 @@
 import {sessionInvalidated} from './session-events';
 import {storageKey} from './storage';
+import {publicPreview} from './access-mode';
 import {createUiContext,browserLocale,persistLocale} from '../i18n/context';
 const initialLocale=browserLocale();
 persistLocale(initialLocale);
 const {t}=createUiContext(initialLocale);
 const root = document.getElementById('app');
 const localPreview = location.protocol === 'file:';
+const guest = publicPreview();
+if (guest && root) root.dataset.admin = 'false';
 let checking = false;
 let started = false;
 let disconnected = false;
@@ -29,7 +32,7 @@ async function verify() {
   if (!root || checking || stopped) return;
   checking = true;
   try {
-    if (!localPreview) {
+    if (!localPreview && !guest) {
       const response = await fetch('/api/session', {cache: 'no-store', credentials: 'same-origin'});
       if (!response.ok) { restart(); return; }
       const identity: unknown = await response.json();
@@ -74,5 +77,5 @@ if (root) {
     else void verify();
   });
   window.addEventListener('pageshow', event => { if (event.persisted) location.reload(); });
-  if (!localPreview) window.setInterval(() => { if (!document.hidden) void verify(); }, 60000);
+  if (!localPreview && !guest) window.setInterval(() => { if (!document.hidden) void verify(); }, 60000);
 }

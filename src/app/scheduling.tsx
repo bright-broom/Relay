@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { publicPreview } from '../prototype/access-mode';
 import type { UiContext } from "../i18n/context";
 import type { MessageKey } from "../i18n/messages";
 import { relativeDate } from "../ui/input-values";
@@ -45,7 +46,7 @@ export function Scheduling({
     [key, setKey] = useState<{ token: string; endpoint: string } | null>(null),
     [proposals, setProposals] = useState<Proposal[]>([]);
   const { busy, notice, setNotice, run } = useRemote("scheduleFailure");
-  const online = location.protocol !== "file:";
+  const online = location.protocol !== "file:" && !publicPreview();
   const [titles] = useState(() =>
     [
       ...new Set([
@@ -185,7 +186,7 @@ export function Scheduling({
       onChange={(event) => change({ [key]: Number(event.target.value) })}
     />
   );
-  if (!online) return <Notice>{t("authOnline")}</Notice>;
+  if (!online) return <Notice>{t(publicPreview() ? "publicSignInHint" : "authOnline")}</Notice>;
   return (
     <div className="stack" aria-busy={busy}>
       {!status && busy && <Notice>{t("loading")}</Notice>}

@@ -39,7 +39,7 @@
 
 この実装は **RelayをMCPサーバーとして公開** する。外部のAIツールがRelayのカレンダー機能を呼べる。Relayが任意の第三者MCPサーバーへ接続する汎用クライアント機能ではない。
 
-接続先：`https://relay-brightbroom.vercel.app/api/mcp`
+接続先：`https://relay-chi-ecru.vercel.app/api/mcp`
 
 公式TypeScript SDK `@modelcontextprotocol/server` 2.0.0を使用。Streamable HTTP、リクエストごとに本人専用サーバーを生成する。2026-07-28と2025系の互換経路をSDKで処理する。長時間接続やサブスクリプションは使わない。
 
@@ -66,7 +66,7 @@ Authorization: Bearer <Relayで発行した接続キー>
 
 1. [Google認証・DBの初期設定](AUTH_LINE.md) を完了する。
 2. 同じGoogle CloudプロジェクトでGoogle Calendar APIを有効化し、OAuthのデータアクセスに上記2スコープを追加する。テスト公開では利用アカウントをテストユーザーに追加する。
-3. OAuthクライアントの承認済みリダイレクトURIに `https://relay-brightbroom.vercel.app/api/calendar/callback` を追加する。ログイン用URIも残す。
+3. OAuthクライアントの承認済みリダイレクトURIに `https://relay-chi-ecru.vercel.app/api/calendar/callback` を追加する。ログイン用URIも残す。
 4. DB管理用の安全な接続環境で `npm run db:migrate` を実行。001に加えて002を適用する。設定を自動で読み込むコマンドではないので、MIGRATION_DATABASE_URLを実行環境に設定してから実行する。
 5. TOKEN_ENCRYPTION_KEYは初期値をVercelへ設定済み。既存データを再暗号化せずに変更しない。GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET / DATABASE_URLは引き続き必要。設定後は再デプロイする。
 6. 実アカウントで接続し、候補を確認する。実予定の登録・外部MCPクライアント設定は利用者が内容を確認して行う。

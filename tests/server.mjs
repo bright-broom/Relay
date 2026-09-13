@@ -7,7 +7,7 @@ import {createHmac,randomUUID,generateKeyPairSync,sign} from 'node:crypto';
 import * as oidc from 'openid-client';
 import {PGlite} from '@electric-sql/pglite';
 await mkdir('.vercel/check-auth',{recursive:true});
-await build({stdin:{contents:`export * from './src/server/config'; export * from './src/server/access'; export * from './src/server/auth'; export * from './src/server/admin'; export {handle} from './src/server/handler'; export * from './src/server/line'; export {default as endpoint,limitedBody} from './src/server/handler';`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',outfile:'.vercel/check-auth/server.mjs'});
+await build({stdin:{contents:`export * from './src/server/config'; export * from './src/server/access'; export * from './src/server/readiness'; export * from './src/server/auth'; export * from './src/server/admin'; export {handle} from './src/server/handler'; export * from './src/server/line'; export {default as endpoint,limitedBody} from './src/server/handler';`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',outfile:'.vercel/check-auth/server.mjs'});
 const api=await import(pathToFileURL(process.cwd()+'/.vercel/check-auth/server.mjs'));
 const pg=new PGlite();
 const wrap=client=>({query:async(text,values)=>(await client.query(text,values)).rows,transaction:work=>client.transaction(tx=>work(wrap(tx)))});
@@ -17,6 +17,7 @@ await pg.exec(await readFile('migrations/001_identity_line.sql','utf8'));
 process.env.ALLOWED_GOOGLE_EMAILS='owner@gmail.com, second@gmail.com';
 process.env.ADMIN_GOOGLE_EMAILS='owner@gmail.com';
 process.env.APP_ORIGIN='https://relay.test';
+process.env.GOOGLE_CLIENT_ID='synthetic-client';process.env.GOOGLE_CLIENT_SECRET='synthetic-secret';process.env.DATABASE_URL='postgres://unused:unused@localhost/unused';
 process.env.LINE_CHANNEL_SECRET='synthetic-line-secret';
 process.env.LINE_CHANNEL_ACCESS_TOKEN='synthetic-line-token';
 const owner={email:'owner@gmail.com',subject:'subject-one'},second={email:'second@gmail.com',subject:'subject-two'};
@@ -51,18 +52,19 @@ config[oidc.customFetch]=async(url,options)=>{
  const signature=sign('RSA-SHA256',Buffer.from(payload),privateKey).toString('base64url');
  return Response.json({access_token:'synthetic-access',token_type:'Bearer',id_token:payload+'.'+(tamper?'AAAA'+signature.slice(4):signature)});
 };
-async function callback(overrides={},badState=false,badSignature=false,destination='/',beforeFinish=()=>{}){
+async function callback(overrides={},badState=false,badSignature=false,destination='/',beforeFinish=()=>{},previousSession=''){
  claimOverride=overrides;tamper=badSignature;
- const start=await api.startLogin(db,config,destination);
+ const start=await api.handle(new Request('https://relay.test/api/auth/start?route=start&lang=ar-EG&destination='+(destination==='/admin'?'admin':'untrusted')),db,config);
+ assert.ok(start.headers.getSetCookie().some(value=>value.startsWith('relay-locale=ar-EG;')),'OAuth preserves the normalized language without JavaScript');
  const authorization=new URL(start.headers.get('location'));
  assert.equal(authorization.searchParams.get('code_challenge_method'),'S256');
  assert.equal(authorization.searchParams.get('scope'),'openid email');
- const browserCookie=start.headers.get('set-cookie').split(';')[0];
+ const browserCookie=start.headers.getSetCookie().find(value=>value.startsWith(api.oauthCookie+'=')).split(';')[0];
  const attempt=(await db.query('SELECT verifier FROM relay_private.oauth_attempts WHERE token_hash=$1',[api.hash(browserCookie.split('=')[1])]))[0];expectedVerifier=attempt.verifier;
  currentNonce=authorization.searchParams.get('nonce');
- const req=new Request('https://relay.test/api/auth/callback?code=synthetic&state='+(badState?'wrong-state':authorization.searchParams.get('state')),{headers:{cookie:browserCookie}});
+ const req=new Request('https://relay.test/api/auth/callback?route=callback&code=synthetic&state='+(badState?'wrong-state':authorization.searchParams.get('state')),{headers:{cookie:browserCookie+(previousSession?'; '+api.sessionCookie+'='+previousSession:'')}});
  await beforeFinish();
- return {result:await api.finishLogin(req,db,config),req};
+ return {result:await api.handle(req,db,config),req};
 }
 const success=await callback();assert.equal(success.result.headers.get('location'),'/');
 const sessionHeader=success.result.headers.getSetCookie().find(value=>value.startsWith(api.sessionCookie+'='));
@@ -171,7 +173,9 @@ const adminHtml=await api.handle(adminRequest('admin-page',adminToken),db);
 assert.equal(adminHtml.status,200);assert.ok((await adminHtml.text()).includes('data-admin="true"'));
 const loginAdmin=await api.handle(adminRequest('admin-page'),db);
 assert.equal(loginAdmin.status,200);const adminLoginHtml=await loginAdmin.text();
-assert.ok(adminLoginHtml.includes('/api/auth/start?destination=admin'));
+assert.match(adminLoginHtml, /href="\/api\/auth\/start\?lang=ja&amp;destination=admin"/);
+assert.ok(!adminLoginHtml.includes('disabled'));
+assert.ok(adminLoginHtml.includes('aria-describedby="login-status"'));
 assert.ok(adminLoginHtml.includes('action="/admin"'),'Language forms retain the admin entry');
 assert.ok(!adminLoginHtml.includes('never@gmail.com'));
 assert.equal((await api.handle(adminRequest('admin-overview'),db)).status,401);
@@ -180,7 +184,9 @@ assert.equal((await api.handle(adminRequest('admin-overview',adminToken,'GET','h
 process.env.ADMIN_GOOGLE_EMAILS='';
 const unconfiguredAdminPage=await api.handle(adminRequest('admin-page'),db);
 const unconfiguredAdminHtml=await unconfiguredAdminPage.text();
-assert.ok(!unconfiguredAdminHtml.includes('/api/auth/start?destination=admin'));
+assert.equal(unconfiguredAdminPage.status,503);
+assert.ok(!unconfiguredAdminHtml.includes('/api/auth/start?'));
+assert.ok(unconfiguredAdminHtml.includes('href="/admin?lang=ja"'),'Setup state offers a real refresh, not a disabled login button');
 assert.ok(!unconfiguredAdminHtml.includes('assets/app.js'));
 assert.equal((await api.handle(adminRequest('admin-overview',adminToken),db)).status,403,'Existing sessions lose admin privileges immediately');
 process.env.ADMIN_GOOGLE_EMAILS=owner.email;
@@ -189,23 +195,99 @@ assert.equal((await api.handle(adminRequest('admin-overview',adminToken),db)).st
 process.env.ALLOWED_GOOGLE_EMAILS=owner.email+','+second.email;
 await db.query("UPDATE relay_private.sessions SET expires_at=now()-interval '1 second' WHERE token_hash=$1",[api.hash(adminToken)]);
 assert.equal((await api.handle(adminRequest('admin-overview',adminToken),db)).status,401);
+// HTML navigation recovers from provider/DB outages without exposing their error values.
+const unavailableDb={query:async()=>{throw new Error('postgres://private-secret@private-host/account');}};
+const publicDuringOutage=await api.handle(adminRequest('page',memberToken),unavailableDb);
+assert.equal(publicDuringOutage.status,200);
+const publicOutageHtml=await publicDuringOutage.text();
+assert.match(publicOutageHtml,/data-public-preview="true" data-admin="false"/);
+assert.doesNotMatch(publicOutageHtml,/private-secret|owner@gmail\.com/);
+const signedInWorkspace=await api.handle(adminRequest('page',memberToken),db);
+assert.match(await signedInWorkspace.text(),/data-public-preview="false"/);
+for(const [path,isAdmin] of [['admin?route=admin-page',true],['api/auth/start?route=start&destination=admin',true],['api/auth/callback?route=callback',false]]) {
+ const req=new Request('https://relay.test/'+path+'&lang=en',{headers:{cookie:api.cookie(path.startsWith('api/auth/callback')?api.oauthCookie:api.sessionCookie,memberToken,600)}});
+ const response=await api.handle(req,unavailableDb,config);
+ assert.equal(response.status,503);assert.match(response.headers.get('content-type'),/text\/html/);
+ const html=await response.text();assert.ok(html.includes('The sign-in service could not be reached'));
+ assert.ok(!html.includes('private-secret')&&!html.includes('assets/app.js'));
+ assert.ok(html.includes('/api/auth/start?lang=en'+(isAdmin?'&amp;destination=admin':'')));
+ if(path.startsWith('api/auth/callback'))assert.match(response.headers.get('set-cookie'),/Max-Age=0/);
+}
+const priorFetch=globalThis.fetch;
+try {
+ globalThis.fetch=async()=>{throw new Error('private-provider-error');};
+ const response=await api.handle(new Request('https://relay.test/api/auth/start?route=start&destination=admin&lang=ja'),db);
+ assert.equal(response.status,503);assert.ok(!(await response.text()).includes('private-provider-error'));
+} finally {globalThis.fetch=priorFetch;}
+const canonical=await api.handle(new Request('https://old.test/admin?route=admin-page&lang=ar-EG&next=https://evil.test'),db);
+assert.equal(canonical.headers.get('location'),'https://relay.test/admin?lang=ar-EG');
+// A verified Google identity does not become an account denial when session storage fails.
+const startBeforeFailure=await api.startLogin(db,config,'/admin');
+const startUrl=new URL(startBeforeFailure.headers.get('location'));
+const failedCookie=startBeforeFailure.headers.getSetCookie()[0].split(';')[0];
+const [failedAttempt]=await db.query('SELECT verifier FROM relay_private.oauth_attempts WHERE token_hash=$1',[api.hash(failedCookie.split('=')[1])]);
+expectedVerifier=failedAttempt.verifier;currentNonce=startUrl.searchParams.get('nonce');claimOverride={};tamper=false;
+// Fail the actual INSERT inside SQL transactions as well as the old non-transactional path.
+const oldSessionRequest=new Request('https://relay.test',{headers:{cookie:api.cookie(api.sessionCookie,memberToken,28800)}});
+assert.deepEqual(await api.session(oldSessionRequest,db),second);
+const sessionsBeforeFailure=await db.query('SELECT token_hash,subject,email,expires_at FROM relay_private.sessions ORDER BY token_hash');
+let rejectedInserts=0;
+const withFailedInsert=client=>({...client,query:(text,values)=>{
+ if(text.startsWith('INSERT INTO relay_private.sessions')){rejectedInserts++;throw new Error('secret-db-error');}
+ return client.query(text,values);
+}});
+const failWrites={...withFailedInsert(db),transaction:work=>db.transaction(tx=>work(withFailedInsert(tx)))};
+const failedSession=await api.handle(new Request('https://relay.test/api/auth/callback?route=callback&code=synthetic&state='+startUrl.searchParams.get('state'),{headers:{cookie:failedCookie+'; '+api.sessionCookie+'='+memberToken}}),failWrites,config);
+assert.equal(rejectedInserts,1,'The test must reach the failed session write');
+assert.equal(failedSession.headers.get('location'),'/admin?auth=unavailable');
+assert.equal(failedSession.headers.getSetCookie().some(value=>value.startsWith(api.sessionCookie+'=')),false);
+assert.deepEqual(await api.session(oldSessionRequest,db),second,'Failed reauthentication preserves the previous session');
+assert.deepEqual(await db.query('SELECT token_hash,subject,email,expires_at FROM relay_private.sessions ORDER BY token_hash'),sessionsBeforeFailure,'Partial session changes must roll back');
+assert.equal((await db.query('SELECT token_hash FROM relay_private.oauth_attempts WHERE token_hash=$1',[api.hash(failedCookie.split('=')[1])])).length,0,'Failed persistence must not make the consumed Google callback reusable');
+const retryPage=await api.handle(new Request('https://relay.test/admin?route=admin-page&auth=unavailable&lang=en',{headers:oldSessionRequest.headers}),db);
+assert.equal(retryPage.status,503);
+assert.ok((await retryPage.text()).includes('The sign-in service could not be reached'),'Previous member session must not hide an operational error behind permission denial');
+const replacement=await callback({},false,false,'/admin',()=>{},memberToken);
+assert.equal(replacement.result.headers.get('location'),'/admin');
+assert.equal(await api.session(oldSessionRequest,db),null,'Successful reauthentication revokes the previous session');
+const replacementCookie=replacement.result.headers.getSetCookie().find(value=>value.startsWith(api.sessionCookie+'='));
+assert.ok(replacementCookie);
+assert.deepEqual(await api.session(new Request('https://relay.test',{headers:{cookie:replacementCookie}}),db),owner);
+for(const [outcome,status] of [['denied',403],['unavailable',503]]) {
+ const feedback=await api.handle(new Request('https://relay.test/admin?route=admin-page&auth='+outcome,{headers:{cookie:replacementCookie}}),db);
+ assert.equal(feedback.status,status);
+ assert.ok(!(await feedback.text()).includes('assets/app.js'),'An existing admin session must not conceal a failed new sign-in');
+}
+const beforePreflight=await db.query('SELECT count(*)::int AS count FROM relay_private.sessions');
+assert.equal(await api.loginDatabaseReady(db),true);
+assert.deepEqual(await db.query('SELECT count(*)::int AS count FROM relay_private.sessions'),beforePreflight);
+assert.equal(await api.loginDatabaseReady({query:async text=>text.includes('AS ready')?[{ready:false}]:[]}),false);
+await assert.rejects(api.loginDatabaseReady(unavailableDb));
 delete process.env.ADMIN_GOOGLE_EMAILS;
 console.log('Admin: signed Google return path, anonymous/member denial, forged-role denial, dedicated allowlist, expiry/revocation, configuration redaction and page/API routing: OK.');
 // No external network is used to prove fail-closed hosting.
 delete process.env.GOOGLE_CLIENT_ID;delete process.env.GOOGLE_CLIENT_SECRET;delete process.env.DATABASE_URL;
-for(const route of ['admin-overview','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']){
+for(const route of ['admin-overview','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']){
  const response=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route));assert.equal(response.status,503);assert.equal(response.headers.get('cache-control'),'private, no-store');
 }
 for(const route of ['notify','destination','logout','code','webhook','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-token','mcp-revoke']){
  const response=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route,{method:'POST'}));assert.equal(response.status,503);
 }
 process.env.GOOGLE_CLIENT_ID='synthetic-client';process.env.GOOGLE_CLIENT_SECRET='synthetic-secret';process.env.DATABASE_URL='postgres://unused:unused@localhost/unused';
-for(const route of ['admin-overview','app','session','destinations','calendar-status','calendar-callback','mcp-tokens'])assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route))).status,401);
+for(const route of ['admin-overview','session','destinations','calendar-status','calendar-callback','mcp-tokens'])assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route))).status,401);
 for(const route of ['logout','code','destination','notify','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-token','mcp-revoke'])assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route,{method:'POST'}))).status,401);
 assert.equal((await api.endpoint.fetch(new Request('https://old-deployment.test/api/relay?route=session'))).status,403);
 assert.equal((await api.endpoint.fetch(new Request('https://old-deployment.test/api/relay?route=page'))).headers.get('location'),'https://relay.test/');
 delete process.env.GOOGLE_CLIENT_ID;
-const login=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route=page'));const html=await login.text();assert.equal(login.status,200);assert.ok(!html.includes('assets/app.js'));assert.ok(!html.includes(owner.email));assert.ok(!html.includes('href="/api/auth/start"'));
+const publicEntry=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route=page'));
+assert.equal(publicEntry.status,200);assert.match(await publicEntry.text(),/data-public-preview="true" data-admin="false"/);
+assert.equal(publicEntry.headers.get('Cache-Control'),'private, no-store');
+const publicBundle=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route=app'));
+assert.equal(publicBundle.status,200);assert.match(publicBundle.headers.get('Content-Type'),/javascript/);
+assert.doesNotMatch(await publicBundle.text(),/synthetic-secret|synthetic-line-token|owner@gmail\.com/);
+for(const route of ['page','app']) assert.equal((await api.handle(new Request('https://relay.test/api/relay?route='+route,{method:'POST'}),db)).status,405);
+for(const route of ['admin-overview','session','destinations','calendar-status','mcp-tokens']) assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route+'&publicPreview=true'))).status,503);
+const login=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route=login-page'));const html=await login.text();assert.equal(login.status,503);assert.ok(!html.includes('assets/app.js'));assert.ok(!html.includes(owner.email));assert.ok(!html.includes('href="/api/auth/start"'));assert.match(html,/action="\/login"/);
 await assert.rejects(api.limitedBody(new Request('https://relay.test',{method:'POST',body:'x'.repeat(65537)})),e=>e.status===413);
 await pg.close();
 console.log('Auth & LINE: real SQL migration, allowlist, verified claims, expiry/revocation, origin, signatures, pairing ownership/replay/expiry, group identity, notification idempotency/retry/quota and fail-closed routes: OK. No real messages sent.');
@@ -227,3 +309,15 @@ for (const [settings,expected] of [[validSettings,0],[{...validSettings,ADMIN_GO
  assert.ok(!(check.stdout+check.stderr).includes('synthetic-secret'));
  if(expected===1) assert.match(check.stderr,/ADMIN_GOOGLE_EMAILS: adminNotAllowed/);
 }
+
+const mismatch=spawnSync(process.execPath,['scripts/check-auth-config.mjs','--deployment'],{env:{...process.env,...validSettings,DATABASE_URL:'invalid-fixture-url'},encoding:'utf8'});
+assert.equal(mismatch.status,1);assert.match(mismatch.stderr,/APP_ORIGIN: publicOriginMismatch/);
+assert.ok(!mismatch.stderr.includes(validSettings.APP_ORIGIN));
+assert.match(mismatch.stderr,/DATABASE_URL: invalid/);
+assert.doesNotMatch(mismatch.stderr,/connectionSchemaOrPermissions/);
+// A separate OAuth configuration error must not hide a database connection failure.
+const independent=spawnSync(process.execPath,['scripts/check-auth-config.mjs','--deployment'],{env:{...process.env,...validSettings,GOOGLE_CLIENT_SECRET:'',DATABASE_URL:'postgres://fixture:private-fixture-password@127.0.0.1:1/relay'},encoding:'utf8',timeout:15000});
+assert.equal(independent.status,1);
+assert.match(independent.stderr,/GOOGLE_CLIENT_SECRET: missing/);
+assert.match(independent.stderr,/DATABASE_URL: connectionSchemaOrPermissions/);
+assert.doesNotMatch(independent.stdout+independent.stderr,/private-fixture-password|127\.0\.0\.1|synthetic-client|owner@gmail\.com/);

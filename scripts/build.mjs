@@ -3,6 +3,8 @@ import postcss from 'postcss';
 import tailwind from '@tailwindcss/postcss';
 import {buildPwa} from './pwa.mjs';
 import {readFile, writeFile, mkdir, copyFile, cp, rm} from 'node:fs/promises';
+// The public demo can deploy before OAuth is configured. Private routes fail closed.
+// Run check:auth-config -- --deployment separately before enabling real sign-in.
 // Build the same token source for browsers and future framework adapters.
 const tokenModule = await build({entryPoints:['src/design/tokens.ts'],bundle:true,write:false,format:'esm',platform:'node'});
 const {tokens,breakpoints,palette}=await import('data:text/javascript;base64,'+Buffer.from(tokenModule.outputFiles[0].text).toString('base64'));

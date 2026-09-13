@@ -27,7 +27,7 @@ export function LanguageForm({
   action = "/",
 }: {
   ui: UiContext;
-  action?: "/" | "/admin";
+  action?: "/" | "/admin" | "/login";
   onApply?: (locale: string) => void;
 }) {
   const [selected, setSelected] = useState(ui.locale),
