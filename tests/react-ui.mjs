@@ -57,7 +57,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 await mkdir(".vercel/check-react", { recursive: true });
 await build({
   stdin: {
-    contents: `export * from './src/app/app';export * from './src/app/root';export * from './src/app/admin';export * from './src/app/store';export * from './src/app/scheduling';export * from './src/app/my-page';export * from './src/i18n/context';export * from './src/components/ui/tooltip';`,
+    contents: `export * from './src/app/app';export * from './src/app/root';export * from './src/app/admin';export * from './src/app/store';export * from './src/app/scheduling';export * from './src/app/pricing-results';export * from './src/pricing/comparison';export * from './src/app/my-page';export * from './src/i18n/context';export * from './src/components/ui/tooltip';`,
     resolveDir: process.cwd(),
   },
   bundle: true,
@@ -170,10 +170,16 @@ assert.equal(
 assert.equal(field("pricingConfirm").getAttribute("data-state"), "unchecked");
 input("pricingCurrent", "20000");
 await user.click(field("pricingConfirm"));
+await user.click(within(dialog).getByRole('button',{name:t('pricingAssumptions')}));
+document.querySelector('.dialog-body').scrollTop = 600;
 await user.click(
   within(dialog).getByRole("button", { name: t("pricingPresent") }),
 );
 assert.ok(document.querySelector(".app.pricing-presenting"));
+assert.equal(document.activeElement.id,'price-monthly-title','Presenting starts at the monthly comparison');
+assert.equal(document.querySelector('.dialog-body').scrollTop,0);
+assert.equal(within(dialog).getByRole('button',{name:t('pricingAssumptions')}).getAttribute('aria-expanded'),'false','Presentation initially hides detailed formulas');
+assert.ok(within(dialog).getByRole('heading',{name:t('pricingConditionsHeading')}));
 await user.click(
   within(dialog).getByRole("button", { name: t("pricingEdit") }),
 );
@@ -404,3 +410,46 @@ dom.window.close();
 console.log(
   "React: mocked scheduling/LINE input retention and admin loading, permission loss, login and failure states passed. No external API calls.",
 );
+
+// Presentation semantics: a monthly saving must not conceal a higher total or remaining debt.
+for (const locale of ['ja','en','ar-EG']) {
+  const display=api.createUiContext(locale);
+  const source={kind:'quote',date:'2026-09-13',reference:'Fixture-42'};
+  for (const scenario of [
+    {currentMonthly:'20000',proposedMonthly:'8000',upfront:'100000',installmentMonthly:'5000',installmentMonths:60,horizonMonths:12,monthly:'decrease',total:'increase'},
+    {currentMonthly:'20000',proposedMonthly:'8000',upfront:'100000',installmentMonthly:'5000',installmentMonths:60,horizonMonths:120,monthly:'decrease',total:'decrease'},
+    {currentMonthly:'1000',proposedMonthly:'2000',upfront:'0',installmentMonthly:'0',installmentMonths:0,horizonMonths:12,monthly:'increase',total:'increase'},
+    {currentMonthly:'0',proposedMonthly:'0',upfront:'0',installmentMonthly:'0',installmentMonths:0,horizonMonths:12,monthly:'equal',total:'equal'},
+    {currentMonthly:'9999999999',proposedMonthly:'9999999999',upfront:'9999999999',installmentMonthly:'9999999999',installmentMonths:420,horizonMonths:420,monthly:'increase',total:'increase'},
+  ]) {
+    const {monthly,total,...input}=scenario;
+    const result=api.compareCosts({currency:'JPY',...input});
+    const {container}=render(createElement(api.TooltipProvider,null,createElement(api.PricingResults,{ui:display,result,source})));
+    assert.equal(container.querySelector('.price-option[data-phase=before] .price-amount').textContent,display.money(input.currentMonthly));
+    assert.equal(container.querySelector('.price-option[data-phase=after] .price-amount').textContent,display.money(result.monthlyDuring));
+    const later=container.querySelector('.price-later .price-secondary');
+    assert.equal(Boolean(later),input.installmentMonths>0);
+    if(later) assert.equal(later.textContent,display.money(result.monthlyAfter));
+    assert.equal(container.querySelector('.price-change').dataset.direction,monthly);
+    assert.equal(container.querySelector('.price-total-difference').dataset.direction,total);
+    const rows=container.querySelectorAll('.price-bar-row');
+    assert.equal(rows[0].querySelector('dd').textContent,display.money(result.currentTotal));
+    assert.equal(rows[1].querySelector('dd').textContent,display.money(result.proposedTotal));
+    const widths=[...container.querySelectorAll('.price-bar-fill')].map(el=>parseFloat(el.style.getPropertyValue('--comparison-share')));
+    assert.ok(widths.every(value=>Number.isFinite(value)&&value>=0&&value<=100));
+    assert.equal(Math.max(...widths),result.currentTotal==='0'&&result.proposedTotal==='0'?0:100);
+    assert.equal(widths[0]>widths[1],total==='decrease','Bars use the same zero baseline and scale');
+    const remaining=screen.queryByRole('complementary',{name:display.t('pricingRemaining')});
+    assert.equal(Boolean(remaining),BigInt(result.remainingInstallments)>0n);
+    if(remaining) assert.equal(remaining.querySelector('bdi').textContent,display.money(result.remainingInstallments));
+    assert.equal(container.querySelector('.price-source').hidden,false);
+    assert.ok(screen.getByText(display.t('pricingEstimate')));
+    assert.ok(screen.getByText(display.t('pricingScope')));
+    const disclosure=screen.getByRole('button',{name:display.t('pricingAssumptions')});
+    assert.equal(disclosure.getAttribute('aria-expanded'),'false');
+    await user.click(disclosure);
+    assert.ok(screen.getByText(display.t('pricingFormulaAfter')));
+    cleanup();
+  }
+}
+console.log('Pricing presentation: exact amounts, independent monthly/total directions, zero and maximum amounts, residual debt, shared bar scale and localized disclosures passed (simulated DOM).');

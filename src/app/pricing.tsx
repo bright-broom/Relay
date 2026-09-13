@@ -1,9 +1,8 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { compareCosts, comparisonSchema } from "../pricing/comparison";
 import { fixedCostProfile } from "../pricing/profiles";
 import { InstallmentDraft, monthInput } from "../pricing/form";
 import {
-  costEvidenceText,
   validCostEvidence,
   evidenceKinds,
   evidenceLabels,
@@ -11,12 +10,12 @@ import {
 } from "../ui/input-values";
 import type { UiContext } from "../i18n/context";
 import type { MessageKey } from "../i18n/messages";
-import { Action, ChoiceField, SelectField, Fold, Notice } from "../ui/controls";
+import { Action, ChoiceField, SelectField, Fold } from "../ui/controls";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { PricingResults } from "./pricing-results";
 type Amounts = {
   currentMonthly: string;
   proposedMonthly: string;
@@ -34,7 +33,7 @@ export function Pricing({
   presenting: boolean;
   onPresent: (value: boolean) => void;
 }) {
-  const { t, money } = ui;
+  const { t } = ui;
   const [amounts, setAmounts] = useState<Amounts>({
     currentMonthly: "",
     proposedMonthly: "",
@@ -50,6 +49,13 @@ export function Pricing({
     }),
     [confirmed, setConfirmed] = useState(false);
   const installments = useRef(new InstallmentDraft());
+  useEffect(() => {
+    if (!presenting) return;
+    const heading = document.getElementById("price-monthly-title");
+    heading?.focus({ preventScroll: true });
+    const body = heading?.closest<HTMLElement>(".dialog-body");
+    if (body) body.scrollTop = 0;
+  }, [presenting]);
   const parsed = comparisonSchema.safeParse({
     currency: fixedCostProfile.currency,
     ...Object.fromEntries(
@@ -113,16 +119,9 @@ export function Pricing({
           ? t("pricingNoPayment")
           : t("pricingMonths", { count: value }),
     }));
-  const row = (label: MessageKey, value: string) => (
-    <div className="fact">
-      <dt>{t(label)}</dt>
-      <dd>{money(value)}</dd>
-    </div>
-  );
   return (
     <section className="stack" id="pricing">
       {customer && <p dir="auto">{customer}</p>}
-      <Notice>{t("pricingEstimate")}</Notice>
       <form
         id="price-form"
         hidden={presenting}
@@ -246,92 +245,7 @@ export function Pricing({
       </form>
       <div id="price-results" aria-live="polite">
         {result ? (
-          <>
-            <p className="meta">
-              {t("pricingHorizon")} ·{" "}
-              {t("pricingMonths", { count: result.input.horizonMonths })}
-            </p>
-            <div className="split block-gap">
-              <Card className="panel">
-                <h3>{t("pricingBefore")}</h3>
-                <dl>
-                  {row("pricingMonthlyPlain", result.input.currentMonthly)}
-                  {row("pricingTotal", result.currentTotal)}
-                </dl>
-              </Card>
-              <Card className="panel">
-                <h3>{t("pricingAfter")}</h3>
-                <dl>
-                  {row(
-                    result.input.installmentMonths
-                      ? "pricingMonthly"
-                      : "pricingMonthlyPlain",
-                    result.monthlyDuring,
-                  )}
-                  {result.input.installmentMonths > 0 &&
-                    row("pricingAfterTerm", result.monthlyAfter)}
-                  {row("pricingTotal", result.proposedTotal)}
-                </dl>
-              </Card>
-            </div>
-            <div className="metric">
-              <p className="metric-label">
-                {t(
-                  BigInt(result.totalDifference) > 0n
-                    ? "pricingReduction"
-                    : BigInt(result.totalDifference) < 0n
-                      ? "pricingIncrease"
-                      : "pricingSame",
-                )}
-              </p>
-              <p className="metric-value">
-                {money(
-                  (BigInt(result.totalDifference) < 0n
-                    ? -BigInt(result.totalDifference)
-                    : BigInt(result.totalDifference)
-                  ).toString(),
-                )}
-              </p>
-            </div>
-            {BigInt(result.remainingInstallments) > 0n && (
-              <Notice>
-                <dl>{row("pricingRemaining", result.remainingInstallments)}</dl>
-                <p>{t("pricingRemainingHint")}</p>
-              </Notice>
-            )}
-            <p>{t("pricingScope")}</p>
-            <Fold ui={ui} label="pricingAssumptions" required={presenting}>
-              <dl>
-                {row("pricingUpfront", result.input.upfront)}
-                {row("pricingRunning", result.input.proposedMonthly)}
-                {row("pricingPayment", result.input.installmentMonthly)}
-                <div className="fact">
-                  <dt>{t("pricingTerm")}</dt>
-                  <dd>
-                    {t("pricingMonths", {
-                      count: result.input.installmentMonths,
-                    })}
-                  </dd>
-                </div>
-              </dl>
-              <h3 className="block-gap">{t("pricingBreakdown")}</h3>
-              <dl>
-                {row("pricingRunningTotal", result.runningTotal)}
-                {row("pricingPaymentTotal", result.installmentTotal)}
-              </dl>
-              <p>{t("pricingFormulaBefore")}</p>
-              <p>{t("pricingFormulaAfter")}</p>
-              <p>{t("pricingPrecision")}</p>
-              {sourceValid && (
-                <p>
-                  {t("pricingSource")}: {costEvidenceText(ui, source)}
-                </p>
-              )}
-              <p className="meta">
-                {t("pricingVersion", { version: result.version })}
-              </p>
-            </Fold>
-          </>
+          <PricingResults key={presenting ? "presentation" : "editing"} ui={ui} result={result} source={source} />
         ) : (
           <p className="empty">{t("pricingEmpty")}</p>
         )}
