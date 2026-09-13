@@ -57,7 +57,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 await mkdir(".vercel/check-react", { recursive: true });
 await build({
   stdin: {
-    contents: `export * from './src/app/app';export * from './src/app/admin';export * from './src/app/store';export * from './src/app/scheduling';export * from './src/app/account';export * from './src/i18n/context';export * from './src/components/ui/tooltip';`,
+    contents: `export * from './src/app/app';export * from './src/app/root';export * from './src/app/admin';export * from './src/app/store';export * from './src/app/scheduling';export * from './src/app/account';export * from './src/i18n/context';export * from './src/components/ui/tooltip';`,
     resolveDir: process.cwd(),
   },
   bundle: true,
@@ -352,6 +352,33 @@ await user.click(screen.getByRole('button',{name:t('refreshConnections')}));
 await screen.findByText(t('adminFailure'));
 assert.equal(screen.queryByText('member@example.test'),null);
 cleanup();
+
+// Exercise the real root lifecycle: invalidation removes already rendered data,
+// and aborts a pending request so a late response cannot restore it.
+let host=document.createElement('div');host.dataset.admin='true';document.body.append(host);
+const adminWorkspace=api.createWorkspace(null,'en',true,'#admin');
+let pendingResolve, pendingSignal, dispose;
+globalThis.fetch=async()=>({ok:true,status:200,json:async()=>({viewer:'admin@example.test',accounts:[{email:'private@example.test',role:'member',sessions:1}],configuration:{google:true,database:true,line:false,calendar:false}})});
+await act(async()=>{dispose=api.mountWorkspace(host,adminWorkspace);});
+await screen.findByText('private@example.test');
+await act(async()=>{host.dataset.sessionBlocked='true';window.dispatchEvent(new window.Event('relay-session-invalidated'));});
+assert.equal(screen.queryByText('private@example.test'),null,'Already displayed admin data must be discarded');
+assert.equal(host.childElementCount,0);
+host.remove();
+host=document.createElement('div');host.dataset.admin='true';document.body.append(host);
+await act(async()=>{dispose=api.mountWorkspace(host,adminWorkspace);});
+await screen.findByText('private@example.test');
+globalThis.fetch=async(url,options)=>{pendingSignal=options.signal;return new Promise(resolve=>{pendingResolve=resolve;});};
+await user.click(screen.getByRole('button',{name:t('refreshConnections')}));
+assert.ok(pendingSignal);
+await act(async()=>{host.dataset.sessionBlocked='true';window.dispatchEvent(new window.Event('relay-session-invalidated'));});
+assert.equal(pendingSignal.aborted,true);
+assert.equal(host.childElementCount,0);
+await act(async()=>{pendingResolve({ok:true,status:200,json:async()=>({viewer:'late-private@example.test',accounts:[],configuration:{}})});});
+assert.equal(host.childElementCount,0,'A stale response must not restore private data');
+await act(async()=>{api.mountWorkspace(host,adminWorkspace);dispose();});
+assert.equal(host.childElementCount,0,'A late bundle must not mount after session invalidation');
+host.remove();
 dom.window.close();
 console.log(
   "React: mocked scheduling/LINE input retention and admin loading, permission loss, login and failure states passed. No external API calls.",
