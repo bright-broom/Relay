@@ -109,3 +109,19 @@ assert.ok(skipped&&claimed&&navigated);assert.ok(keys.has('unrelated-cache'));as
 console.log('Device persistence, invalid storage, PWA metadata, PNG sizes and legacy cache retirement: OK.');
 
 for(const file of ['public/index.html','public/assets/app.js'])await assert.rejects(readFile(file));
+
+const {navigationItems,visibleNavigation,activeNavigation,resolveRoute}=await load('src/prototype/navigation.ts');
+assert.equal(new Set(navigationItems.map(item=>item.id)).size,navigationItems.length,'Navigation ids must be unique');
+for(const item of navigationItems){
+ assert.ok(ja[item.label]&&en[item.label],'Every destination needs localized names');
+ if(item.kind==='page')assert.equal(resolveRoute('#'+item.id,[1,4]).page,item.id);
+ else assert.equal(resolveRoute('#'+item.id,[1,4]).page,'today','Dialogs must not become undocumented page routes');
+}
+assert.deepEqual(resolveRoute('#case/4',[1,4]),{page:'detail',caseId:4});
+assert.equal(activeNavigation('detail'),'cases');
+for(const hash of ['#case/2','#case/0','#case/01','#case/4/extra','#case/1e0','#case/9007199254740992'])assert.deepEqual(resolveRoute(hash,[1,4]),{page:'cases'},'Invalid case URLs must not silently open another customer');
+for(const hash of ['','#system','#unknown'])assert.deepEqual(resolveRoute(hash,[1,4]),{page:'today'});
+assert.equal(resolveRoute('#main',[1,4]),null,'Skip link must not remount the page');
+assert.equal(visibleNavigation(true).some(item=>item.id==='install-info'),false);
+assert.equal(visibleNavigation(false).some(item=>item.id==='install-info'),true);
+console.log('Navigation: valid and invalid routes, case identity, current section, skip-link and installed-app visibility: OK.');

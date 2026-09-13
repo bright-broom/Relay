@@ -1,5 +1,6 @@
 export const brand = "Relay";
 export const localeNames = {ja:"日本語",en:"English"} as const;
+export const localeCodes = {ja:"JA",en:"EN"} as const;
 export const ja = {
   pricing: "料金シミュレーション",
   pricingCurrent: "導入前の月額（税込・円）",
@@ -173,7 +174,6 @@ export const ja = {
   language: "表示言語",
   menu: "メニュー",
   skip: "本文へ移動",
-  add: "情報を取り込む",
   dueToday: "本日まで",
   overdue: "期限超過",
   unassigned: "未設定",
@@ -428,7 +428,6 @@ export const en: Record<MessageKey,string> = {
   language: "Display language",
   menu: "Menu",
   skip: "Skip to content",
-  add: "Import information",
   dueToday: "Due by today",
   overdue: "Past due",
   unassigned: "Owner or date needed",

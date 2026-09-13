@@ -53,10 +53,10 @@ export const componentTokens = {
   'type-caption': primitives['text-xs'],
   'gap-related': primitives['space-3'], 'gap-group': primitives['space-5'],
   'gap-section': primitives['space-7'], 'panel-padding': primitives['space-5'],
+  'sidebar-mobile': '4.25rem', 'sidebar-mobile-padding': primitives['space-2'],
   'rail-padding': primitives['space-4'], 'tooltip-max': '14rem', 'notification-dot': primitives['space-2'],
   'narrow-gutter': primitives['space-4'], 'tablet-gutter': primitives['space-6'],
   'viewport-block': '100dvh', 'viewport-offset': '0px',
-  'mobile-header-height': '4.25rem',
 } as const;
 
 export const tokens = { ...colorTokens, ...primitives, ...componentTokens } as const;

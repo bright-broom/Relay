@@ -354,7 +354,6 @@ var ja = {
   language: "\u8868\u793A\u8A00\u8A9E",
   menu: "\u30E1\u30CB\u30E5\u30FC",
   skip: "\u672C\u6587\u3078\u79FB\u52D5",
-  add: "\u60C5\u5831\u3092\u53D6\u308A\u8FBC\u3080",
   dueToday: "\u672C\u65E5\u307E\u3067",
   overdue: "\u671F\u9650\u8D85\u904E",
   unassigned: "\u672A\u8A2D\u5B9A",
@@ -604,7 +603,6 @@ var en = {
   language: "Display language",
   menu: "Menu",
   skip: "Skip to content",
-  add: "Import information",
   dueToday: "Due by today",
   overdue: "Past due",
   unassigned: "Owner or date needed",
@@ -1179,14 +1177,15 @@ var componentTokens = {
   "gap-group": primitives["space-5"],
   "gap-section": primitives["space-7"],
   "panel-padding": primitives["space-5"],
+  "sidebar-mobile": "4.25rem",
+  "sidebar-mobile-padding": primitives["space-2"],
   "rail-padding": primitives["space-4"],
   "tooltip-max": "14rem",
   "notification-dot": primitives["space-2"],
   "narrow-gutter": primitives["space-4"],
   "tablet-gutter": primitives["space-6"],
   "viewport-block": "100dvh",
-  "viewport-offset": "0px",
-  "mobile-header-height": "4.25rem"
+  "viewport-offset": "0px"
 };
 var tokens = { ...colorTokens, ...primitives, ...componentTokens };
 
