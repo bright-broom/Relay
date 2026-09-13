@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { UiContext } from '../i18n/context';
 import type { AdminOverview } from '../admin/types';
 import { hosted } from '../pwa/client';
+import { adminSignInHref } from '../prototype/public-links';
 import { Action, Notice } from '../ui/controls';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -48,12 +49,14 @@ export function Admin({ui}: {ui:UiContext}) {
       {result.status==='denied' && <Notice>{t('adminDenied')}</Notice>}
       <p>{t('adminLoginHint')}</p>
       <div className="row">
-        {hosted()
-          ? <Button asChild><a href="/api/auth/start?destination=admin">{t('googleSignIn')}</a></Button>
-          : <Button disabled aria-describedby="admin-online-required">{t('googleSignIn')}</Button>}
+        <Button asChild>
+          <a href={adminSignInHref(hosted(), ui.locale)} rel="noreferrer" aria-describedby={!hosted() ? 'admin-online-required' : undefined}>
+            {t('googleSignIn')}
+          </a>
+        </Button>
         <Button variant="ghost" asChild><a href="#today"><Icon name="home" />{t('today')}</a></Button>
       </div>
-      {!hosted() && <p id="admin-online-required" className="meta">{t('authOnline')}</p>}
+      {!hosted() && <p id="admin-online-required" className="meta">{t('adminContinueOnline')}</p>}
     </section>}
     {result.status==='ready' && <div className="stack">
       <p className="meta">{result.data.viewer}</p>

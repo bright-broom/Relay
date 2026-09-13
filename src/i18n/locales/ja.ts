@@ -9,6 +9,7 @@ export const ja = {
   admin: "管理者",
   adminLocked: "管理者専用・認証が必要",
   adminGateTitle: "管理者認証",
+  adminContinueOnline: "公開版の管理者ログインページへ移動します。",
   adminLoginHint: "管理者として許可されたGoogleアカウントでログインしてください。",
   adminDenied: "このアカウントには管理者権限がありません。",
   adminAccounts: "利用許可アカウント",
