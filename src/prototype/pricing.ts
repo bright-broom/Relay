@@ -1,4 +1,8 @@
 import {compareCosts,comparisonSchema,type ComparisonResult} from '../pricing/comparison';
+import {monthInput,InstallmentDraft} from '../pricing/form';
+import {choiceField,bindChoice,readChoice} from '../ui/choice';
+import {costEvidenceText,validCostEvidence,evidenceKinds,evidenceLabels} from '../ui/input-values';
+import {escapeHtml} from '../ui/icons';
 import {fixedCostProfile} from '../pricing/profiles';
 import type {MessageKey} from '../i18n/messages';
 import type {UiContext} from '../i18n/context';
@@ -8,9 +12,9 @@ const escape=(value:string)=>value.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 export function showPricing(ui:UiContext,customer:string,show:(title:MessageKey,body:string)=>void){
  const {t}=ui;
  const {money}=ui;
- const field=(id:string,label:MessageKey,value='')=>`<div class="field"><label for="price-${id}">${t(label)}</label><input id="price-${id}" name="${id}" type="text" inputmode="numeric" maxlength="10" required value="${value}" aria-describedby="price-validation"></div>`;
- const select=(id:string,label:MessageKey,values:readonly number[],selected:number)=>`<div class="field"><label for="price-${id}">${t(label)}</label><select id="price-${id}" name="${id}">${values.map(v=>`<option value="${v}" ${v===selected?'selected':''}>${v===0?t('pricingNoPayment'):t('pricingMonths',{count:v})}</option>`).join('')}</select></div>`;
- show('pricing',`<section id="pricing" class="stack">${customer?`<p>${escape(customer)}</p>`:''}<p class="notice">${t('pricingEstimate')}</p><form id="price-form" novalidate><div class="form-grid">${field('currentMonthly','pricingCurrent')}${field('proposedMonthly','pricingRunning')}${field('upfront','pricingUpfront')}${select('horizonMonths','pricingHorizon',fixedCostProfile.horizonOptions,120)}</div><details class="disclosure"><summary>${t('pricingPayment')}</summary><div class="form-grid disclosure-body">${field('installmentMonthly','pricingPayment','0')}${select('installmentMonths','pricingTerm',fixedCostProfile.installmentOptions,0)}</div></details><p id="price-validation" class="field-error" role="status"></p><div class="field"><label for="price-source">${t('pricingSource')}</label><input id="price-source" name="source" type="text" maxlength="200"></div><label class="row block-gap pricing-confirm"><input id="price-confirm" type="checkbox">${t('pricingConfirm')}</label><p class="meta">${t('pricingSession')}</p></form><div id="price-results" aria-live="polite"></div><p id="price-presentation-hint" class="meta">${t('pricingEvidenceNeeded')}</p><div class="form-actions"><button id="price-present" class="button primary" ${actionLabel(ui,'pricingPresent')} disabled>${actionContent(ui,'pricingPresent')}</button><button id="price-edit" class="${actionClass('pricingEdit')}" ${actionLabel(ui,'pricingEdit')} hidden>${actionContent(ui,'pricingEdit')}</button></div></section>`);
+ const field=(id:string,label:MessageKey,value='')=>`<div class="field" id="price-${id}-field"><label for="price-${id}">${t(label)}</label><div class="input-action"><input id="price-${id}" name="${id}" type="text" inputmode="numeric" maxlength="10" required value="${value}" aria-describedby="price-validation"><button type="button" class="button" data-price-zero="${id}" aria-label="${escapeHtml(t('amountZeroFor',{field:t(label)}))}">${t('amountZero')}</button></div></div>`;
+ const select=(id:string,label:MessageKey,values:readonly number[],selected:number)=>choiceField(ui,{id:'price-'+id,label,choices:values.map(v=>({value:String(v),label:v===0?t('pricingNoPayment'):t('pricingMonths',{count:v})})),value:String(selected),numeric:true,maxLength:3,description:'price-validation'});
+ show('pricing',`<section id="pricing" class="stack">${customer?`<p>${escape(customer)}</p>`:''}<p class="notice">${t('pricingEstimate')}</p><form id="price-form" novalidate><div class="form-grid">${field('currentMonthly','pricingCurrent')}${field('proposedMonthly','pricingRunning')}${field('upfront','pricingUpfront')}${select('horizonMonths','pricingHorizon',fixedCostProfile.horizonOptions,120)}</div><details class="disclosure"><summary>${t('pricingPayment')}</summary><div class="form-grid disclosure-body">${select('installmentMonths','pricingTerm',fixedCostProfile.installmentOptions,0)}${field('installmentMonthly','pricingPayment','0')}</div></details><p id="price-validation" class="field-error" role="status"></p><div class="form-grid"><div class="field"><label for="price-source-kind">${t('pricingSource')}</label><select id="price-source-kind" name="sourceKind" required aria-describedby="price-source-error"><option value="">${t('choose')}</option>${evidenceKinds.map(kind=>`<option value="${kind}">${t(evidenceLabels[kind])}</option>`).join('')}</select></div><div class="field"><label for="price-source-date">${t('sourceDate')}</label><input id="price-source-date" name="sourceDate" type="date" required aria-describedby="price-source-error"></div></div><details id="price-source-details" class="disclosure"><summary id="price-source-label">${t('sourceReference')}</summary><div class="field disclosure-body"><input id="price-source" name="sourceReference" type="text" maxlength="200" aria-labelledby="price-source-label" aria-describedby="price-source-error"></div></details><p id="price-source-error" class="field-error" role="status"></p><label class="row block-gap pricing-confirm"><input id="price-confirm" type="checkbox">${t('pricingConfirm')}</label><p class="meta">${t('pricingSession')}</p></form><div id="price-results" aria-live="polite"></div><p id="price-presentation-hint" class="meta">${t('pricingEvidenceNeeded')}</p><div class="form-actions"><button id="price-present" class="button primary" ${actionLabel(ui,'pricingPresent')} disabled>${actionContent(ui,'pricingPresent')}</button><button id="price-edit" class="${actionClass('pricingEdit')}" ${actionLabel(ui,'pricingEdit')} hidden>${actionContent(ui,'pricingEdit')}</button></div></section>`);
  const dialog=document.getElementById('modal') as HTMLDialogElement;
  const panel=document.getElementById('pricing')!;
  const form=document.getElementById('price-form') as HTMLFormElement;
@@ -20,28 +24,53 @@ export function showPricing(ui:UiContext,customer:string,show:(title:MessageKey,
  const present=document.getElementById('price-present') as HTMLButtonElement;
  const edit=document.getElementById('price-edit') as HTMLButtonElement;
  const hint=document.getElementById('price-presentation-hint')!;
+ for(const id of ['horizonMonths','installmentMonths'])bindChoice(form,'price-'+id);
+ const payment=form.querySelector<HTMLInputElement>('#price-installmentMonthly')!;
+ const paymentField=form.querySelector<HTMLElement>('#price-installmentMonthly-field')!;
+ const installments=new InstallmentDraft();
+ const sourceInput=form.querySelector<HTMLInputElement>('#price-source')!;
+ const evidence=()=>({kind:(form.elements.namedItem('sourceKind') as HTMLSelectElement).value,date:(form.elements.namedItem('sourceDate') as HTMLInputElement).value,reference:sourceInput.value});
  let result:ComparisonResult|null=null;
  let presenting=false;
  const row=(label:MessageKey,value:string)=>`<div class="fact"><dt>${t(label)}</dt><dd>${money(value)}</dd></div>`;
  const renderResults=()=>{
   if(!result){results.innerHTML=`<p class="empty">${t('pricingEmpty')}</p>`;return;}
   const r=result,input=r.input,delta=BigInt(r.totalDifference);
-  const source=(form.elements.namedItem('source') as HTMLInputElement).value.trim();
+  const source=costEvidenceText(ui,evidence());
   results.innerHTML=`<p class="meta">${t('pricingHorizon')} · ${t('pricingMonths',{count:input.horizonMonths})}</p><div class="split block-gap"><section class="panel"><h3>${t('pricingBefore')}</h3><dl>${row('pricingMonthlyPlain',input.currentMonthly)}${row('pricingTotal',r.currentTotal)}</dl></section><section class="panel"><h3>${t('pricingAfter')}</h3><dl>${row(input.installmentMonths?'pricingMonthly':'pricingMonthlyPlain',r.monthlyDuring)}${input.installmentMonths?row('pricingAfterTerm',r.monthlyAfter):''}${row('pricingTotal',r.proposedTotal)}</dl></section></div><div class="metric"><p class="metric-label">${t(delta>0n?'pricingReduction':delta<0n?'pricingIncrease':'pricingSame')}</p><p class="metric-value">${money((delta<0n?-delta:delta).toString())}</p></div>${BigInt(r.remainingInstallments)>0n?`<div class="notice"><dl>${row('pricingRemaining',r.remainingInstallments)}</dl><p>${t('pricingRemainingHint')}</p></div>`:''}<p>${t('pricingScope')}</p><details class="disclosure" ${presenting?'open':''}><summary>${t('pricingAssumptions')}</summary><div class="disclosure-body"><dl>${row('pricingUpfront',input.upfront)}${row('pricingRunning',input.proposedMonthly)}${row('pricingPayment',input.installmentMonthly)}<div class="fact"><dt>${t('pricingTerm')}</dt><dd>${t('pricingMonths',{count:input.installmentMonths})}</dd></div></dl><h3 class="block-gap">${t('pricingBreakdown')}</h3><dl>${row('pricingRunningTotal',r.runningTotal)}${row('pricingPaymentTotal',r.installmentTotal)}</dl><p>${t('pricingFormulaBefore')}</p><p>${t('pricingFormulaAfter')}</p><p>${t('pricingPrecision')}</p>${source?`<p>${t('pricingSource')}：${escape(source)}</p>`:''}<p class="meta">${t('pricingVersion',{version:r.version})}</p></div></details>`;
  };
  const update=()=>{
+  const term=ui.normalizeDigits(readChoice(form,'price-installmentMonths'));
+  const installment=installments.setTerm(term,payment.value);
+  payment.value=installment.monthly;paymentField.hidden=!installment.active;
   const values=Object.fromEntries(new FormData(form));
-  const parsed=comparisonSchema.safeParse({currency:fixedCostProfile.currency,currentMonthly:ui.normalizeDigits(String(values.currentMonthly??'')),proposedMonthly:ui.normalizeDigits(String(values.proposedMonthly??'')),upfront:ui.normalizeDigits(String(values.upfront??'')),installmentMonthly:ui.normalizeDigits(String(values.installmentMonthly??'')),installmentMonths:Number(values.installmentMonths),horizonMonths:Number(values.horizonMonths)});
+  const parsed=comparisonSchema.safeParse({currency:fixedCostProfile.currency,currentMonthly:ui.normalizeDigits(String(values.currentMonthly??'')),proposedMonthly:ui.normalizeDigits(String(values.proposedMonthly??'')),upfront:ui.normalizeDigits(String(values.upfront??'')),installmentMonthly:ui.normalizeDigits(String(values.installmentMonthly??'')),installmentMonths:monthInput(term),horizonMonths:monthInput(ui.normalizeDigits(readChoice(form,'price-horizonMonths')))});
   result=parsed.success?compareCosts(parsed.data):null;
   const hasAmount=Boolean(values.currentMonthly||values.proposedMonthly||values.upfront);
   validation.textContent=!parsed.success&&hasAmount?t('pricingInvalid'):'';
   form.querySelectorAll<HTMLInputElement|HTMLSelectElement>('[name]').forEach(el=>{
    el.setAttribute('aria-invalid',String(!parsed.success&&hasAmount&&parsed.error.issues.some(issue=>issue.path[0]===el.name)));
   });
-  present.disabled=!result||!confirm.checked||!String(values.source??'').trim();
+  for(const id of ['installmentMonths','horizonMonths']){
+   const invalid=!parsed.success&&hasAmount&&parsed.error.issues.some(issue=>issue.path[0]===id);
+   for(const suffix of ['', '-custom'])form.querySelector('#price-'+id+suffix)?.setAttribute('aria-invalid',String(invalid));
+  }
+  const source=evidence(),sourceValid=validCostEvidence(source);
+  sourceInput.required=source.kind==='other';
+  if(sourceInput.required)(document.getElementById('price-source-details') as HTMLDetailsElement).open=true;
+  sourceInput.setAttribute('aria-invalid',String(sourceInput.required&&!source.reference.trim()));
+  document.getElementById('price-source-label')!.textContent=t(sourceInput.required?'sourceReferenceRequired':'sourceReference');
+  document.getElementById('price-source-error')!.textContent=!sourceValid&&(source.kind||source.date||source.reference)?t('sourceInvalid'):'';
+  present.disabled=!result||!confirm.checked||!sourceValid;
   renderResults();
  };
  form.onsubmit=e=>e.preventDefault();
+ form.onclick=e=>{
+  const target=(e.target as Element).closest<HTMLButtonElement>('[data-price-zero]');
+  if(!target)return;
+  const input=form.querySelector<HTMLInputElement>('#price-'+target.dataset.priceZero)!;
+  input.value='0';confirm.checked=false;update();input.focus();
+ };
  form.oninput=e=>{if(e.target!==confirm)confirm.checked=false;update();};
  form.onchange=e=>{if(e.target!==confirm)confirm.checked=false;update();};
  present.onclick=()=>{

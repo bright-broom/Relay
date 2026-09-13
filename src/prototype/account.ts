@@ -17,16 +17,19 @@ export async function showAccount(ui: UiContext, show: (title: MessageKey, body:
     return result;
   };
   let code = '';
+  let kind='user';
   async function refresh(notice = '') {
     const identity = await request('session') as {email: string; lineReady: boolean};
     const rows: Destination[] = identity.lineReady ? await request('line/destinations') : [];
-    show('account', `<div class="stack"><div class="row space-between"><p>${escape(identity.email)}</p>${button('signOut','logout')}</div>${identity.lineReady ? `<label for="line-kind">${t('lineConnect')}</label><select id="line-kind"><option value="user">${t('linePersonal')}</option><option value="group">${t('lineGroup')}</option></select><div class="row">${button('lineConnect','code')}${button('refreshConnections','refresh')}</div><p class="meta">${t('lineCodeHint')}</p>${code ? `<p class="pre">${escape(code)}</p>${button('copyLinkCode','copy-code')}` : ''}${rows.map(row => `<section class="panel stack"><h3>${t(row.kind === 'user' ? 'linePersonal' : 'lineGroup')} · ${escape(row.reference)}</h3><p>${t(row.enabled ? 'lineConnected' : 'linePending')}</p><div class="row">${row.enabled ? button('lineTest','notify',row.id) : button('lineConfirm','confirm',row.id)}${button('lineRemove','remove',row.id)}</div></section>`).join('')}` : `<p>${t('lineSetup')}</p>`}<p id="account-notice" role="status">${escape(notice)}</p></div>`);
+    show('account', `<div class="stack"><div class="row space-between"><p>${escape(identity.email)}</p>${button('signOut','logout')}</div>${identity.lineReady ? `<label for="line-kind">${t('lineConnect')}</label><select id="line-kind"><option value="user" ${kind==='user'?'selected':''}>${t('linePersonal')}</option><option value="group" ${kind==='group'?'selected':''}>${t('lineGroup')}</option></select><div class="row">${button('lineConnect','code')}${button('refreshConnections','refresh')}</div><p class="meta">${t('lineCodeHint')}</p>${code ? `<p class="pre">${escape(code)}</p>${button('copyLinkCode','copy-code')}` : ''}${rows.map(row => `<section class="panel stack"><h3>${t(row.kind === 'user' ? 'linePersonal' : 'lineGroup')} · ${escape(row.reference)}</h3><p>${t(row.enabled ? 'lineConnected' : 'linePending')}</p><div class="row">${row.enabled ? button('lineTest','notify',row.id) : button('lineConfirm','confirm',row.id)}${button('lineRemove','remove',row.id)}</div></section>`).join('')}` : `<p>${t('lineSetup')}</p>`}<p id="account-notice" role="status">${escape(notice)}</p></div>`);
     const body = document.getElementById('modal-body')!;
     body.onclick = async event => {
       const target = (event.target as Element).closest<HTMLButtonElement>('[data-account]');
       if (!target || target.disabled) return;
       const action = target.dataset.account, id = target.dataset.id!;
-      body.querySelectorAll<HTMLButtonElement>('button').forEach(b => b.disabled = true);
+      kind=(document.getElementById('line-kind') as HTMLSelectElement|null)?.value??kind;
+      const controls=[...body.querySelectorAll<HTMLButtonElement|HTMLSelectElement>('button,select')].filter(control=>!control.disabled);
+      controls.forEach(control=>control.disabled=true);
       try {
         if (action === 'logout') {
           await request('auth/logout', {});
@@ -34,7 +37,7 @@ export async function showAccount(ui: UiContext, show: (title: MessageKey, body:
           location.replace('/'); return;
         }
         if (action === 'copy-code') { await navigator.clipboard.writeText(code); await refresh(t('copied')); return; }
-        if (action === 'code') code = (await request('line/code', {kind: (document.getElementById('line-kind') as HTMLSelectElement).value})).code;
+        if (action === 'code') code = (await request('line/code', {kind})).code;
         if (action === 'confirm' || action === 'remove') await request('line/destination', {id, action});
         if (action === 'notify') {
           const retryId = pendingNotifications.get(id) ?? crypto.randomUUID();
@@ -47,7 +50,7 @@ export async function showAccount(ui: UiContext, show: (title: MessageKey, body:
         const keys: Record<string, MessageKey> = {personalFirst:'personalFirst',rateLimit:'lineRateLimit',delivery:'lineRetry',pending:'lineRetry'};
         const notice = document.getElementById('account-notice');
         if (notice) notice.textContent = t(keys[error instanceof Error ? error.message : ''] ?? 'integrationFailure');
-        body.querySelectorAll<HTMLButtonElement>('button').forEach(b => b.disabled = false);
+        controls.forEach(control=>control.disabled=false);
       }
     };
   }

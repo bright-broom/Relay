@@ -195,3 +195,9 @@ dialog.pricing-presentation{inline-size:100%;max-inline-size:100%;block-size:var
 :root[dir=rtl] .nav-link[aria-current=page]{box-shadow:inset calc(var(--focus-width) * -1) var(--space-0) var(--ink)}
 .icon-button svg *{stroke-width:inherit}
 }
+
+@layer components {
+.input-action{display:flex;align-items:center;gap:var(--space-2);min-inline-size:0}
+.input-action input{flex:1;min-inline-size:0}
+.input-action .button{flex-shrink:0}
+}

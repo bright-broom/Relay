@@ -5,6 +5,26 @@ import { createInstance } from "i18next";
 
 // src/i18n/locales/ja.ts
 var ja = {
+  customValue: "\u305D\u306E\u4ED6\u30FB\u76F4\u63A5\u5165\u529B",
+  customFor: "{field}\u3092\u76F4\u63A5\u5165\u529B",
+  languageTag: "\u8A00\u8A9E\u30B3\u30FC\u30C9\u3092\u6307\u5B9A",
+  amountZero: "0\u5186",
+  amountZeroFor: "{field}\u30920\u5186\u306B\u3059\u308B",
+  sourceQuote: "\u898B\u7A4D\u66F8",
+  sourceInvoice: "\u8ACB\u6C42\u66F8",
+  sourcePriceList: "\u6599\u91D1\u8868",
+  sourceDate: "\u8CC7\u6599\u306E\u65E5\u4ED8",
+  sourceReference: "\u8CC7\u6599\u540D\u30FB\u756A\u53F7\uFF08\u4EFB\u610F\uFF09",
+  sourceReferenceRequired: "\u51FA\u5178\u306E\u8A73\u7D30",
+  sourceInvalid: "\u51FA\u5178\u306E\u7A2E\u985E\u30FB\u6709\u52B9\u306A\u65E5\u4ED8\u3092\u9078\u629E\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u300C\u305D\u306E\u4ED6\u300D\u3067\u306F\u8A73\u7D30\u3082\u5FC5\u8981\u3067\u3059\u3002",
+  scheduleVisit: "\u8A2A\u554F\u30FB\u5546\u8AC7",
+  scheduleOnline: "\u30AA\u30F3\u30E9\u30A4\u30F3\u6253\u3061\u5408\u308F\u305B",
+  scheduleCall: "\u96FB\u8A71\u3067\u78BA\u8A8D",
+  scheduleReview: "\u793E\u5185\u6253\u3061\u5408\u308F\u305B",
+  dateToday: "\u4ECA\u65E5",
+  dateTomorrow: "\u660E\u65E5",
+  dateNextWeek: "7\u65E5\u5F8C",
+  scheduleRecalculate: "\u6761\u4EF6\u3092\u5909\u66F4\u3057\u307E\u3057\u305F\u3002\u5019\u88DC\u3092\u4F5C\u6210\u3057\u76F4\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   originalData: "\u6848\u4EF6\u540D\u30FB\u4F1A\u8A71\u30FB\u6D3B\u52D5\u5C65\u6B74\u306F\u539F\u6587\u3067\u8868\u793A\u3057\u307E\u3059\u3002\u753B\u9762\u306E\u8A00\u8A9E\u3092\u5909\u3048\u3066\u3082\u696D\u52D9\u30C7\u30FC\u30BF\u306F\u66F8\u304D\u63DB\u3048\u307E\u305B\u3093\u3002",
   count_one: "{count}\u4EF6\u306E\u6848\u4EF6",
   handoffTemplate: "{name}\n\u6BB5\u968E: {stage}\n\u5BFE\u5FDC: {action}\n\u72B6\u614B: {status}\n\u62C5\u5F53: {owner}\n\u5F85\u3061\u5148: {waiting}\n\u671F\u9650: {due}\n\u6B21\u306E\u5BFE\u5FDC: {next}\n\u6839\u62E0: {evidence}\n\u8A18\u9332: {reports}\n\n{caution}",
@@ -23,12 +43,12 @@ var ja = {
   pricingNoPayment: "\u5206\u5272\u6255\u3044\u306A\u3057",
   pricingMonths: "{count}\u304B\u6708",
   pricingAssumptions: "\u524D\u63D0\u30FB\u8A08\u7B97\u6839\u62E0",
-  pricingSource: "\u91D1\u984D\u306E\u51FA\u5178\uFF08\u898B\u7A4D\u66F8\u540D\u30FB\u65E5\u4ED8\u306A\u3069\uFF09",
+  pricingSource: "\u91D1\u984D\u306E\u51FA\u5178",
   pricingConfirm: "\u5165\u529B\u91D1\u984D\u30FB\u8CBB\u7528\u306E\u7BC4\u56F2\u30FB\u6BD4\u8F03\u671F\u9593\u3092\u78BA\u8A8D\u3057\u305F",
   pricingPresent: "\u304A\u5BA2\u69D8\u306B\u63D0\u793A",
   pricingEdit: "\u6761\u4EF6\u3092\u5909\u66F4",
   pricingEmpty: "\u91D1\u984D\u3092\u5165\u529B\u3059\u308B\u3068\u6BD4\u8F03\u7D50\u679C\u304C\u8868\u793A\u3055\u308C\u307E\u3059\u3002",
-  pricingInvalid: "\u91D1\u984D\u306F0\u301C9,999,999,999\u5186\u306E\u6574\u6570\u3067\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u5206\u5272\u6255\u3044\u3092\u4F7F\u3046\u5834\u5408\u306F\u6708\u984D\u3068\u671F\u9593\u306E\u4E21\u65B9\u3092\u8A2D\u5B9A\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  pricingInvalid: "\u91D1\u984D\u306F0\u301C9,999,999,999\u5186\u306E\u6574\u6570\u3001\u671F\u9593\u306F1\u301C420\u304B\u6708\u3067\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u5206\u5272\u6255\u3044\u306A\u3057\u306F\u6708\u984D\u30FB\u671F\u9593\u3068\u30820\u306B\u3057\u307E\u3059\u3002",
   pricingBefore: "\u5C0E\u5165\u524D",
   pricingAfter: "\u5C0E\u5165\u5F8C",
   pricingMonthly: "\u6708\u984D\uFF08\u5206\u5272\u6255\u3044\u4E2D\uFF09",
@@ -262,6 +282,26 @@ var ja = {
 
 // src/i18n/locales/en.ts
 var en = {
+  customValue: "Other / custom",
+  customFor: "Custom {field}",
+  languageTag: "Enter a language tag",
+  amountZero: "Zero",
+  amountZeroFor: "Set {field} to zero",
+  sourceQuote: "Quote",
+  sourceInvoice: "Invoice",
+  sourcePriceList: "Price list",
+  sourceDate: "Source date",
+  sourceReference: "Source name / number (optional)",
+  sourceReferenceRequired: "Source details",
+  sourceInvalid: "Select a source type and a valid date. Other sources also need details.",
+  scheduleVisit: "Visit / sales meeting",
+  scheduleOnline: "Online meeting",
+  scheduleCall: "Follow-up call",
+  scheduleReview: "Internal meeting",
+  dateToday: "Today",
+  dateTomorrow: "Tomorrow",
+  dateNextWeek: "In 7 days",
+  scheduleRecalculate: "Conditions changed. Find new time slots.",
   originalData: "Case names, conversations and activity history stay in their original language. Changing the UI language does not rewrite business data.",
   count_one: "{count} case",
   handoffTemplate: "{name}\nStage: {stage}\nAction: {action}\nStatus: {status}\nOwner: {owner}\nWaiting on: {waiting}\nDue: {due}\nNext action: {next}\nEvidence: {evidence}\nReports: {reports}\n\n{caution}",
@@ -280,12 +320,12 @@ var en = {
   pricingNoPayment: "No installments",
   pricingMonths: "{count} months",
   pricingAssumptions: "Assumptions and calculation",
-  pricingSource: "Cost source (quote reference and date)",
+  pricingSource: "Cost source",
   pricingConfirm: "I checked the amounts, included costs and comparison period",
   pricingPresent: "Present to customer",
   pricingEdit: "Edit assumptions",
   pricingEmpty: "Enter the costs to see a comparison.",
-  pricingInvalid: "Enter whole yen from 0 to 9,999,999,999. Installments require both a positive monthly amount and a term.",
+  pricingInvalid: "Enter whole-yen amounts from 0 to 9,999,999,999 and periods from 1 to 420 months. No installments requires both monthly payment and term to be zero.",
   pricingBefore: "Before",
   pricingAfter: "After",
   pricingMonthly: "Monthly cost during installments",
@@ -1158,7 +1198,8 @@ var suggestions = ["ja", "en", "ko", "zh-CN", "zh-TW", "fr", "es", "de", "pt-BR"
 function languageForm(ui) {
   const names = new Intl.DisplayNames([ui.language], { type: "language" });
   const options = [.../* @__PURE__ */ new Set([...Object.keys(catalogs), ...suggestions, ui.locale])];
-  return `<form id="language-form" action="/" method="get" class="stack"><div class="field"><label for="language-tag">${ui.t("language")}</label><input id="language-tag" name="lang" list="language-options" value="${escapeHtml(ui.locale)}" maxlength="100" required aria-describedby="language-help language-error"><datalist id="language-options">${options.map((tag) => `<option value="${escapeHtml(tag)}">${escapeHtml(names.of(tag) ?? tag)}</option>`).join("")}</datalist></div><p id="language-help" class="meta">${ui.t("languageCoverage")}</p><p id="language-error" role="alert"></p><button class="button primary" type="submit">${icon("check")}${ui.t("applyLanguage")}</button></form>`;
+  const submit = `<button class="button primary" type="submit">${icon("check")}${ui.t("applyLanguage")}</button>`;
+  return `<div class="stack"><form id="language-form" action="/" method="get" class="stack"><div class="field"><label for="language-tag">${ui.t("language")}</label><select id="language-tag" name="lang" aria-describedby="language-help">${options.map((tag) => `<option value="${escapeHtml(tag)}" ${tag === ui.locale ? "selected" : ""}>${escapeHtml(names.of(tag) ?? tag)}</option>`).join("")}</select></div>${submit}</form><details class="disclosure"><summary>${ui.t("languageTag")}</summary><form id="language-custom-form" action="/" method="get" class="stack disclosure-body"><div class="field"><label for="language-custom-tag">${ui.t("languageTag")}</label><input id="language-custom-tag" name="lang" value="${escapeHtml(ui.locale)}" maxlength="100" required autocapitalize="none" spellcheck="false" aria-describedby="language-help language-error"></div><p id="language-error" role="alert"></p>${submit}</form></details><p id="language-help" class="meta">${ui.t("languageCoverage")}</p></div>`;
 }
 
 // src/design/tokens.ts
