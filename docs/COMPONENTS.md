@@ -55,3 +55,7 @@ shadcn標準の色・寸法・ダークテーマをそのまま重ねず、Relay
 このテストはブラウザーによる見た目・タッチ操作の証拠ではない。ローカル画面のブラウザーアクセス制限は回避していない。390 / 768 / 1440pxの実表示、スマートフォン実機、実Google／LINE連携は未検証。
 
 公式資料：[shadcn導入](https://ui.shadcn.com/docs/installation/manual)、[Native Select](https://ui.shadcn.com/docs/components/native-select)、[Lucide React](https://lucide.dev/guide/react)、[React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)。
+
+## 端末幅への適応
+
+全ページ・共通ダイアログのレスポンシブ仕様は [RESPONSIVE.md](RESPONSIVE.md) を参照。ウィンドウ幅による余白と、コンテンツの実幅による段組みを分離した。ダイアログ内のスクロール、キーボード、ピンチ拡大は共通基盤で扱う。

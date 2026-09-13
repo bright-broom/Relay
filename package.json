@@ -21,7 +21,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs",
-    "check": "npm run typecheck && npm run build && node scripts/check.mjs && npm run audit && npm run test:server && npm run test:calendar && npm run test:pricing && npm run test:i18n && npm run test:inputs && npm run test:ui",
+    "check": "npm run typecheck && npm run build && node scripts/check.mjs && npm run audit && npm run test:server && npm run test:calendar && npm run test:pricing && npm run test:i18n && npm run test:inputs && npm run test:ui && npm run test:viewport",
     "audit": "node scripts/audit.mjs",
     "test:server": "node tests/server.mjs",
     "db:migrate": "node scripts/migrate.mjs",
@@ -29,7 +29,8 @@
     "test:pricing": "node tests/pricing.mjs",
     "test:i18n": "node tests/i18n.mjs",
     "test:inputs": "node tests/input-ux.mjs",
-    "test:ui": "node tests/react-ui.mjs"
+    "test:ui": "node tests/react-ui.mjs",
+    "test:viewport": "node tests/viewport.mjs"
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.5.1",

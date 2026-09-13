@@ -58,9 +58,10 @@ export const componentTokens = {
   'narrow-gutter': primitives['space-4'], 'tablet-gutter': primitives['space-6'],
   'confirmation-overlay-z': '30', 'confirmation-z': '31',
   'overlay-z': '20', 'dialog-z': '21', 'tooltip-z': '40',
+  'safe-inline-start': 'env(safe-area-inset-left)', 'safe-inline-end': 'env(safe-area-inset-right)',
   'viewport-block': '100dvh', 'viewport-offset': '0px',
 } as const;
 
 export const tokens = { ...colorTokens, ...primitives, ...componentTokens } as const;
 
-export const breakpoints = { narrow: '30rem', mobile: '48rem', compact: '64rem', short: '32rem' } as const;
+export const breakpoints = { narrow: '30rem', mobile: '48rem', compact: '64rem', short: '32rem', columns: '36rem', table: '56rem' } as const;
