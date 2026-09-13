@@ -37,6 +37,14 @@
       "dest": "/api/relay?route=page"
     },
     {
+      "src": "/admin",
+      "dest": "/api/relay?route=admin-page"
+    },
+    {
+      "src": "/api/admin/overview",
+      "dest": "/api/relay?route=admin-overview"
+    },
+    {
       "src": "/index.html",
       "dest": "/api/relay?route=page"
     },

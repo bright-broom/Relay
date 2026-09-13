@@ -1,3 +1,4 @@
+import {sessionInvalidated} from './session-events';
 import {storageKey} from './storage';
 import {createUiContext,browserLocale,persistLocale} from '../i18n/context';
 const initialLocale=browserLocale();
@@ -8,14 +9,41 @@ const localPreview = location.protocol === 'file:';
 let checking = false;
 let started = false;
 let disconnected = false;
+let stopped = false;
+// Per-window authority: shared localStorage may already have been changed by another window.
+let principal: {subject: string; isAdmin: boolean} | null = null;
+function invalidate() {
+  if (!root) return;
+  root.hidden = true;
+  root.dataset.sessionBlocked = 'true';
+  window.dispatchEvent(new Event(sessionInvalidated));
+}
+function restart(nextSubject?: string) {
+  stopped = true;
+  invalidate();
+  // Do not erase the new user's saved work if another window already changed accounts.
+  try { if (!nextSubject || localStorage.getItem('relay-account') !== nextSubject) clearLocal(); } catch {}
+  location.replace('/');
+}
 async function verify() {
-  if (!root || checking) return;
+  if (!root || checking || stopped) return;
   checking = true;
   try {
     if (!localPreview) {
       const response = await fetch('/api/session', {cache: 'no-store', credentials: 'same-origin'});
-      if (!response.ok) { clearLocal(); location.replace('/'); return; }
-      const identity = await response.json() as {subject: string};
+      if (!response.ok) { restart(); return; }
+      const identity: unknown = await response.json();
+      if (!identity || typeof identity !== 'object' || !('subject' in identity) ||
+          typeof identity.subject !== 'string' || !identity.subject ||
+          !('isAdmin' in identity) || typeof identity.isAdmin !== 'boolean') {
+        restart(); return;
+      }
+      if (principal && (principal.subject !== identity.subject || principal.isAdmin !== identity.isAdmin)) {
+        restart(identity.subject); return;
+      }
+      principal ??= {subject: identity.subject, isAdmin: identity.isAdmin};
+      // The verified session, not a possibly older HTML response, controls initial navigation.
+      root.dataset.admin = String(identity.isAdmin);
       try {
         if (localStorage.getItem('relay-account') !== identity.subject) {
           clearLocal(); localStorage.setItem('relay-account', identity.subject);
@@ -28,8 +56,8 @@ async function verify() {
       script.onerror = () => { root.textContent = t('authOnline'); };
       document.head.append(script); started = true;
     }
-    root.hidden = false;
-  } catch { root.hidden = true; disconnected = true; const notice = document.createElement('p'); notice.textContent = t('authOnline'); notice.setAttribute('role', 'alert'); root.after(notice); }
+    root.hidden = document.hidden;
+  } catch { invalidate(); disconnected = true; const notice = document.createElement('p'); notice.textContent = t('authOnline'); notice.setAttribute('role', 'alert'); root.after(notice); }
   finally { checking = false; }
 }
 function clearLocal() {

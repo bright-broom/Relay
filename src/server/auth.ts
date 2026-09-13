@@ -25,9 +25,9 @@ let provider: Promise<oidc.Configuration> | undefined;
 export function google() {
   return provider ??= oidc.discovery(new URL('https://accounts.google.com'), process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_CLIENT_SECRET!, undefined, {execute: [oidc.enableNonRepudiationChecks]}).catch(error => { provider = undefined; throw error; });
 }
-export async function startLogin(db: Database = database(), configuration?: oidc.Configuration) {
+export async function startLogin(db: Database = database(), configuration?: oidc.Configuration, destination: '/' | '/admin' = '/') {
   const config = configuration ?? await google();
-  const token = randomToken(), state = oidc.randomState(), nonce = oidc.randomNonce(), verifier = oidc.randomPKCECodeVerifier();
+  const token = randomToken(), state = (destination === '/admin' ? 'admin.' : '') + oidc.randomState(), nonce = oidc.randomNonce(), verifier = oidc.randomPKCECodeVerifier();
   await db.query('DELETE FROM relay_private.oauth_attempts WHERE expires_at < now()');
   await db.query('INSERT INTO relay_private.oauth_attempts(token_hash,state,nonce,verifier,expires_at) VALUES($1,$2,$3,$4,now()+interval \'10 minutes\')', [hash(token),state,nonce,verifier]);
   const url = oidc.buildAuthorizationUrl(config, {
@@ -45,11 +45,13 @@ export function verifiedIdentity(claims: Record<string, unknown> | undefined): I
 export async function finishLogin(request: Request, db: Database = database(), configuration?: oidc.Configuration) {
   const token = readCookie(request, oauthCookie);
   const headers = new Headers({'Set-Cookie': cookie(oauthCookie, '', 0)});
-  const failure = () => { headers.set('Location', '/?auth=denied'); return new Response(null, {status: 303, headers}); };
+  let destination = '/';
+  const failure = () => { headers.set('Location', destination + '?auth=denied'); return new Response(null, {status: 303, headers}); };
   if (!token) return failure();
   // Atomic consume prevents callback replay, including concurrent attempts.
   const [attempt] = await db.query<{state: string; nonce: string; verifier: string}>('DELETE FROM relay_private.oauth_attempts WHERE token_hash=$1 AND expires_at > now() RETURNING state,nonce,verifier', [hash(token)]);
   if (!attempt) return failure();
+  destination = attempt.state.startsWith('admin.') ? '/admin' : '/';
   try {
     const callback = new URL(`${origin()}/api/auth/callback`);
     const incoming = new URL(request.url);
@@ -63,7 +65,8 @@ export async function finishLogin(request: Request, db: Database = database(), c
     await db.query('DELETE FROM relay_private.sessions WHERE expires_at < now() OR token_hash=$1', [hash(readCookie(request, sessionCookie))]);
     await db.query('INSERT INTO relay_private.sessions(token_hash,subject,email,expires_at) VALUES($1,$2,$3,now()+interval \'8 hours\')', [hash(newToken),identity.subject,identity.email]);
     headers.append('Set-Cookie', cookie(sessionCookie, newToken, 28800));
-    headers.set('Location', '/');
+    // The destination is bound to the stored, single-use OAuth state; never trust a callback URL parameter.
+    headers.set('Location', destination);
     return new Response(null, {status: 303, headers});
   } catch { return failure(); }
 }

@@ -1,5 +1,23 @@
 import type {ja} from './ja';
 export const en: Record<keyof typeof ja,string> = {
+  admin: "Administration",
+  adminLoginHint: "Sign in with a Google account authorized as an administrator.",
+  adminDenied: "This account does not have administrator access.",
+  adminAccounts: "Allowed accounts",
+  adminRole: "Administrator",
+  memberRole: "Member",
+  adminSessions: "Active sessions",
+  adminSettings: "Integration configuration",
+  adminGoogle: "Google authentication",
+  adminDatabase: "Database",
+  adminLine: "LINE notifications",
+  adminCalendar: "Calendar encryption",
+  adminConfigured: "Configured",
+  adminNotConfigured: "Not configured",
+  adminConfigurationHint: "These indicators show configuration presence, not successful connections to external services.",
+  adminReadOnly: "Review access and roles here. Ask your operator to make changes.",
+  adminFailure: "Could not load administration data. Please reload.",
+
   lineDestination: "Notification destination",
   loading: "Loading",
   customValue: "Other / custom",

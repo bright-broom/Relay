@@ -1,10 +1,170 @@
 // Generated from src/server/handler.ts. Do not edit.
 
+// src/server/config.ts
+function allowed(email, list = process.env.ALLOWED_GOOGLE_EMAILS ?? "") {
+  return typeof email === "string" && list.split(",").some((item) => item.trim().toLowerCase() === email.toLowerCase() && item.trim() !== "");
+}
+function origin() {
+  const url = new URL(process.env.APP_ORIGIN ?? "");
+  if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) throw new Error("configuration");
+  return url.origin;
+}
+function configured() {
+  try {
+    origin();
+    return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.DATABASE_URL && process.env.ALLOWED_GOOGLE_EMAILS?.trim());
+  } catch {
+    return false;
+  }
+}
+function lineConfigured() {
+  return Boolean(process.env.LINE_CHANNEL_SECRET && process.env.LINE_CHANNEL_ACCESS_TOKEN);
+}
+function sameOrigin(request) {
+  return request.headers.get("origin") === origin();
+}
+
+// src/server/auth.ts
+import { createHash, randomBytes } from "node:crypto";
+import * as oidc from "openid-client";
+
+// src/server/database.ts
+import postgres from "postgres";
+function wrap(sql) {
+  return {
+    async query(text, values = []) {
+      return await sql.unsafe(text, values);
+    },
+    async transaction(work) {
+      if (!("begin" in sql)) return work(wrap(sql));
+      return await sql.begin((tx) => work(wrap(tx)));
+    }
+  };
+}
+var connection;
+function database() {
+  if (!process.env.DATABASE_URL) throw new Error("configuration");
+  return connection ??= wrap(postgres(process.env.DATABASE_URL, {
+    ssl: "verify-full",
+    max: 1,
+    prepare: false,
+    idle_timeout: 20,
+    connect_timeout: 10
+  }));
+}
+
+// src/server/auth.ts
+var sessionCookie = "__Host-relay-session";
+var oauthCookie = "__Host-relay-oauth";
+var hash = (value) => createHash("sha256").update(value).digest("hex");
+var randomToken = () => randomBytes(32).toString("base64url");
+function cookie(name, value, age) {
+  return `${name}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${age}`;
+}
+function readCookie(request, name) {
+  const value = (request.headers.get("cookie") ?? "").split(";").map((v) => v.trim()).find((v) => v.startsWith(`${name}=`))?.slice(name.length + 1) ?? "";
+  return /^[A-Za-z0-9_-]{43}$/.test(value) ? value : "";
+}
+async function session(request, db = database()) {
+  const token = readCookie(request, sessionCookie);
+  if (!token) return null;
+  const [row] = await db.query("SELECT email, subject FROM relay_private.sessions WHERE token_hash=$1 AND expires_at > now()", [hash(token)]);
+  return row && allowed(row.email) ? row : null;
+}
+var provider;
+function google() {
+  return provider ??= oidc.discovery(new URL("https://accounts.google.com"), process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, void 0, { execute: [oidc.enableNonRepudiationChecks] }).catch((error) => {
+    provider = void 0;
+    throw error;
+  });
+}
+async function startLogin(db = database(), configuration, destination = "/") {
+  const config = configuration ?? await google();
+  const token = randomToken(), state = (destination === "/admin" ? "admin." : "") + oidc.randomState(), nonce = oidc.randomNonce(), verifier = oidc.randomPKCECodeVerifier();
+  await db.query("DELETE FROM relay_private.oauth_attempts WHERE expires_at < now()");
+  await db.query("INSERT INTO relay_private.oauth_attempts(token_hash,state,nonce,verifier,expires_at) VALUES($1,$2,$3,$4,now()+interval '10 minutes')", [hash(token), state, nonce, verifier]);
+  const url = oidc.buildAuthorizationUrl(config, {
+    redirect_uri: `${origin()}/api/auth/callback`,
+    scope: "openid email",
+    prompt: "select_account",
+    state,
+    nonce,
+    code_challenge: await oidc.calculatePKCECodeChallenge(verifier),
+    code_challenge_method: "S256"
+  });
+  return new Response(null, { status: 303, headers: { Location: url.href, "Set-Cookie": cookie(oauthCookie, token, 600) } });
+}
+function verifiedIdentity(claims) {
+  if (!claims || claims.email_verified !== true || !allowed(claims.email) || typeof claims.sub !== "string" || !claims.sub) return null;
+  if (!claims.email.toLowerCase().endsWith("@gmail.com") && !(typeof claims.hd === "string" && claims.hd)) return null;
+  return { email: claims.email.toLowerCase(), subject: claims.sub };
+}
+async function finishLogin(request, db = database(), configuration) {
+  const token = readCookie(request, oauthCookie);
+  const headers = new Headers({ "Set-Cookie": cookie(oauthCookie, "", 0) });
+  let destination = "/";
+  const failure = () => {
+    headers.set("Location", destination + "?auth=denied");
+    return new Response(null, { status: 303, headers });
+  };
+  if (!token) return failure();
+  const [attempt] = await db.query("DELETE FROM relay_private.oauth_attempts WHERE token_hash=$1 AND expires_at > now() RETURNING state,nonce,verifier", [hash(token)]);
+  if (!attempt) return failure();
+  destination = attempt.state.startsWith("admin.") ? "/admin" : "/";
+  try {
+    const callback = new URL(`${origin()}/api/auth/callback`);
+    const incoming = new URL(request.url);
+    for (const key of ["code", "state", "error", "error_description", "iss"]) for (const value of incoming.searchParams.getAll(key)) callback.searchParams.append(key, value);
+    const tokens2 = await oidc.authorizationCodeGrant(configuration ?? await google(), callback, {
+      pkceCodeVerifier: attempt.verifier,
+      expectedState: attempt.state,
+      expectedNonce: attempt.nonce,
+      idTokenExpected: true
+    });
+    const identity = verifiedIdentity(tokens2.claims());
+    if (!identity) return failure();
+    const newToken = randomToken();
+    await db.query("DELETE FROM relay_private.sessions WHERE expires_at < now() OR token_hash=$1", [hash(readCookie(request, sessionCookie))]);
+    await db.query("INSERT INTO relay_private.sessions(token_hash,subject,email,expires_at) VALUES($1,$2,$3,now()+interval '8 hours')", [hash(newToken), identity.subject, identity.email]);
+    headers.append("Set-Cookie", cookie(sessionCookie, newToken, 28800));
+    headers.set("Location", destination);
+    return new Response(null, { status: 303, headers });
+  } catch {
+    return failure();
+  }
+}
+async function logout(request, db = database()) {
+  await db.query("DELETE FROM relay_private.sessions WHERE token_hash=$1", [hash(readCookie(request, sessionCookie))]);
+  const headers = new Headers({ "Set-Cookie": cookie(sessionCookie, "", 0) });
+  headers.append("Set-Cookie", cookie(oauthCookie, "", 0));
+  return Response.json({ ok: true }, { headers });
+}
+
+// src/server/line.ts
+import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
+
 // src/i18n/messages.ts
 import { createInstance } from "i18next";
 
 // src/i18n/locales/ja.ts
 var ja = {
+  admin: "\u7BA1\u7406\u8005",
+  adminLoginHint: "\u7BA1\u7406\u8005\u3068\u3057\u3066\u8A31\u53EF\u3055\u308C\u305FGoogle\u30A2\u30AB\u30A6\u30F3\u30C8\u3067\u30ED\u30B0\u30A4\u30F3\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  adminDenied: "\u3053\u306E\u30A2\u30AB\u30A6\u30F3\u30C8\u306B\u306F\u7BA1\u7406\u8005\u6A29\u9650\u304C\u3042\u308A\u307E\u305B\u3093\u3002",
+  adminAccounts: "\u5229\u7528\u8A31\u53EF\u30A2\u30AB\u30A6\u30F3\u30C8",
+  adminRole: "\u7BA1\u7406\u8005",
+  memberRole: "\u30E1\u30F3\u30D0\u30FC",
+  adminSessions: "\u6709\u52B9\u306A\u30ED\u30B0\u30A4\u30F3\u6570",
+  adminSettings: "\u9023\u643A\u8A2D\u5B9A",
+  adminGoogle: "Google\u8A8D\u8A3C",
+  adminDatabase: "\u30C7\u30FC\u30BF\u30D9\u30FC\u30B9",
+  adminLine: "LINE\u901A\u77E5",
+  adminCalendar: "\u30AB\u30EC\u30F3\u30C0\u30FC\u6697\u53F7\u5316",
+  adminConfigured: "\u8A2D\u5B9A\u6E08\u307F",
+  adminNotConfigured: "\u672A\u8A2D\u5B9A",
+  adminConfigurationHint: "\u8A2D\u5B9A\u306E\u6709\u7121\u3092\u8868\u793A\u3057\u3066\u3044\u307E\u3059\u3002\u5916\u90E8\u30B5\u30FC\u30D3\u30B9\u3068\u306E\u63A5\u7D9A\u6210\u529F\u3092\u793A\u3059\u3082\u306E\u3067\u306F\u3042\u308A\u307E\u305B\u3093\u3002",
+  adminReadOnly: "\u5229\u7528\u8A31\u53EF\u3068\u6A29\u9650\u3092\u78BA\u8A8D\u3067\u304D\u307E\u3059\u3002\u5909\u66F4\u306F\u904B\u7528\u62C5\u5F53\u8005\u306B\u4F9D\u983C\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  adminFailure: "\u7BA1\u7406\u60C5\u5831\u3092\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u518D\u8AAD\u307F\u8FBC\u307F\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   lineDestination: "\u901A\u77E5\u5148",
   loading: "\u8AAD\u307F\u8FBC\u307F\u4E2D",
   customValue: "\u305D\u306E\u4ED6\u30FB\u76F4\u63A5\u5165\u529B",
@@ -284,6 +444,23 @@ var ja = {
 
 // src/i18n/locales/en.ts
 var en = {
+  admin: "Administration",
+  adminLoginHint: "Sign in with a Google account authorized as an administrator.",
+  adminDenied: "This account does not have administrator access.",
+  adminAccounts: "Allowed accounts",
+  adminRole: "Administrator",
+  memberRole: "Member",
+  adminSessions: "Active sessions",
+  adminSettings: "Integration configuration",
+  adminGoogle: "Google authentication",
+  adminDatabase: "Database",
+  adminLine: "LINE notifications",
+  adminCalendar: "Calendar encryption",
+  adminConfigured: "Configured",
+  adminNotConfigured: "Not configured",
+  adminConfigurationHint: "These indicators show configuration presence, not successful connections to external services.",
+  adminReadOnly: "Review access and roles here. Ask your operator to make changes.",
+  adminFailure: "Could not load administration data. Please reload.",
   lineDestination: "Notification destination",
   loading: "Loading",
   customValue: "Other / custom",
@@ -595,186 +772,7 @@ function translate(locale, key, params = {}) {
   return String(engine.t(key, { ...params, lng: normalizeLocale(locale), interpolation: { alwaysFormat: true, format: (value) => typeof value === "number" ? new Intl.NumberFormat(normalizeLocale(locale)).format(value) : String(value) } }));
 }
 
-// src/server/handler.ts
-import { ZodError } from "zod";
-
-// src/server/calendar.ts
-import * as oidc2 from "openid-client";
-import { randomUUID as randomUUID2 } from "node:crypto";
-import { z as z2 } from "zod";
-
-// src/server/auth.ts
-import { createHash, randomBytes } from "node:crypto";
-import * as oidc from "openid-client";
-
-// src/server/config.ts
-function allowed(email, list = process.env.ALLOWED_GOOGLE_EMAILS ?? "") {
-  return typeof email === "string" && list.split(",").some((item) => item.trim().toLowerCase() === email.toLowerCase() && item.trim() !== "");
-}
-function origin() {
-  const url = new URL(process.env.APP_ORIGIN ?? "");
-  if (url.protocol !== "https:" || url.username || url.password || url.pathname !== "/" || url.search || url.hash) throw new Error("configuration");
-  return url.origin;
-}
-function configured() {
-  try {
-    origin();
-    return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.DATABASE_URL && process.env.ALLOWED_GOOGLE_EMAILS?.trim());
-  } catch {
-    return false;
-  }
-}
-function lineConfigured() {
-  return Boolean(process.env.LINE_CHANNEL_SECRET && process.env.LINE_CHANNEL_ACCESS_TOKEN);
-}
-function sameOrigin(request) {
-  return request.headers.get("origin") === origin();
-}
-
-// src/server/database.ts
-import postgres from "postgres";
-function wrap(sql) {
-  return {
-    async query(text, values = []) {
-      return await sql.unsafe(text, values);
-    },
-    async transaction(work) {
-      if (!("begin" in sql)) return work(wrap(sql));
-      return await sql.begin((tx) => work(wrap(tx)));
-    }
-  };
-}
-var connection;
-function database() {
-  if (!process.env.DATABASE_URL) throw new Error("configuration");
-  return connection ??= wrap(postgres(process.env.DATABASE_URL, {
-    ssl: "verify-full",
-    max: 1,
-    prepare: false,
-    idle_timeout: 20,
-    connect_timeout: 10
-  }));
-}
-
-// src/server/auth.ts
-var sessionCookie = "__Host-relay-session";
-var oauthCookie = "__Host-relay-oauth";
-var hash = (value) => createHash("sha256").update(value).digest("hex");
-var randomToken = () => randomBytes(32).toString("base64url");
-function cookie(name, value, age) {
-  return `${name}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${age}`;
-}
-function readCookie(request, name) {
-  const value = (request.headers.get("cookie") ?? "").split(";").map((v) => v.trim()).find((v) => v.startsWith(`${name}=`))?.slice(name.length + 1) ?? "";
-  return /^[A-Za-z0-9_-]{43}$/.test(value) ? value : "";
-}
-async function session(request, db = database()) {
-  const token = readCookie(request, sessionCookie);
-  if (!token) return null;
-  const [row] = await db.query("SELECT email, subject FROM relay_private.sessions WHERE token_hash=$1 AND expires_at > now()", [hash(token)]);
-  return row && allowed(row.email) ? row : null;
-}
-var provider;
-function google() {
-  return provider ??= oidc.discovery(new URL("https://accounts.google.com"), process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, void 0, { execute: [oidc.enableNonRepudiationChecks] }).catch((error) => {
-    provider = void 0;
-    throw error;
-  });
-}
-async function startLogin(db = database(), configuration) {
-  const config = configuration ?? await google();
-  const token = randomToken(), state = oidc.randomState(), nonce = oidc.randomNonce(), verifier = oidc.randomPKCECodeVerifier();
-  await db.query("DELETE FROM relay_private.oauth_attempts WHERE expires_at < now()");
-  await db.query("INSERT INTO relay_private.oauth_attempts(token_hash,state,nonce,verifier,expires_at) VALUES($1,$2,$3,$4,now()+interval '10 minutes')", [hash(token), state, nonce, verifier]);
-  const url = oidc.buildAuthorizationUrl(config, {
-    redirect_uri: `${origin()}/api/auth/callback`,
-    scope: "openid email",
-    prompt: "select_account",
-    state,
-    nonce,
-    code_challenge: await oidc.calculatePKCECodeChallenge(verifier),
-    code_challenge_method: "S256"
-  });
-  return new Response(null, { status: 303, headers: { Location: url.href, "Set-Cookie": cookie(oauthCookie, token, 600) } });
-}
-function verifiedIdentity(claims) {
-  if (!claims || claims.email_verified !== true || !allowed(claims.email) || typeof claims.sub !== "string" || !claims.sub) return null;
-  if (!claims.email.toLowerCase().endsWith("@gmail.com") && !(typeof claims.hd === "string" && claims.hd)) return null;
-  return { email: claims.email.toLowerCase(), subject: claims.sub };
-}
-async function finishLogin(request, db = database(), configuration) {
-  const token = readCookie(request, oauthCookie);
-  const headers = new Headers({ "Set-Cookie": cookie(oauthCookie, "", 0) });
-  const failure = () => {
-    headers.set("Location", "/?auth=denied");
-    return new Response(null, { status: 303, headers });
-  };
-  if (!token) return failure();
-  const [attempt] = await db.query("DELETE FROM relay_private.oauth_attempts WHERE token_hash=$1 AND expires_at > now() RETURNING state,nonce,verifier", [hash(token)]);
-  if (!attempt) return failure();
-  try {
-    const callback = new URL(`${origin()}/api/auth/callback`);
-    const incoming = new URL(request.url);
-    for (const key of ["code", "state", "error", "error_description", "iss"]) for (const value of incoming.searchParams.getAll(key)) callback.searchParams.append(key, value);
-    const tokens2 = await oidc.authorizationCodeGrant(configuration ?? await google(), callback, {
-      pkceCodeVerifier: attempt.verifier,
-      expectedState: attempt.state,
-      expectedNonce: attempt.nonce,
-      idTokenExpected: true
-    });
-    const identity = verifiedIdentity(tokens2.claims());
-    if (!identity) return failure();
-    const newToken = randomToken();
-    await db.query("DELETE FROM relay_private.sessions WHERE expires_at < now() OR token_hash=$1", [hash(readCookie(request, sessionCookie))]);
-    await db.query("INSERT INTO relay_private.sessions(token_hash,subject,email,expires_at) VALUES($1,$2,$3,now()+interval '8 hours')", [hash(newToken), identity.subject, identity.email]);
-    headers.append("Set-Cookie", cookie(sessionCookie, newToken, 28800));
-    headers.set("Location", "/");
-    return new Response(null, { status: 303, headers });
-  } catch {
-    return failure();
-  }
-}
-async function logout(request, db = database()) {
-  await db.query("DELETE FROM relay_private.sessions WHERE token_hash=$1", [hash(readCookie(request, sessionCookie))]);
-  const headers = new Headers({ "Set-Cookie": cookie(sessionCookie, "", 0) });
-  headers.append("Set-Cookie", cookie(oauthCookie, "", 0));
-  return Response.json({ ok: true }, { headers });
-}
-
-// src/server/vault.ts
-import { createCipheriv, createDecipheriv, randomBytes as randomBytes2 } from "node:crypto";
-function encryptionKey() {
-  const value = process.env.TOKEN_ENCRYPTION_KEY ?? "";
-  if (!/^[A-Za-z0-9+/]{43}=$/.test(value)) throw new Error("configuration");
-  const key = Buffer.from(value, "base64");
-  if (key.length !== 32) throw new Error("configuration");
-  return key;
-}
-function calendarConfigured() {
-  try {
-    encryptionKey();
-    return true;
-  } catch {
-    return false;
-  }
-}
-function seal(value, subject) {
-  const iv = randomBytes2(12), cipher = createCipheriv("aes-256-gcm", encryptionKey(), iv);
-  cipher.setAAD(Buffer.from("relay-calendar:" + subject));
-  const data = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
-  return ["v1", iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), data.toString("base64url")].join(".");
-}
-function unseal(value, subject) {
-  const [version, iv, tag, data, ...extra] = value.split(".");
-  if (version !== "v1" || !iv || !tag || !data || extra.length) throw new Error("invalidCiphertext");
-  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(iv, "base64url"));
-  decipher.setAAD(Buffer.from("relay-calendar:" + subject));
-  decipher.setAuthTag(Buffer.from(tag, "base64url"));
-  return Buffer.concat([decipher.update(Buffer.from(data, "base64url")), decipher.final()]).toString("utf8");
-}
-
 // src/server/line.ts
-import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 var ApiError = class extends Error {
   constructor(status, code) {
     super(code);
@@ -896,6 +894,67 @@ async function notify(identity, input, db = database(), send = fetch) {
   async function txResult(state) {
     await db.query("UPDATE relay_private.notifications SET state=$2,lease_until=NULL WHERE id=$1", [id, state]);
   }
+}
+
+// src/server/admin.ts
+function isAdmin(email) {
+  return allowed(email) && allowed(email, process.env.ADMIN_GOOGLE_EMAILS ?? "");
+}
+async function adminOverview(request, db = database()) {
+  const identity = await session(request, db);
+  if (!identity) throw new ApiError(401, "unauthorized");
+  if (!isAdmin(identity.email)) throw new ApiError(403, "forbidden");
+  const rows = await db.query(
+    "SELECT lower(email) AS email, count(*)::int AS sessions FROM relay_private.sessions WHERE expires_at > now() GROUP BY lower(email)"
+  );
+  const counts = new Map(rows.map((row) => [row.email, row.sessions]));
+  const emails = [...new Set((process.env.ALLOWED_GOOGLE_EMAILS ?? "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean))].sort();
+  return {
+    viewer: identity.email,
+    accounts: emails.map((email) => ({ email, role: isAdmin(email) ? "admin" : "member", sessions: counts.get(email) ?? 0 })),
+    // Configuration presence is not evidence of a successful provider connection.
+    configuration: { google: configured(), database: true, line: lineConfigured(), calendar: Boolean(process.env.TOKEN_ENCRYPTION_KEY) }
+  };
+}
+
+// src/server/handler.ts
+import { ZodError } from "zod";
+
+// src/server/calendar.ts
+import * as oidc2 from "openid-client";
+import { randomUUID as randomUUID2 } from "node:crypto";
+import { z as z2 } from "zod";
+
+// src/server/vault.ts
+import { createCipheriv, createDecipheriv, randomBytes as randomBytes2 } from "node:crypto";
+function encryptionKey() {
+  const value = process.env.TOKEN_ENCRYPTION_KEY ?? "";
+  if (!/^[A-Za-z0-9+/]{43}=$/.test(value)) throw new Error("configuration");
+  const key = Buffer.from(value, "base64");
+  if (key.length !== 32) throw new Error("configuration");
+  return key;
+}
+function calendarConfigured() {
+  try {
+    encryptionKey();
+    return true;
+  } catch {
+    return false;
+  }
+}
+function seal(value, subject) {
+  const iv = randomBytes2(12), cipher = createCipheriv("aes-256-gcm", encryptionKey(), iv);
+  cipher.setAAD(Buffer.from("relay-calendar:" + subject));
+  const data = Buffer.concat([cipher.update(value, "utf8"), cipher.final()]);
+  return ["v1", iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), data.toString("base64url")].join(".");
+}
+function unseal(value, subject) {
+  const [version, iv, tag, data, ...extra] = value.split(".");
+  if (version !== "v1" || !iv || !tag || !data || extra.length) throw new Error("invalidCiphertext");
+  const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(iv, "base64url"));
+  decipher.setAAD(Buffer.from("relay-calendar:" + subject));
+  decipher.setAuthTag(Buffer.from(tag, "base64url"));
+  return Buffer.concat([decipher.update(Buffer.from(data, "base64url")), decipher.final()]).toString("utf8");
 }
 
 // src/scheduling/slots.ts
@@ -1199,6 +1258,7 @@ import { useId, useState } from "react";
 // src/ui/icons.tsx
 import {
   Workflow,
+  ShieldCheck,
   UserRound,
   CalendarDays,
   Copy,
@@ -1233,6 +1293,7 @@ import {
 import { jsx } from "react/jsx-runtime";
 var icons = {
   brand: Workflow,
+  admin: ShieldCheck,
   user: UserRound,
   calendar: CalendarDays,
   copy: Copy,
@@ -1618,7 +1679,8 @@ var suggestions = [
 ];
 function LanguageForm({
   ui,
-  onApply
+  onApply,
+  action = "/"
 }) {
   const [selected, setSelected] = useState2(ui.locale), [custom, setCustom] = useState2(ui.locale), [error, setError] = useState2(false);
   const names = new Intl.DisplayNames([ui.language], { type: "language" });
@@ -1640,7 +1702,7 @@ function LanguageForm({
     "form",
     {
       id: "language-custom-form",
-      action: "/",
+      action,
       method: "get",
       className: "stack",
       onSubmit: (event) => submit(event, custom),
@@ -1676,7 +1738,7 @@ function LanguageForm({
       "form",
       {
         id: "language-form",
-        action: "/",
+        action,
         method: "get",
         className: "stack",
         onSubmit: (event) => submit(event, selected),
@@ -1825,7 +1887,7 @@ var tokens = { ...colorTokens, ...primitives, ...componentTokens };
 
 // src/server/page.tsx
 import { jsx as jsx11, jsxs as jsxs5 } from "react/jsx-runtime";
-function loginPage(locale, ready, denied) {
+function loginPage(locale, ready, denied, admin = false) {
   const ui = createUiContext(locale), { t } = ui;
   return "<!doctype html>" + renderToStaticMarkup(
     /* @__PURE__ */ jsxs5("html", { lang: ui.language, dir: ui.dir, children: [
@@ -1847,12 +1909,12 @@ function loginPage(locale, ready, denied) {
         /* @__PURE__ */ jsx11("script", { defer: true, src: "/assets/session.js" })
       ] }),
       /* @__PURE__ */ jsx11("body", { children: /* @__PURE__ */ jsx11("main", { className: "auth-page", children: /* @__PURE__ */ jsxs5("div", { className: "stack", children: [
-        /* @__PURE__ */ jsx11("h1", { children: brand }),
-        /* @__PURE__ */ jsx11("p", { role: "status", children: t(denied ? "authDenied" : ready ? "loginHint" : "authSetup") }),
-        ready && /* @__PURE__ */ jsx11(Button, { asChild: true, children: /* @__PURE__ */ jsx11("a", { href: "/api/auth/start", children: t("googleSignIn") }) }),
+        /* @__PURE__ */ jsx11("h1", { children: admin ? t("admin") : brand }),
+        /* @__PURE__ */ jsx11("p", { role: "status", children: t(admin && denied ? "adminDenied" : denied ? "authDenied" : ready ? admin ? "adminLoginHint" : "loginHint" : "authSetup") }),
+        ready && /* @__PURE__ */ jsx11(Button, { asChild: true, children: /* @__PURE__ */ jsx11("a", { href: admin ? "/api/auth/start?destination=admin" : "/api/auth/start", children: t("googleSignIn") }) }),
         /* @__PURE__ */ jsxs5("details", { className: "disclosure", children: [
           /* @__PURE__ */ jsx11("summary", { children: t("language") }),
-          /* @__PURE__ */ jsx11(LanguageForm, { ui })
+          /* @__PURE__ */ jsx11(LanguageForm, { ui, action: admin ? "/admin" : "/" })
         ] })
       ] }) }) })
     ] })
@@ -1860,24 +1922,28 @@ function loginPage(locale, ready, denied) {
 }
 
 // src/server/handler.ts
-var readRoutes = /* @__PURE__ */ new Set(["page", "app", "session", "destinations", "start", "callback", "calendar-status", "calendar-callback", "mcp-tokens"]);
-async function handle(request) {
+var readRoutes = /* @__PURE__ */ new Set(["admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "calendar-status", "calendar-callback", "mcp-tokens"]);
+async function handle(request, db) {
   const url = new URL(request.url), route = url.searchParams.get("route") ?? "";
   const locale = normalizeLocale(url.searchParams.get("lang") ?? request.headers.get("cookie")?.split("; ").find((value) => value.startsWith("relay-locale="))?.slice(13) ?? request.headers.get("accept-language")?.split(",")[0]?.split(";")[0]);
   try {
-    if (!["page", "app", "session", "destinations", "start", "callback", "logout", "code", "destination", "notify", "webhook", "calendar-status", "calendar-callback", "calendar-connect", "calendar-disconnect", "schedule-propose", "schedule-book", "mcp", "mcp-tokens", "mcp-token", "mcp-revoke"].includes(route)) throw new ApiError(404, "missing");
+    if (!["admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "logout", "code", "destination", "notify", "webhook", "calendar-status", "calendar-callback", "calendar-connect", "calendar-disconnect", "schedule-propose", "schedule-book", "mcp", "mcp-tokens", "mcp-token", "mcp-revoke"].includes(route)) throw new ApiError(404, "missing");
     if (request.method !== (readRoutes.has(route) ? "GET" : "POST")) throw new ApiError(405, "method");
     if (configured() && url.origin !== origin()) {
-      if (route === "page") return new Response(null, { status: 303, headers: { Location: origin() + "/" } });
+      if (route === "page" || route === "admin-page") return new Response(null, { status: 303, headers: { Location: origin() + (route === "admin-page" ? "/admin" : "/") } });
       throw new ApiError(403, "origin");
     }
-    if (route === "page") {
-      const ready = configured();
-      if (ready && await session(request)) return new Response(await readFile("prototype/index.html", "utf8"), { headers: { "Content-Type": "text/html; charset=utf-8" } });
-      return new Response(loginPage(locale, ready, url.searchParams.get("auth") === "denied"), { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    if (route === "page" || route === "admin-page") {
+      const ready = configured(), adminEntry = route === "admin-page";
+      const identity2 = ready ? await session(request, db) : null;
+      if (identity2 && (!adminEntry || isAdmin(identity2.email))) {
+        const html = (await readFile("prototype/index.html", "utf8")).replace('<div id="app">', `<div id="app" data-admin="${isAdmin(identity2.email)}">`);
+        return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+      }
+      return new Response(loginPage(locale, ready, Boolean(identity2) || url.searchParams.get("auth") === "denied", adminEntry), { status: identity2 ? 403 : 200, headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
     if (!configured()) throw new ApiError(503, "configuration");
-    if (route === "start") return await startLogin();
+    if (route === "start") return await startLogin(db, void 0, url.searchParams.get("destination") === "admin" ? "/admin" : "/");
     if (route === "callback") return await finishLogin(request);
     if (route === "webhook") {
       if (!lineConfigured()) throw new ApiError(503, "configuration");
@@ -1885,11 +1951,12 @@ async function handle(request) {
       return Response.json({ ok: true });
     }
     if (route === "mcp") return await handleMcp(request, await limitedBody(request));
-    const identity = await session(request);
+    const identity = await session(request, db);
     if (!identity) throw new ApiError(401, "unauthorized");
     if (request.method === "POST" && !sameOrigin(request)) throw new ApiError(403, "origin");
     if (route === "app") return new Response(await readFile("prototype/assets/app.js", "utf8"), { headers: { "Content-Type": "text/javascript; charset=utf-8" } });
-    if (route === "session") return Response.json({ email: identity.email, subject: identity.subject, lineReady: lineConfigured() });
+    if (route === "admin-overview") return Response.json(await adminOverview(request, db));
+    if (route === "session") return Response.json({ isAdmin: isAdmin(identity.email), email: identity.email, subject: identity.subject, lineReady: lineConfigured() });
     if (route === "logout") return await logout(request);
     if (route === "calendar-status") return Response.json(await calendarStatus(identity));
     if (route === "calendar-callback") return await finishCalendar(request, identity);

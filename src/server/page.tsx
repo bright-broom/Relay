@@ -8,6 +8,7 @@ export function loginPage(
   locale: string,
   ready: boolean,
   denied: boolean,
+  admin = false,
 ): string {
   const ui = createUiContext(locale),
     { t } = ui;
@@ -32,18 +33,18 @@ export function loginPage(
         <body>
           <main className="auth-page">
             <div className="stack">
-              <h1>{brand}</h1>
+              <h1>{admin ? t("admin") : brand}</h1>
               <p role="status">
-                {t(denied ? "authDenied" : ready ? "loginHint" : "authSetup")}
+                {t(admin && denied ? "adminDenied" : denied ? "authDenied" : ready ? (admin ? "adminLoginHint" : "loginHint") : "authSetup")}
               </p>
               {ready && (
                 <Button asChild>
-                  <a href="/api/auth/start">{t("googleSignIn")}</a>
+                  <a href={admin ? "/api/auth/start?destination=admin" : "/api/auth/start"}>{t("googleSignIn")}</a>
                 </Button>
               )}
               <details className="disclosure">
                 <summary>{t("language")}</summary>
-                <LanguageForm ui={ui} />
+                <LanguageForm ui={ui} action={admin ? "/admin" : "/"} />
               </details>
             </div>
           </main>

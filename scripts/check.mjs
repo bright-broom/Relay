@@ -125,3 +125,6 @@ assert.equal(resolveRoute('#main',[1,4]),null,'Skip link must not remount the pa
 assert.equal(visibleNavigation(true).some(item=>item.id==='install-info'),false);
 assert.equal(visibleNavigation(false).some(item=>item.id==='install-info'),true);
 console.log('Navigation: valid and invalid routes, case identity, current section, skip-link and installed-app visibility: OK.');
+
+assert.equal(visibleNavigation(false).some(item=>item.id==='admin'),false);
+assert.equal(visibleNavigation(false,true).some(item=>item.id==='admin'),true);

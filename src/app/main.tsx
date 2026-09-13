@@ -1,5 +1,4 @@
-import { createRoot } from "react-dom/client";
-import { App } from "./app";
+import { mountWorkspace } from "./root";
 import { createWorkspace } from "./store";
 import { browserLocale, hasLocalePreference } from "../i18n/context";
 import { initViewport } from "../prototype/viewport";
@@ -14,8 +13,8 @@ const workspace = createWorkspace(
   storage,
   browserLocale(),
   hasLocalePreference(),
-  location.hash,
+  location.hash || (location.pathname === "/admin" ? "#admin" : ""),
 );
 const root = document.getElementById("app");
 if (!root) throw new Error("Missing app root");
-createRoot(root).render(<App workspace={workspace} />);
+mountWorkspace(root, workspace);

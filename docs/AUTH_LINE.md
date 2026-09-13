@@ -88,3 +88,7 @@ Google実アカウントの往復、実LINE配信、Neon/Supabase実接続、iOS
 - [LINE Webhookの署名検証](https://developers.line.biz/en/docs/messaging-api/verify-webhook-signature/)
 - [LINE送信の再試行](https://developers.line.biz/en/docs/messaging-api/retrying-api-request/)
 - [Vercel Node.js Functions](https://vercel.com/docs/functions/runtimes/node-js)
+
+## 管理者ページ
+
+`/admin` の専用入口と、通常の利用許可に加えて `ADMIN_GOOGLE_EMAILS` で制御する管理者権限を追加。[管理者ページの仕様と設定](ADMIN.md)を参照。

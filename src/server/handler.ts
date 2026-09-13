@@ -1,3 +1,5 @@
+import {isAdmin, adminOverview} from './admin';
+import type {Database} from './database';
 import {normalizeLocale} from '../i18n/messages';
 import {ZodError} from 'zod';
 import {calendarStatus,startCalendar,finishCalendar,disconnectCalendar,proposeSchedule,bookSlot,integrationLimit} from './calendar';
@@ -8,24 +10,28 @@ import {session, startLogin, finishLogin, logout} from './auth';
 import {loginPage} from './page';
 import {ApiError, destinations, issueCode, changeDestination, webhook, notify} from './line';
 
-const readRoutes = new Set(['page','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
-export async function handle(request: Request): Promise<Response> {
+const readRoutes = new Set(['admin-page','admin-overview','page','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
+export async function handle(request: Request, db?: Database): Promise<Response> {
   const url = new URL(request.url), route = url.searchParams.get('route') ?? '';
   const locale = normalizeLocale(url.searchParams.get('lang')??request.headers.get('cookie')?.split('; ').find(value=>value.startsWith('relay-locale='))?.slice(13)??request.headers.get('accept-language')?.split(',')[0]?.split(';')[0]);
   try {
-    if (!['page','app','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
+    if (!['admin-page','admin-overview','page','app','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
     if (request.method !== (readRoutes.has(route) ? 'GET' : 'POST')) throw new ApiError(405, 'method');
     if (configured() && url.origin !== origin()) {
-      if (route === 'page') return new Response(null, {status: 303, headers: {Location: origin() + '/'}});
+      if (route === 'page' || route === 'admin-page') return new Response(null, {status: 303, headers: {Location: origin() + (route === 'admin-page' ? '/admin' : '/')}});
       throw new ApiError(403, 'origin');
     }
-    if (route === 'page') {
-      const ready = configured();
-      if (ready && await session(request)) return new Response(await readFile('prototype/index.html', 'utf8'), {headers: {'Content-Type': 'text/html; charset=utf-8'}});
-      return new Response(loginPage(locale, ready, url.searchParams.get('auth') === 'denied'), {headers: {'Content-Type': 'text/html; charset=utf-8'}});
+    if (route === 'page' || route === 'admin-page') {
+      const ready = configured(), adminEntry = route === 'admin-page';
+      const identity = ready ? await session(request, db) : null;
+      if (identity && (!adminEntry || isAdmin(identity.email))) {
+        const html = (await readFile('prototype/index.html', 'utf8')).replace('<div id="app">', `<div id="app" data-admin="${isAdmin(identity.email)}">`);
+        return new Response(html, {headers: {'Content-Type': 'text/html; charset=utf-8'}});
+      }
+      return new Response(loginPage(locale, ready, Boolean(identity) || url.searchParams.get('auth') === 'denied', adminEntry), {status: identity ? 403 : 200, headers: {'Content-Type': 'text/html; charset=utf-8'}});
     }
     if (!configured()) throw new ApiError(503, 'configuration');
-    if (route === 'start') return await startLogin();
+    if (route === 'start') return await startLogin(db, undefined, url.searchParams.get('destination') === 'admin' ? '/admin' : '/');
     if (route === 'callback') return await finishLogin(request);
     if (route === 'webhook') {
       if (!lineConfigured()) throw new ApiError(503, 'configuration');
@@ -33,11 +39,12 @@ export async function handle(request: Request): Promise<Response> {
       return Response.json({ok: true});
     }
     if (route === 'mcp') return await handleMcp(request,await limitedBody(request));
-    const identity = await session(request);
+    const identity = await session(request, db);
     if (!identity) throw new ApiError(401, 'unauthorized');
     if (request.method === 'POST' && !sameOrigin(request)) throw new ApiError(403, 'origin');
     if (route === 'app') return new Response(await readFile('prototype/assets/app.js', 'utf8'), {headers: {'Content-Type': 'text/javascript; charset=utf-8'}});
-    if (route === 'session') return Response.json({email: identity.email, subject: identity.subject, lineReady: lineConfigured()});
+    if (route === 'admin-overview') return Response.json(await adminOverview(request, db));
+    if (route === 'session') return Response.json({isAdmin: isAdmin(identity.email), email: identity.email, subject: identity.subject, lineReady: lineConfigured()});
     if (route === 'logout') return await logout(request);
     if (route === 'calendar-status') return Response.json(await calendarStatus(identity));
     if (route === 'calendar-callback') return await finishCalendar(request,identity);
