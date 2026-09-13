@@ -11,7 +11,6 @@ import {
   TriangleAlert,
   Clock,
   Check,
-  Download,
   Info,
   House,
   Folder,
@@ -47,7 +46,6 @@ const icons: Record<string, LucideIcon> = {
   alert: TriangleAlert,
   clock: Clock,
   check: Check,
-  install: Download,
   info: Info,
   home: House,
   cases: Folder,
@@ -119,5 +117,4 @@ export const labeled: Partial<Record<MessageKey, string>> = {
   sample: "imports",
   sampleShown: "check",
   reviewOpen: "reviews",
-  installNow: "install",
 };

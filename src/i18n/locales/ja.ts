@@ -1,4 +1,11 @@
 export const ja = {
+  myPage: "マイページ",
+  myProfile: "ログイン情報",
+  myPageFailure: "マイページを読み込めませんでした。再読み込みしてください。",
+  myNotifications: "LINE通知の設定",
+  myLanguage: "表示言語",
+  myGoogle: "Googleでログイン中",
+
   admin: "管理者",
   adminLoginHint: "管理者として許可されたGoogleアカウントでログインしてください。",
   adminDenied: "このアカウントには管理者権限がありません。",
@@ -136,7 +143,6 @@ export const ja = {
   mcpConnectHelp: "Relayにログインし、カレンダーを接続し直してください。",
   mcpRetryHelp: "入力条件またはRelayの接続状態を確認してください。候補期限切れや競合の場合は新しい候補を取得し、結果不明の場合は同じ候補IDを再試行してください。",
 
-  account: "アカウント・LINE連携",
   googleSignIn: "Googleでログイン",
   loginHint: "登録済みのGoogleアカウントでログインしてください。",
   authSetup: "接続設定を準備しています。設定が完了するとログインできます。",
@@ -163,14 +169,6 @@ export const ja = {
   copyLinkCode: "連携コードをコピー",
 
   storageConflict: "別の画面で記録が更新されました。この画面の入力をコピーしてから、開き直してください。",
-  installTitle: "アプリを追加",
-  installNow: "インストール",
-  iosLabel: "iPhone・iPad",
-  androidLabel: "Android",
-  installIos: "Safariで開き、共有 →「ホーム画面に追加」→「追加」。表示される場合は「Webアプリとして開く」をオンにします。",
-  installAndroid: "Chromeで開き、メニュー →「アプリをインストール」または「ホーム画面に追加」。",
-  installHttps: "公開URLをSafariまたはChromeで開いてください。このローカルファイルからはインストールできません。",
-  installAccepted: "端末の案内に沿って追加してください。",
   localFailure: "端末に保存できません。記録をコピーして保管してください。",
   offlineUnavailable: "アプリを更新できませんでした。接続を確認して再度開いてください。",
   offlineStatus: "オフライン · 再接続してログインを確認してください。",

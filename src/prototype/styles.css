@@ -237,3 +237,7 @@ h3{font-size:var(--type-subheading);font-weight:var(--semibold)}small{font-size:
 @layer components {
 .button.brand{inline-size:100%}
 }
+
+@layer components {
+.nav-personal-start{margin-block-start:var(--space-5)}
+}

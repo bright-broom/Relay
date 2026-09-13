@@ -7,7 +7,7 @@ iOS / Android共通のPWA。アプリストア向けの署名済みバイナリ�
 ## 導入
 
 - iPhone / iPad：Safariで公開URLを開く → 共有 → ホーム画面に追加 → 追加。「Webアプリとして開く」が表示される場合はオン。
-- Android：Chromeで公開URLを開く → メニュー → アプリをインストール、またはホーム画面に追加。対応時はアプリ内の追加ボタンからもインストール画面を開ける。
+- Android：Chromeで公開URLを開く → メニュー → アプリをインストール、またはホーム画面に追加。アプリ内の追加ボタン・案内は設けない。
 - ローカルの `file://` ではインストールできない。Vercel等のHTTPSが必要。
 
 参考：[Appleの追加手順](https://support.apple.com/en-euro/guide/iphone/iphea86e5236/ios)、[WebKitのホーム画面アプリ](https://webkit.org/blog/17333/webkit-features-in-safari-26-0/)、[GoogleのPWA導入ガイド](https://web.dev/learn/pwa/installation)。メニュー表記はOS・ブラウザーの版と表示言語で異なる。

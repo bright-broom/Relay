@@ -9,7 +9,6 @@ import { createUiContext, persistLocale } from "../i18n/context";
 import { brand, type MessageKey } from "../i18n/messages";
 import { activeNavigation, visibleNavigation } from "../prototype/navigation";
 import { storageKey } from "../prototype/storage";
-import { hosted, standalone, canPrompt, installApp } from "../pwa/client";
 import {
   TooltipProvider,
   Tooltip,
@@ -40,22 +39,18 @@ import { Admin } from "./admin";
 import { Today, Cases, Details, Reviews, Imports } from "./pages";
 import { Pricing } from "./pricing";
 import { Scheduling } from "./scheduling";
-import { Account } from "./account";
+import { MyPage } from "./my-page";
 import type { Workspace } from "./store";
 type Modal =
   | "pricing"
   | "scheduling"
-  | "account"
   | "language"
-  | "install-info"
   | "preview-info"
   | "handoff";
 const modalTitles: Record<Modal, MessageKey> = {
   pricing: "pricing",
   scheduling: "scheduling",
-  account: "account",
   language: "language",
-  "install-info": "installTitle",
   "preview-info": "previewInfo",
   handoff: "handoffHeading",
 };
@@ -69,9 +64,7 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
   const { t } = ui;
   const [modal, setModal] = useState<Modal | null>(null),
     [presenting, setPresenting] = useState(false),
-    [toast, setToast] = useState<MessageKey | null>(null),
-    [installed, setInstalled] = useState(standalone),
-    [prompt, setPrompt] = useState(canPrompt);
+    [toast, setToast] = useState<MessageKey | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const [calendarNotice] = useState<MessageKey | undefined>(() => {
     const result = new URLSearchParams(location.search).get("calendar");
@@ -117,11 +110,6 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
       offline: () => setToast("offlineStatus"),
       online: () => setToast("onlineStatus"),
       "relay-offline-unavailable": () => setToast("offlineUnavailable"),
-      appinstalled: () => {
-        setInstalled(true);
-        setPrompt(false);
-      },
-      beforeinstallprompt: () => setPrompt(true),
     };
     for (const [name, handler] of Object.entries(events))
       window.addEventListener(name, handler);
@@ -180,11 +168,11 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
             </Button>
           </div>
           <nav id="main-nav" aria-label={t("menu")}>
-            {visibleNavigation(installed, isAdmin).map((item) => (
+            {visibleNavigation(isAdmin).map((item) => (
               <Tooltip key={item.id}>
                 <TooltipTrigger asChild>
                   {item.kind === "page" ? (
-                    <Button variant="ghost" className="nav-link" asChild>
+                    <Button variant="ghost" className={"nav-link" + (item.id === "mypage" ? " nav-personal-start" : "")} asChild>
                       <a
                         href={"#" + item.id}
                         aria-label={t(item.label)}
@@ -242,17 +230,19 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
           </div>
         </aside>
         <main id="main" tabIndex={-1}>
-          <div className="topbar" hidden={state.page === "admin" && !ui.fallback}>
-            {state.page !== "admin" && <span className="meta">{t("previewShort")}</span>}
+          <div className="topbar" hidden={(state.page === "admin" || state.page === "mypage") && !ui.fallback}>
+            {state.page !== "admin" && state.page !== "mypage" && <span className="meta">{t("previewShort")}</span>}
             {ui.fallback && (
               <span className="meta" role="status">
                 {t("languageFallback")}
               </span>
             )}
           </div>
-          {state.page !== "admin" && state.storageError && <Notice error>{t(state.storageError)}</Notice>}
+          {state.page !== "admin" && state.page !== "mypage" && state.storageError && <Notice error>{t(state.storageError)}</Notice>}
           <div id="page">
-            {state.page === "admin" ? (
+            {state.page === "mypage" ? (
+              <MyPage ui={ui} onLanguage={() => open("language")} />
+            ) : state.page === "admin" ? (
               <Admin ui={ui} />
             ) : state.page === "today" ? (
               <Today {...props} />
@@ -311,8 +301,6 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
                 title={state.page === "detail" ? c.title : ""}
                 initialNotice={calendarNotice}
               />
-            ) : modal === "account" ? (
-              <Account ui={ui} />
             ) : modal === "language" ? (
               <LanguageForm ui={ui} onApply={applyLocale} />
             ) : modal === "handoff" ? (
@@ -332,31 +320,6 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
                   }}
                 />
               </>
-            ) : modal === "install-info" ? (
-              !hosted() ? (
-                <p>{t("installHttps")}</p>
-              ) : (
-                <div className="stack">
-                  <section>
-                    <h3>{t("iosLabel")}</h3>
-                    <p>{t("installIos")}</p>
-                  </section>
-                  <section>
-                    <h3>{t("androidLabel")}</h3>
-                    <p>{t("installAndroid")}</p>
-                  </section>
-                  {prompt && !installed && (
-                    <Action
-                      ui={ui}
-                      label="installNow"
-                      onClick={async () => {
-                        if (await installApp()) setToast("installAccepted");
-                        setPrompt(canPrompt());
-                      }}
-                    />
-                  )}
-                </div>
-              )
             ) : modal === "preview-info" ? (
               <div className="stack">
                 <p>{t("demoNote")}</p>

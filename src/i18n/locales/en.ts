@@ -1,5 +1,12 @@
 import type {ja} from './ja';
 export const en: Record<keyof typeof ja,string> = {
+  myPage: "My page",
+  myProfile: "Sign-in details",
+  myPageFailure: "Could not load your profile. Please refresh.",
+  myNotifications: "LINE notification settings",
+  myLanguage: "Display language",
+  myGoogle: "Signed in with Google",
+
   admin: "Administration",
   adminLoginHint: "Sign in with a Google account authorized as an administrator.",
   adminDenied: "This account does not have administrator access.",
@@ -137,7 +144,6 @@ export const en: Record<keyof typeof ja,string> = {
   mcpConnectHelp: "Sign in to Relay and reconnect Google Calendar.",
   mcpRetryHelp: "Check the input and Relay connection. For expired or occupied slots, create fresh proposals. For uncertain booking outcomes, retry the same proposal ID.",
 
-  account: "Account & LINE",
   googleSignIn: "Sign in with Google",
   loginHint: "Sign in with an approved Google account.",
   authSetup: "Connection setup is in progress. Sign-in will be available once it is complete.",
@@ -164,14 +170,6 @@ export const en: Record<keyof typeof ja,string> = {
   copyLinkCode: "Copy linking code",
 
   storageConflict: "Another window saved newer records. Copy your input before reopening this page.",
-  installTitle: "Add app",
-  installNow: "Install",
-  iosLabel: "iPhone and iPad",
-  androidLabel: "Android",
-  installIos: "Open in Safari, then Share → Add to Home Screen → Add. Enable Open as Web App if shown.",
-  installAndroid: "Open in Chrome, then menu → Install app or Add to Home screen.",
-  installHttps: "Open the published URL in Safari or Chrome. Installation is unavailable from this local file.",
-  installAccepted: "Follow the instructions on your device to finish adding the app.",
   localFailure: "Device storage failed. Copy your records to keep them.",
   offlineUnavailable: "The app could not be updated. Check your connection and open the app again.",
   offlineStatus: "Offline · Reconnect to verify your sign-in.",

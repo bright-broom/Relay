@@ -148,6 +148,12 @@ import { createInstance } from "i18next";
 
 // src/i18n/locales/ja.ts
 var ja = {
+  myPage: "\u30DE\u30A4\u30DA\u30FC\u30B8",
+  myProfile: "\u30ED\u30B0\u30A4\u30F3\u60C5\u5831",
+  myPageFailure: "\u30DE\u30A4\u30DA\u30FC\u30B8\u3092\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u518D\u8AAD\u307F\u8FBC\u307F\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  myNotifications: "LINE\u901A\u77E5\u306E\u8A2D\u5B9A",
+  myLanguage: "\u8868\u793A\u8A00\u8A9E",
+  myGoogle: "Google\u3067\u30ED\u30B0\u30A4\u30F3\u4E2D",
   admin: "\u7BA1\u7406\u8005",
   adminLoginHint: "\u7BA1\u7406\u8005\u3068\u3057\u3066\u8A31\u53EF\u3055\u308C\u305FGoogle\u30A2\u30AB\u30A6\u30F3\u30C8\u3067\u30ED\u30B0\u30A4\u30F3\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   adminDenied: "\u3053\u306E\u30A2\u30AB\u30A6\u30F3\u30C8\u306B\u306F\u7BA1\u7406\u8005\u6A29\u9650\u304C\u3042\u308A\u307E\u305B\u3093\u3002",
@@ -279,7 +285,6 @@ var ja = {
   mcpBookDescription: "\u8A31\u53EF\u3055\u308C\u305F\u672C\u4EBA\u306E\u5019\u88DCID\u3067\u4E88\u5B9A\u3092\u767B\u9332\u3057\u307E\u3059\u3002\u4E88\u5B9A\u4F5C\u6210\u306E\u4F9D\u983C\u304C\u3042\u308B\u5834\u5408\u306B\u4F7F\u3044\u307E\u3059\u3002\u7A7A\u304D\u6642\u9593\u3092\u518D\u78BA\u8A8D\u3057\u3001\u540C\u3058\u5019\u88DC\u306E\u518D\u8A66\u884C\u3067\u306F\u91CD\u8907\u767B\u9332\u3057\u307E\u305B\u3093\u3002\u62DB\u5F85\u306F\u9001\u308A\u307E\u305B\u3093\u3002\u53C2\u52A0\u8005\u306E\u5408\u610F\u3092\u610F\u5473\u3057\u307E\u305B\u3093\u3002",
   mcpConnectHelp: "Relay\u306B\u30ED\u30B0\u30A4\u30F3\u3057\u3001\u30AB\u30EC\u30F3\u30C0\u30FC\u3092\u63A5\u7D9A\u3057\u76F4\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   mcpRetryHelp: "\u5165\u529B\u6761\u4EF6\u307E\u305F\u306FRelay\u306E\u63A5\u7D9A\u72B6\u614B\u3092\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u5019\u88DC\u671F\u9650\u5207\u308C\u3084\u7AF6\u5408\u306E\u5834\u5408\u306F\u65B0\u3057\u3044\u5019\u88DC\u3092\u53D6\u5F97\u3057\u3001\u7D50\u679C\u4E0D\u660E\u306E\u5834\u5408\u306F\u540C\u3058\u5019\u88DCID\u3092\u518D\u8A66\u884C\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
-  account: "\u30A2\u30AB\u30A6\u30F3\u30C8\u30FBLINE\u9023\u643A",
   googleSignIn: "Google\u3067\u30ED\u30B0\u30A4\u30F3",
   loginHint: "\u767B\u9332\u6E08\u307F\u306EGoogle\u30A2\u30AB\u30A6\u30F3\u30C8\u3067\u30ED\u30B0\u30A4\u30F3\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   authSetup: "\u63A5\u7D9A\u8A2D\u5B9A\u3092\u6E96\u5099\u3057\u3066\u3044\u307E\u3059\u3002\u8A2D\u5B9A\u304C\u5B8C\u4E86\u3059\u308B\u3068\u30ED\u30B0\u30A4\u30F3\u3067\u304D\u307E\u3059\u3002",
@@ -305,14 +310,6 @@ var ja = {
   authOnline: "\u5229\u7528\u306B\u306F\u30AA\u30F3\u30E9\u30A4\u30F3\u3067\u306E\u30ED\u30B0\u30A4\u30F3\u78BA\u8A8D\u304C\u5FC5\u8981\u3067\u3059\u3002",
   copyLinkCode: "\u9023\u643A\u30B3\u30FC\u30C9\u3092\u30B3\u30D4\u30FC",
   storageConflict: "\u5225\u306E\u753B\u9762\u3067\u8A18\u9332\u304C\u66F4\u65B0\u3055\u308C\u307E\u3057\u305F\u3002\u3053\u306E\u753B\u9762\u306E\u5165\u529B\u3092\u30B3\u30D4\u30FC\u3057\u3066\u304B\u3089\u3001\u958B\u304D\u76F4\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
-  installTitle: "\u30A2\u30D7\u30EA\u3092\u8FFD\u52A0",
-  installNow: "\u30A4\u30F3\u30B9\u30C8\u30FC\u30EB",
-  iosLabel: "iPhone\u30FBiPad",
-  androidLabel: "Android",
-  installIos: "Safari\u3067\u958B\u304D\u3001\u5171\u6709 \u2192\u300C\u30DB\u30FC\u30E0\u753B\u9762\u306B\u8FFD\u52A0\u300D\u2192\u300C\u8FFD\u52A0\u300D\u3002\u8868\u793A\u3055\u308C\u308B\u5834\u5408\u306F\u300CWeb\u30A2\u30D7\u30EA\u3068\u3057\u3066\u958B\u304F\u300D\u3092\u30AA\u30F3\u306B\u3057\u307E\u3059\u3002",
-  installAndroid: "Chrome\u3067\u958B\u304D\u3001\u30E1\u30CB\u30E5\u30FC \u2192\u300C\u30A2\u30D7\u30EA\u3092\u30A4\u30F3\u30B9\u30C8\u30FC\u30EB\u300D\u307E\u305F\u306F\u300C\u30DB\u30FC\u30E0\u753B\u9762\u306B\u8FFD\u52A0\u300D\u3002",
-  installHttps: "\u516C\u958BURL\u3092Safari\u307E\u305F\u306FChrome\u3067\u958B\u3044\u3066\u304F\u3060\u3055\u3044\u3002\u3053\u306E\u30ED\u30FC\u30AB\u30EB\u30D5\u30A1\u30A4\u30EB\u304B\u3089\u306F\u30A4\u30F3\u30B9\u30C8\u30FC\u30EB\u3067\u304D\u307E\u305B\u3093\u3002",
-  installAccepted: "\u7AEF\u672B\u306E\u6848\u5185\u306B\u6CBF\u3063\u3066\u8FFD\u52A0\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   localFailure: "\u7AEF\u672B\u306B\u4FDD\u5B58\u3067\u304D\u307E\u305B\u3093\u3002\u8A18\u9332\u3092\u30B3\u30D4\u30FC\u3057\u3066\u4FDD\u7BA1\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   offlineUnavailable: "\u30A2\u30D7\u30EA\u3092\u66F4\u65B0\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u63A5\u7D9A\u3092\u78BA\u8A8D\u3057\u3066\u518D\u5EA6\u958B\u3044\u3066\u304F\u3060\u3055\u3044\u3002",
   offlineStatus: "\u30AA\u30D5\u30E9\u30A4\u30F3 \xB7 \u518D\u63A5\u7D9A\u3057\u3066\u30ED\u30B0\u30A4\u30F3\u3092\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
@@ -444,6 +441,12 @@ var ja = {
 
 // src/i18n/locales/en.ts
 var en = {
+  myPage: "My page",
+  myProfile: "Sign-in details",
+  myPageFailure: "Could not load your profile. Please refresh.",
+  myNotifications: "LINE notification settings",
+  myLanguage: "Display language",
+  myGoogle: "Signed in with Google",
   admin: "Administration",
   adminLoginHint: "Sign in with a Google account authorized as an administrator.",
   adminDenied: "This account does not have administrator access.",
@@ -575,7 +578,6 @@ var en = {
   mcpBookDescription: "Books an owned proposal ID when the user has authorized event creation. Rechecks availability; retrying the same proposal does not duplicate the event. Sends no invitations and does not imply attendee agreement.",
   mcpConnectHelp: "Sign in to Relay and reconnect Google Calendar.",
   mcpRetryHelp: "Check the input and Relay connection. For expired or occupied slots, create fresh proposals. For uncertain booking outcomes, retry the same proposal ID.",
-  account: "Account & LINE",
   googleSignIn: "Sign in with Google",
   loginHint: "Sign in with an approved Google account.",
   authSetup: "Connection setup is in progress. Sign-in will be available once it is complete.",
@@ -601,14 +603,6 @@ var en = {
   authOnline: "An online sign-in check is required to use Relay.",
   copyLinkCode: "Copy linking code",
   storageConflict: "Another window saved newer records. Copy your input before reopening this page.",
-  installTitle: "Add app",
-  installNow: "Install",
-  iosLabel: "iPhone and iPad",
-  androidLabel: "Android",
-  installIos: "Open in Safari, then Share \u2192 Add to Home Screen \u2192 Add. Enable Open as Web App if shown.",
-  installAndroid: "Open in Chrome, then menu \u2192 Install app or Add to Home screen.",
-  installHttps: "Open the published URL in Safari or Chrome. Installation is unavailable from this local file.",
-  installAccepted: "Follow the instructions on your device to finish adding the app.",
   localFailure: "Device storage failed. Copy your records to keep them.",
   offlineUnavailable: "The app could not be updated. Check your connection and open the app again.",
   offlineStatus: "Offline \xB7 Reconnect to verify your sign-in.",
@@ -1268,7 +1262,6 @@ import {
   TriangleAlert,
   Clock,
   Check,
-  Download,
   Info,
   House,
   Folder,
@@ -1303,7 +1296,6 @@ var icons = {
   alert: TriangleAlert,
   clock: Clock,
   check: Check,
-  install: Download,
   info: Info,
   home: House,
   cases: Folder,
@@ -1373,8 +1365,7 @@ var labeled = {
   reject: "close",
   sample: "imports",
   sampleShown: "check",
-  reviewOpen: "reviews",
-  installNow: "install"
+  reviewOpen: "reviews"
 };
 
 // src/components/ui/button.tsx
@@ -1607,15 +1598,20 @@ function Fold({
   label,
   children,
   required = false,
-  defaultOpen = false
+  defaultOpen = false,
+  deferMount = false
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [activated, setActivated] = useState(!deferMount || defaultOpen || required);
   return /* @__PURE__ */ jsxs3(
     Collapsible,
     {
       className: "disclosure",
       open: required || open,
-      onOpenChange: setOpen,
+      onOpenChange: (value) => {
+        if (value) setActivated(true);
+        setOpen(value);
+      },
       children: [
         /* @__PURE__ */ jsx9(CollapsibleTrigger, { asChild: true, children: /* @__PURE__ */ jsxs3(Button, { variant: "ghost", className: "disclosure-trigger", children: [
           ui.t(label),
@@ -1627,7 +1623,7 @@ function Fold({
             className: "disclosure-body",
             forceMount: true,
             hidden: !(required || open),
-            children
+            children: (activated || required) && children
           }
         )
       ]
