@@ -53,6 +53,10 @@ flowchart TB
 | カレンダー・MCP | 空き時間候補、予定登録、同じ日程機能のMCP公開 | Googleの追加同意・暗号化設定等が必要。任意のMCPへ接続するクライアントではない |
 | 端末・言語 | レスポンシブUI、PWA、日英文言・地域書式・RTL | 全言語を翻訳済みではない。実機での受入確認は未完了 |
 
+## 顧客データの蓄積（設計済み・未実装）
+
+[CRMデータベース設計](docs/CRM_DATABASE.md)では、顧客を中心に連絡先・複数案件・活動・タスク・料金提案を保存する14テーブルを定義しています。所属ごとの隔離、変更履歴、競合・再送対策を含みます。[設計用SQL](docs/database/crm-draft.sql)は本番マイグレーションとは分離しており、現在の公開デモに実顧客の保存機能はまだありません。
+
 ## 全体構成
 
 現在は **React + TypeScript + Tailwind CSS + Vercel Functions**。Next.jsは導入していません。案件の端末内保存と、認証・外部連携のサーバー保存を分けています。
@@ -250,6 +254,7 @@ CIは型・ビルド・参照監査、合成GoogleプロバイダーとPGliteを
 | 読みたいこと | ドキュメント |
 |---|---|
 | プロダクトの方向性・将来設計 | [システム設計](docs/DESIGN.md) · [スタック選定時の検討](docs/STACK_DECISION.md) |
+| 顧客・案件の永続化 | [CRMデータベース設計・ER図](docs/CRM_DATABASE.md) |
 | 開発の必須要件 | [開発要件](docs/DEVELOPMENT.md) |
 | 共通UIの実装 | [React・shadcn/ui・Lucide](docs/COMPONENTS.md) |
 | 表示・入力の基準 | [デザイン](docs/DESIGN_GUIDELINES.md) · [国際化・操作部品](docs/I18N_UX.md) |
