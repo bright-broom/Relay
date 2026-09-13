@@ -9,7 +9,7 @@ export type LoginStatus = "ready" | "denied" | "setup" | "unavailable";
 export function loginPage(locale: string, status: LoginStatus, admin = false): string {
   const ui = createUiContext(locale),
     { t } = ui;
-  const entry = admin ? "/admin" : "/";
+  const entry = admin ? "/admin" : "/login";
   const start = new URLSearchParams({lang: ui.locale});
   if (admin) start.set("destination", "admin");
   const message = status === "setup" ? "authSetup" : status === "unavailable" ? "authUnavailable" : status === "denied" ? (admin ? "adminDenied" : "authDenied") : (admin ? "adminLoginHint" : "loginHint");
@@ -44,13 +44,13 @@ export function loginPage(locale: string, status: LoginStatus, admin = false): s
                 </a>
               </Button>
               <Button asChild variant="ghost">
-                <a href={`${admin ? "/" : "/admin"}?lang=${encodeURIComponent(ui.locale)}`}>
-                  <Icon name={admin ? "home" : "adminLocked"} />{t(admin ? "today" : "admin")}
+                <a href={`/?lang=${encodeURIComponent(ui.locale)}`}>
+                  <Icon name="home" />{t("today")}
                 </a>
               </Button>
               <details className="disclosure">
                 <summary>{t("language")}</summary>
-                <LanguageForm ui={ui} action={admin ? "/admin" : "/"} />
+                <LanguageForm ui={ui} action={entry} />
               </details>
             </div>
           </main>

@@ -12,22 +12,31 @@ import {session, startLogin, finishLogin, logout, cookie, oauthCookie} from './a
 import {loginPage, type LoginStatus} from './page';
 import {ApiError, destinations, issueCode, changeDestination, webhook, notify} from './line';
 
-const readRoutes = new Set(['admin-page','admin-overview','page','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
+const readRoutes = new Set(['login-page','admin-page','admin-overview','page','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
 export async function handle(request: Request, db?: Database, authProvider?: Configuration): Promise<Response> {
   const url = new URL(request.url), route = url.searchParams.get('route') ?? '';
   const locale = normalizeLocale(url.searchParams.get('lang')??request.headers.get('cookie')?.split('; ').find(value=>value.startsWith('relay-locale='))?.slice(13)??request.headers.get('accept-language')?.split(',')[0]?.split(';')[0]);
   try {
-    if (!['admin-page','admin-overview','page','app','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
+    if (!['login-page','admin-page','admin-overview','page','app','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
     if (request.method !== (readRoutes.has(route) ? 'GET' : 'POST')) throw new ApiError(405, 'method');
     if (configured() && url.origin !== origin()) {
-      if (route === 'page' || route === 'admin-page') {
-        const target = new URL(route === 'admin-page' ? '/admin' : '/', origin());
+      if (route === 'page' || route === 'admin-page' || route === 'login-page') {
+        const target = new URL(route === 'admin-page' ? '/admin' : route === 'login-page' ? '/login' : '/', origin());
         if (url.searchParams.has('lang')) target.searchParams.set('lang', locale);
         return new Response(null, {status: 303, headers: {Location: target.href}});
       }
       throw new ApiError(403, 'origin');
     }
-    if (route === 'page' || route === 'admin-page') {
+    // The bundle contains public UI and fictional fixtures only, never private records.
+    if (route === 'app') return new Response(await readFile('prototype/assets/app.js', 'utf8'), {headers: {'Content-Type': 'text/javascript; charset=utf-8'}});
+    if (route === 'page' && !['denied','unavailable'].includes(url.searchParams.get('auth') ?? '')) {
+      // Authentication failure cannot prevent access to the public workspace.
+      let identity = null;
+      try { if (configured()) identity = await session(request, db); } catch { /* Fall back to isolated public fixtures. */ }
+      const html = (await readFile('prototype/index.html', 'utf8')).replace('<div id="app">', `<div id="app" data-public-preview="${!identity}" data-admin="${identity ? isAdmin(identity.email) : false}">`);
+      return new Response(html, {headers: {'Content-Type': 'text/html; charset=utf-8'}});
+    }
+    if (route === 'page' || route === 'admin-page' || route === 'login-page') {
       const adminEntry = route === 'admin-page';
       const ready = configured() && (!adminEntry || administratorIssues().length === 0);
       const identity = ready ? await session(request, db) : null;
@@ -58,7 +67,6 @@ export async function handle(request: Request, db?: Database, authProvider?: Con
     const identity = await session(request, db);
     if (!identity) throw new ApiError(401, 'unauthorized');
     if (request.method === 'POST' && !sameOrigin(request)) throw new ApiError(403, 'origin');
-    if (route === 'app') return new Response(await readFile('prototype/assets/app.js', 'utf8'), {headers: {'Content-Type': 'text/javascript; charset=utf-8'}});
     if (route === 'admin-overview') return Response.json(await adminOverview(request, db));
     if (route === 'session') return Response.json({isAdmin: isAdmin(identity.email), email: identity.email, subject: identity.subject, lineReady: lineConfigured()});
     if (route === 'logout') return await logout(request);
@@ -87,7 +95,7 @@ export async function handle(request: Request, db?: Database, authProvider?: Con
     throw new ApiError(404, 'missing');
   } catch (error) {
     // Navigation failures remain usable HTML. API consumers keep their JSON contract.
-    if (request.method === 'GET' && ['page','admin-page','start','callback'].includes(route) && !(error instanceof ApiError && error.status < 500)) {
+    if (request.method === 'GET' && ['page','login-page','admin-page','start','callback'].includes(route) && !(error instanceof ApiError && error.status < 500)) {
       const admin = route === 'admin-page' || (route === 'start' && url.searchParams.get('destination') === 'admin');
       const ready = configured() && (!admin || administratorIssues().length === 0);
       const headers = new Headers({'Content-Type':'text/html; charset=utf-8', 'Retry-After':'30'});

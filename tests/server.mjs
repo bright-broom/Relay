@@ -197,6 +197,13 @@ await db.query("UPDATE relay_private.sessions SET expires_at=now()-interval '1 s
 assert.equal((await api.handle(adminRequest('admin-overview',adminToken),db)).status,401);
 // HTML navigation recovers from provider/DB outages without exposing their error values.
 const unavailableDb={query:async()=>{throw new Error('postgres://private-secret@private-host/account');}};
+const publicDuringOutage=await api.handle(adminRequest('page',memberToken),unavailableDb);
+assert.equal(publicDuringOutage.status,200);
+const publicOutageHtml=await publicDuringOutage.text();
+assert.match(publicOutageHtml,/data-public-preview="true" data-admin="false"/);
+assert.doesNotMatch(publicOutageHtml,/private-secret|owner@gmail\.com/);
+const signedInWorkspace=await api.handle(adminRequest('page',memberToken),db);
+assert.match(await signedInWorkspace.text(),/data-public-preview="false"/);
 for(const [path,isAdmin] of [['admin?route=admin-page',true],['api/auth/start?route=start&destination=admin',true],['api/auth/callback?route=callback',false]]) {
  const req=new Request('https://relay.test/'+path+'&lang=en',{headers:{cookie:api.cookie(path.startsWith('api/auth/callback')?api.oauthCookie:api.sessionCookie,memberToken,600)}});
  const response=await api.handle(req,unavailableDb,config);
@@ -260,19 +267,27 @@ delete process.env.ADMIN_GOOGLE_EMAILS;
 console.log('Admin: signed Google return path, anonymous/member denial, forged-role denial, dedicated allowlist, expiry/revocation, configuration redaction and page/API routing: OK.');
 // No external network is used to prove fail-closed hosting.
 delete process.env.GOOGLE_CLIENT_ID;delete process.env.GOOGLE_CLIENT_SECRET;delete process.env.DATABASE_URL;
-for(const route of ['admin-overview','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']){
+for(const route of ['admin-overview','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']){
  const response=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route));assert.equal(response.status,503);assert.equal(response.headers.get('cache-control'),'private, no-store');
 }
 for(const route of ['notify','destination','logout','code','webhook','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-token','mcp-revoke']){
  const response=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route,{method:'POST'}));assert.equal(response.status,503);
 }
 process.env.GOOGLE_CLIENT_ID='synthetic-client';process.env.GOOGLE_CLIENT_SECRET='synthetic-secret';process.env.DATABASE_URL='postgres://unused:unused@localhost/unused';
-for(const route of ['admin-overview','app','session','destinations','calendar-status','calendar-callback','mcp-tokens'])assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route))).status,401);
+for(const route of ['admin-overview','session','destinations','calendar-status','calendar-callback','mcp-tokens'])assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route))).status,401);
 for(const route of ['logout','code','destination','notify','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-token','mcp-revoke'])assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route,{method:'POST'}))).status,401);
 assert.equal((await api.endpoint.fetch(new Request('https://old-deployment.test/api/relay?route=session'))).status,403);
 assert.equal((await api.endpoint.fetch(new Request('https://old-deployment.test/api/relay?route=page'))).headers.get('location'),'https://relay.test/');
 delete process.env.GOOGLE_CLIENT_ID;
-const login=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route=page'));const html=await login.text();assert.equal(login.status,503);assert.ok(!html.includes('assets/app.js'));assert.ok(!html.includes(owner.email));assert.ok(!html.includes('href="/api/auth/start"'));
+const publicEntry=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route=page'));
+assert.equal(publicEntry.status,200);assert.match(await publicEntry.text(),/data-public-preview="true" data-admin="false"/);
+assert.equal(publicEntry.headers.get('Cache-Control'),'private, no-store');
+const publicBundle=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route=app'));
+assert.equal(publicBundle.status,200);assert.match(publicBundle.headers.get('Content-Type'),/javascript/);
+assert.doesNotMatch(await publicBundle.text(),/synthetic-secret|synthetic-line-token|owner@gmail\.com/);
+for(const route of ['page','app']) assert.equal((await api.handle(new Request('https://relay.test/api/relay?route='+route,{method:'POST'}),db)).status,405);
+for(const route of ['admin-overview','session','destinations','calendar-status','mcp-tokens']) assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route+'&publicPreview=true'))).status,503);
+const login=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route=login-page'));const html=await login.text();assert.equal(login.status,503);assert.ok(!html.includes('assets/app.js'));assert.ok(!html.includes(owner.email));assert.ok(!html.includes('href="/api/auth/start"'));assert.match(html,/action="\/login"/);
 await assert.rejects(api.limitedBody(new Request('https://relay.test',{method:'POST',body:'x'.repeat(65537)})),e=>e.status===413);
 await pg.close();
 console.log('Auth & LINE: real SQL migration, allowlist, verified claims, expiry/revocation, origin, signatures, pairing ownership/replay/expiry, group identity, notification idempotency/retry/quota and fail-closed routes: OK. No real messages sent.');

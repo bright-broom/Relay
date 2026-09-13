@@ -9,6 +9,7 @@ import { createUiContext, persistLocale } from "../i18n/context";
 import { brand, type MessageKey } from "../i18n/messages";
 import { activeNavigation, visibleNavigation } from "../prototype/navigation";
 import { storageKey } from "../prototype/storage";
+import { publicPreview, workspaceStorage } from "../prototype/access-mode";
 import {
   TooltipProvider,
   Tooltip,
@@ -231,7 +232,7 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
         </aside>
         <main id="main" tabIndex={-1}>
           <div className="topbar" hidden={(state.page === "admin" || state.page === "mypage") && !ui.fallback}>
-            {state.page !== "admin" && state.page !== "mypage" && <span className="meta">{t("previewShort")}</span>}
+            {state.page !== "admin" && state.page !== "mypage" && <span className="meta">{t(publicPreview() ? "publicPreviewHint" : "previewShort")}</span>}
             {ui.fallback && (
               <span className="meta" role="status">
                 {t("languageFallback")}
@@ -340,7 +341,7 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
                       <AlertDialogAction
                         onClick={() => {
                           try {
-                            localStorage.removeItem(storageKey);
+                            workspaceStorage()?.removeItem(storageKey);
                             location.reload();
                           } catch {
                             setToast("localFailure");

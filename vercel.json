@@ -37,6 +37,10 @@
       "dest": "/api/relay?route=page"
     },
     {
+      "src": "/login",
+      "dest": "/api/relay?route=login-page"
+    },
+    {
       "src": "/admin",
       "dest": "/api/relay?route=admin-page"
     },

@@ -4,10 +4,10 @@ import { runInNewContext } from 'node:vm';
 
 // No browser or external requests: run the actual session entry point with synthetic sessions.
 const output = await build({entryPoints:['src/prototype/session.ts'],bundle:true,write:false,format:'iife'});
-async function setup({storageDenied=false, initial={subject:'admin-a',isAdmin:true}}={}) {
-  const root={hidden:false,dataset:{admin:'true'},after(){}}, values=new Map();
+async function setup({storageDenied=false, guest=false, initial={subject:'admin-a',isAdmin:true}}={}) {
+  const root={hidden:false,dataset:{admin:'true',publicPreview:String(guest)},after(){}}, values=new Map();
   const timers=[], listeners=new Map(), redirects=[], scripts=[];
-  let response=initial, status=200, offline=false, invalidations=0;
+  let response=initial, status=200, offline=false, invalidations=0, requests=0;
   const window={
     addEventListener:(name,fn)=>listeners.set(name,fn),
     dispatchEvent:event=>{if(event.type==='relay-session-invalidated') invalidations++;listeners.get(event.type)?.(event);},
@@ -22,10 +22,10 @@ async function setup({storageDenied=false, initial={subject:'admin-a',isAdmin:tr
   runInNewContext(output.outputFiles[0].text,{window,document,localStorage:storage,Event,
     location:{protocol:'https:',search:'',replace:path=>redirects.push(path),reload:()=>redirects.push('reload')},
     navigator:{language:'en'},URLSearchParams,Intl,
-    fetch:async()=>{if(offline)throw Error('offline');return {ok:status===200,json:async()=>response};},
+    fetch:async()=>{requests++;if(offline)throw Error('offline');return {ok:status===200,json:async()=>response};},
   });
   await flush();
-  return {root,values,redirects,scripts,document,get invalidations(){return invalidations;},
+  return {root,values,redirects,scripts,document,timers,get requests(){return requests;},get invalidations(){return invalidations;},
     change:value=>{response=value;},fail:()=>{status=401;},offline:()=>{offline=true;},online:()=>{offline=false;},
     tick:async()=>{timers[0]();await flush();}};
 }
@@ -63,4 +63,19 @@ disconnected.online();await disconnected.tick();
 assert.deepEqual(disconnected.redirects,['reload']);assert.equal(disconnected.root.dataset.sessionBlocked,'true');
 const oldStorage=await setup();oldStorage.change({subject:'member-b',isAdmin:false});await oldStorage.tick();
 assert.equal(oldStorage.values.has('relay-account'),false,'Remove storage still owned by the prior account');
+for(const storageDenied of [false,true]) {
+ const guest=await setup({guest:true,storageDenied});
+ assert.equal(guest.scripts.length,1,'Public workspace starts without a session');
+ assert.equal(guest.requests,0,'Public mode makes no identity request');
+ assert.equal(guest.timers.length,0,'Public mode must not enter a session redirect loop');
+ assert.equal(guest.root.dataset.admin,'false','Public mode never inherits an admin HTML flag');
+ assert.deepEqual(guest.redirects,[]);
+}
+const modeOutput=await build({entryPoints:['src/prototype/access-mode.ts'],bundle:true,write:false,format:'cjs'});
+const shared={getItem:()=> 'private draft'},tab={getItem:()=> 'public draft'};
+for(const guest of [true,false]) {
+ const context={exports:{},module:{exports:{}},document:{getElementById:()=>({dataset:{publicPreview:String(guest)}})},localStorage:shared,sessionStorage:tab};
+ runInNewContext(modeOutput.outputFiles[0].text,context);
+ assert.equal(context.module.exports.workspaceStorage(),guest?tab:shared,'Guest drafts and signed-in drafts use separate storage');
+}
 console.log('Session gate: account/role changes, shared or denied storage, stale HTML, malformed/expired sessions, disposal and reconnect: OK.');

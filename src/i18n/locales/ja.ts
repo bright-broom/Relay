@@ -157,6 +157,8 @@ export const ja = {
 
   googleSignIn: "Googleでログイン",
   loginHint: "登録済みのGoogleアカウントでログインしてください。",
+  publicPreviewHint: "公開デモ · 架空データ · 入力はこのタブ内に保存",
+  publicSignInHint: "アカウント・通知・日程連携は、マイページからログインすると利用できます。",
   authUnavailable: "認証サービスに接続できませんでした。しばらく待ってから、もう一度Googleでログインしてください。",
   authSetup: "ログインに必要な接続設定が完了していません。設定完了後に更新してください。",
   authDenied: "このアカウントでは利用できないか、ログインの有効期限が切れました。",

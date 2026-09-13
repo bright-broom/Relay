@@ -325,6 +325,8 @@ var ja = {
   mcpRetryHelp: "\u5165\u529B\u6761\u4EF6\u307E\u305F\u306FRelay\u306E\u63A5\u7D9A\u72B6\u614B\u3092\u78BA\u8A8D\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u5019\u88DC\u671F\u9650\u5207\u308C\u3084\u7AF6\u5408\u306E\u5834\u5408\u306F\u65B0\u3057\u3044\u5019\u88DC\u3092\u53D6\u5F97\u3057\u3001\u7D50\u679C\u4E0D\u660E\u306E\u5834\u5408\u306F\u540C\u3058\u5019\u88DCID\u3092\u518D\u8A66\u884C\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   googleSignIn: "Google\u3067\u30ED\u30B0\u30A4\u30F3",
   loginHint: "\u767B\u9332\u6E08\u307F\u306EGoogle\u30A2\u30AB\u30A6\u30F3\u30C8\u3067\u30ED\u30B0\u30A4\u30F3\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  publicPreviewHint: "\u516C\u958B\u30C7\u30E2 \xB7 \u67B6\u7A7A\u30C7\u30FC\u30BF \xB7 \u5165\u529B\u306F\u3053\u306E\u30BF\u30D6\u5185\u306B\u4FDD\u5B58",
+  publicSignInHint: "\u30A2\u30AB\u30A6\u30F3\u30C8\u30FB\u901A\u77E5\u30FB\u65E5\u7A0B\u9023\u643A\u306F\u3001\u30DE\u30A4\u30DA\u30FC\u30B8\u304B\u3089\u30ED\u30B0\u30A4\u30F3\u3059\u308B\u3068\u5229\u7528\u3067\u304D\u307E\u3059\u3002",
   authUnavailable: "\u8A8D\u8A3C\u30B5\u30FC\u30D3\u30B9\u306B\u63A5\u7D9A\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u3057\u3070\u3089\u304F\u5F85\u3063\u3066\u304B\u3089\u3001\u3082\u3046\u4E00\u5EA6Google\u3067\u30ED\u30B0\u30A4\u30F3\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   authSetup: "\u30ED\u30B0\u30A4\u30F3\u306B\u5FC5\u8981\u306A\u63A5\u7D9A\u8A2D\u5B9A\u304C\u5B8C\u4E86\u3057\u3066\u3044\u307E\u305B\u3093\u3002\u8A2D\u5B9A\u5B8C\u4E86\u5F8C\u306B\u66F4\u65B0\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   authDenied: "\u3053\u306E\u30A2\u30AB\u30A6\u30F3\u30C8\u3067\u306F\u5229\u7528\u3067\u304D\u306A\u3044\u304B\u3001\u30ED\u30B0\u30A4\u30F3\u306E\u6709\u52B9\u671F\u9650\u304C\u5207\u308C\u307E\u3057\u305F\u3002",
@@ -631,6 +633,8 @@ var en = {
   mcpRetryHelp: "Check the input and Relay connection. For expired or occupied slots, create fresh proposals. For uncertain booking outcomes, retry the same proposal ID.",
   googleSignIn: "Sign in with Google",
   loginHint: "Sign in with an approved Google account.",
+  publicPreviewHint: "Public demo \xB7 Fictional data \xB7 Changes stay in this tab",
+  publicSignInHint: "Sign in from My Page to use your account, notifications and calendar integrations.",
   authUnavailable: "The sign-in service could not be reached. Wait a moment, then try signing in with Google again.",
   authSetup: "Sign-in setup is incomplete. Refresh this page after setup is complete.",
   authDenied: "This account is not allowed, or the sign-in attempt has expired.",
@@ -1949,7 +1953,7 @@ var tokens = { ...colorTokens, ...primitives, ...componentTokens };
 import { jsx as jsx11, jsxs as jsxs5 } from "react/jsx-runtime";
 function loginPage(locale, status, admin = false) {
   const ui = createUiContext(locale), { t } = ui;
-  const entry = admin ? "/admin" : "/";
+  const entry = admin ? "/admin" : "/login";
   const start = new URLSearchParams({ lang: ui.locale });
   if (admin) start.set("destination", "admin");
   const message = status === "setup" ? "authSetup" : status === "unavailable" ? "authUnavailable" : status === "denied" ? admin ? "adminDenied" : "authDenied" : admin ? "adminLoginHint" : "loginHint";
@@ -1984,13 +1988,13 @@ function loginPage(locale, status, admin = false) {
           status === "setup" ? /* @__PURE__ */ jsx11(Icon, { name: "refresh" }) : /* @__PURE__ */ jsx11(Icon, { name: "arrow" }),
           t(status === "setup" ? "refreshConnections" : "googleSignIn")
         ] }) }),
-        /* @__PURE__ */ jsx11(Button, { asChild: true, variant: "ghost", children: /* @__PURE__ */ jsxs5("a", { href: `${admin ? "/" : "/admin"}?lang=${encodeURIComponent(ui.locale)}`, children: [
-          /* @__PURE__ */ jsx11(Icon, { name: admin ? "home" : "adminLocked" }),
-          t(admin ? "today" : "admin")
+        /* @__PURE__ */ jsx11(Button, { asChild: true, variant: "ghost", children: /* @__PURE__ */ jsxs5("a", { href: `/?lang=${encodeURIComponent(ui.locale)}`, children: [
+          /* @__PURE__ */ jsx11(Icon, { name: "home" }),
+          t("today")
         ] }) }),
         /* @__PURE__ */ jsxs5("details", { className: "disclosure", children: [
           /* @__PURE__ */ jsx11("summary", { children: t("language") }),
-          /* @__PURE__ */ jsx11(LanguageForm, { ui, action: admin ? "/admin" : "/" })
+          /* @__PURE__ */ jsx11(LanguageForm, { ui, action: entry })
         ] })
       ] }) }) })
     ] })
@@ -1998,22 +2002,32 @@ function loginPage(locale, status, admin = false) {
 }
 
 // src/server/handler.ts
-var readRoutes = /* @__PURE__ */ new Set(["admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "calendar-status", "calendar-callback", "mcp-tokens"]);
+var readRoutes = /* @__PURE__ */ new Set(["login-page", "admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "calendar-status", "calendar-callback", "mcp-tokens"]);
 async function handle(request, db, authProvider) {
   const url = new URL(request.url), route = url.searchParams.get("route") ?? "";
   const locale = normalizeLocale(url.searchParams.get("lang") ?? request.headers.get("cookie")?.split("; ").find((value) => value.startsWith("relay-locale="))?.slice(13) ?? request.headers.get("accept-language")?.split(",")[0]?.split(";")[0]);
   try {
-    if (!["admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "logout", "code", "destination", "notify", "webhook", "calendar-status", "calendar-callback", "calendar-connect", "calendar-disconnect", "schedule-propose", "schedule-book", "mcp", "mcp-tokens", "mcp-token", "mcp-revoke"].includes(route)) throw new ApiError(404, "missing");
+    if (!["login-page", "admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "logout", "code", "destination", "notify", "webhook", "calendar-status", "calendar-callback", "calendar-connect", "calendar-disconnect", "schedule-propose", "schedule-book", "mcp", "mcp-tokens", "mcp-token", "mcp-revoke"].includes(route)) throw new ApiError(404, "missing");
     if (request.method !== (readRoutes.has(route) ? "GET" : "POST")) throw new ApiError(405, "method");
     if (configured() && url.origin !== origin()) {
-      if (route === "page" || route === "admin-page") {
-        const target = new URL(route === "admin-page" ? "/admin" : "/", origin());
+      if (route === "page" || route === "admin-page" || route === "login-page") {
+        const target = new URL(route === "admin-page" ? "/admin" : route === "login-page" ? "/login" : "/", origin());
         if (url.searchParams.has("lang")) target.searchParams.set("lang", locale);
         return new Response(null, { status: 303, headers: { Location: target.href } });
       }
       throw new ApiError(403, "origin");
     }
-    if (route === "page" || route === "admin-page") {
+    if (route === "app") return new Response(await readFile("prototype/assets/app.js", "utf8"), { headers: { "Content-Type": "text/javascript; charset=utf-8" } });
+    if (route === "page" && !["denied", "unavailable"].includes(url.searchParams.get("auth") ?? "")) {
+      let identity2 = null;
+      try {
+        if (configured()) identity2 = await session(request, db);
+      } catch {
+      }
+      const html = (await readFile("prototype/index.html", "utf8")).replace('<div id="app">', `<div id="app" data-public-preview="${!identity2}" data-admin="${identity2 ? administratorAllowed(identity2.email) : false}">`);
+      return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    }
+    if (route === "page" || route === "admin-page" || route === "login-page") {
       const adminEntry = route === "admin-page";
       const ready = configured() && (!adminEntry || administratorIssues().length === 0);
       const identity2 = ready ? await session(request, db) : null;
@@ -2043,7 +2057,6 @@ async function handle(request, db, authProvider) {
     const identity = await session(request, db);
     if (!identity) throw new ApiError(401, "unauthorized");
     if (request.method === "POST" && !sameOrigin(request)) throw new ApiError(403, "origin");
-    if (route === "app") return new Response(await readFile("prototype/assets/app.js", "utf8"), { headers: { "Content-Type": "text/javascript; charset=utf-8" } });
     if (route === "admin-overview") return Response.json(await adminOverview(request, db));
     if (route === "session") return Response.json({ isAdmin: administratorAllowed(identity.email), email: identity.email, subject: identity.subject, lineReady: lineConfigured() });
     if (route === "logout") return await logout(request);
@@ -2085,7 +2098,7 @@ async function handle(request, db, authProvider) {
     if (route === "notify") return Response.json(await notify(identity, input));
     throw new ApiError(404, "missing");
   } catch (error) {
-    if (request.method === "GET" && ["page", "admin-page", "start", "callback"].includes(route) && !(error instanceof ApiError && error.status < 500)) {
+    if (request.method === "GET" && ["page", "login-page", "admin-page", "start", "callback"].includes(route) && !(error instanceof ApiError && error.status < 500)) {
       const admin = route === "admin-page" || route === "start" && url.searchParams.get("destination") === "admin";
       const ready = configured() && (!admin || administratorIssues().length === 0);
       const headers = new Headers({ "Content-Type": "text/html; charset=utf-8", "Retry-After": "30" });

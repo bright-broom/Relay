@@ -8,13 +8,14 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Icon } from '../ui/icons';
+import { publicPreview } from '../prototype/access-mode';
 
 type Result = {status:'ready';data:AdminOverview} | {status:'loading'|'login'|'denied'|'failed'};
 export function Admin({ui}: {ui:UiContext}) {
   const [result,setResult] = useState<Result>({status:'loading'});
   const [revision,setRevision] = useState(0);
   useEffect(() => {
-    if (!hosted()) {setResult({status:'login'});return;}
+    if (!hosted() || publicPreview()) {setResult({status:'login'});return;}
     const controller = new AbortController();
     const load = async () => {
       setResult({status:'loading'});
@@ -50,7 +51,7 @@ export function Admin({ui}: {ui:UiContext}) {
       <p>{t('adminLoginHint')}</p>
       <div className="row">
         <Button asChild>
-          <a href={adminSignInHref(hosted(), ui.locale)} rel="noreferrer" aria-describedby={!hosted() ? 'admin-online-required' : undefined}>
+          <a href={publicPreview() ? `/admin?lang=${encodeURIComponent(ui.locale)}` : adminSignInHref(hosted(), ui.locale)} rel="noreferrer" aria-describedby={!hosted() ? 'admin-online-required' : undefined}>
             {t('googleSignIn')}
           </a>
         </Button>

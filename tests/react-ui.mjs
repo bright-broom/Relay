@@ -455,7 +455,6 @@ assert.equal(host.childElementCount,0,'A stale response must not restore private
 await act(async()=>{api.mountWorkspace(host,adminWorkspace);dispose();});
 assert.equal(host.childElementCount,0,'A late bundle must not mount after session invalidation');
 host.remove();
-dom.window.close();
 console.log(
   "React: mocked scheduling/LINE input retention and admin loading, permission loss, login and failure states passed. No external API calls.",
 );
@@ -502,3 +501,27 @@ for (const locale of ['ja','en','ar-EG']) {
   }
 }
 console.log('Pricing presentation: exact amounts, independent monthly/total directions, zero and maximum amounts, residual debt, shared bar scale and localized disclosures passed (simulated DOM).');
+
+// Anonymous visitors can use fixtures and pricing without probing private APIs.
+dom.reconfigure({url:'https://relay.test/'});
+let guestRequests=0;
+globalThis.fetch=async()=>{guestRequests++;throw Error('Guest view must not request private APIs');};
+for(const page of ['today','cases','reviews','imports','mypage','admin']) {
+ const container=document.createElement('div');container.id='app';container.dataset.publicPreview='true';document.body.append(container);
+ render(createElement(api.App,{workspace:api.createWorkspace(null,'en',true,'#'+page)}),{container});
+ if(page==='admin') {
+  await screen.findByRole('heading',{name:t('adminGateTitle')});
+  assert.equal(screen.getByRole('link',{name:t('googleSignIn')}).getAttribute('href'),'/admin?lang=en');
+  assert.equal(screen.queryByText('member@example.test'),null);
+ } else if(page==='mypage') {
+  assert.equal(screen.getByRole('link',{name:t('googleSignIn')}).getAttribute('href'),'/login?lang=en');
+ } else assert.ok(screen.getByText(t('publicPreviewHint')));
+ if(page==='today') {
+  await user.click(screen.getByRole('button',{name:t('pricing'),exact:true}));
+  assert.ok(screen.getByRole('dialog'));
+ }
+ assert.equal(guestRequests,0);
+ cleanup();
+}
+console.log('Public workspace: general pages, pricing, sign-in links and no private API requests: OK.');
+dom.window.close();

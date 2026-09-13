@@ -3,12 +3,10 @@ import { createWorkspace } from "./store";
 import { browserLocale, hasLocalePreference } from "../i18n/context";
 import { initViewport } from "../prototype/viewport";
 import { initPwa } from "../pwa/client";
+import { workspaceStorage } from "../prototype/access-mode";
 initPwa();
 initViewport();
-let storage: Storage | null = null;
-try {
-  storage = localStorage;
-} catch {}
+const storage = workspaceStorage();
 const workspace = createWorkspace(
   storage,
   browserLocale(),
