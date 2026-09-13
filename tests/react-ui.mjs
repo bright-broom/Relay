@@ -57,7 +57,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 await mkdir(".vercel/check-react", { recursive: true });
 await build({
   stdin: {
-    contents: `export * from './src/app/app';export * from './src/app/store';export * from './src/app/scheduling';export * from './src/app/account';export * from './src/i18n/context';export * from './src/components/ui/tooltip';`,
+    contents: `export * from './src/app/app';export * from './src/app/admin';export * from './src/app/store';export * from './src/app/scheduling';export * from './src/app/account';export * from './src/i18n/context';export * from './src/components/ui/tooltip';`,
     resolveDir: process.cwd(),
   },
   bundle: true,
@@ -328,7 +328,31 @@ assert.deepEqual(calls.find((call) => call.path === "line/code").body, {
   kind: "group",
 });
 cleanup();
+// Administration never grants itself access from local state; denial removes old data.
+let adminStatus = 200;
+globalThis.fetch = async (url, options) => {
+  assert.equal(url, '/api/admin/overview');
+  assert.equal(options.cache, 'no-store');
+  return {ok:adminStatus===200,status:adminStatus,json:async()=>({viewer:'admin@example.test',accounts:[{email:'member@example.test',role:'member',sessions:2}],configuration:{google:true,database:true,line:false,calendar:false}})};
+};
+render(createElement(api.TooltipProvider,null,createElement(api.Admin,{ui})));
+await screen.findByText('member@example.test');
+assert.equal(screen.getAllByText(t('adminNotConfigured'),{exact:true}).length,2);
+adminStatus=403;
+await user.click(screen.getByRole('button',{name:t('refreshConnections')}));
+await screen.findByText(t('adminDenied'));
+assert.equal(screen.queryByText('member@example.test'),null);
+assert.equal(screen.queryByText('admin@example.test'),null);
+adminStatus=401;
+await user.click(screen.getByRole('button',{name:t('refreshConnections')}));
+await screen.findByRole('link',{name:t('googleSignIn')});
+assert.equal(screen.getByRole('link',{name:t('googleSignIn')}).getAttribute('href'),'/api/auth/start?destination=admin');
+adminStatus=503;
+await user.click(screen.getByRole('button',{name:t('refreshConnections')}));
+await screen.findByText(t('adminFailure'));
+assert.equal(screen.queryByText('member@example.test'),null);
+cleanup();
 dom.window.close();
 console.log(
-  "React: mocked scheduling edits clear proposals, failures preserve input, and LINE group selection survives refresh. No external API calls.",
+  "React: mocked scheduling/LINE input retention and admin loading, permission loss, login and failure states passed. No external API calls.",
 );

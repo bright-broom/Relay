@@ -6,7 +6,7 @@ import {createHmac,randomUUID,generateKeyPairSync,sign} from 'node:crypto';
 import * as oidc from 'openid-client';
 import {PGlite} from '@electric-sql/pglite';
 await mkdir('.vercel/check-auth',{recursive:true});
-await build({stdin:{contents:`export * from './src/server/config'; export * from './src/server/auth'; export * from './src/server/line'; export {default as endpoint,limitedBody} from './src/server/handler';`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',outfile:'.vercel/check-auth/server.mjs'});
+await build({stdin:{contents:`export * from './src/server/config'; export * from './src/server/auth'; export * from './src/server/admin'; export {handle} from './src/server/handler'; export * from './src/server/line'; export {default as endpoint,limitedBody} from './src/server/handler';`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',outfile:'.vercel/check-auth/server.mjs'});
 const api=await import(pathToFileURL(process.cwd()+'/.vercel/check-auth/server.mjs'));
 const pg=new PGlite();
 const wrap=client=>({query:async(text,values)=>(await client.query(text,values)).rows,transaction:work=>client.transaction(tx=>work(wrap(tx)))});
@@ -49,9 +49,9 @@ config[oidc.customFetch]=async(url,options)=>{
  const signature=sign('RSA-SHA256',Buffer.from(payload),privateKey).toString('base64url');
  return Response.json({access_token:'synthetic-access',token_type:'Bearer',id_token:payload+'.'+(tamper?'AAAA'+signature.slice(4):signature)});
 };
-async function callback(overrides={},badState=false,badSignature=false){
+async function callback(overrides={},badState=false,badSignature=false,destination='/'){
  claimOverride=overrides;tamper=badSignature;
- const start=await api.startLogin(db,config);
+ const start=await api.startLogin(db,config,destination);
  const authorization=new URL(start.headers.get('location'));
  assert.equal(authorization.searchParams.get('code_challenge_method'),'S256');
  assert.equal(authorization.searchParams.get('scope'),'openid email');
@@ -68,6 +68,10 @@ assert.equal((await api.finishLogin(success.req,db,config)).headers.get('locatio
 for(const overrides of [{email:'intruder@gmail.com'},{email_verified:false},{nonce:'wrong-nonce'},{aud:'different-client'},{iss:'https://evil.test'},{exp:1}])assert.equal((await callback(overrides)).result.headers.get('location'),'/?auth=denied');
 assert.equal((await callback({},true)).result.headers.get('location'),'/?auth=denied');
 assert.equal((await callback({},false,true)).result.headers.get('location'),'/?auth=denied');
+const adminLogin=await callback({},false,false,'/admin');
+assert.equal(adminLogin.result.headers.get('location'),'/admin');
+assert.equal((await callback({email:'intruder@gmail.com'},false,false,'/admin')).result.headers.get('location'),'/admin?auth=denied');
+assert.equal((await callback({},false,false,'https://evil.test')).result.headers.get('location'),'/', 'Only the fixed admin destination is accepted');
 const noCallback=await api.finishLogin(new Request('https://relay.test/api/auth/callback?code=forged&state=forged'),db);assert.equal(noCallback.headers.get('location'),'/?auth=denied');
 assert.match(noCallback.headers.get('set-cookie'),/HttpOnly; Secure; SameSite=Lax/);
 assert.equal(api.validSignature('{}',null,process.env.LINE_CHANNEL_SECRET),false);
@@ -114,16 +118,64 @@ await assert.rejects(api.changeDestination(owner,group.id,'confirm',db),e=>e.sta
 await api.changeDestination(owner,personal.id,'remove',db);assert.equal((await api.destinations(owner,db)).length,0);
 const expiring=await api.issueCode(owner,'user',db);await db.query("UPDATE relay_private.line_codes SET expires_at=now()-interval '1 minute'");await deliver(event(expiring.code));assert.equal((await api.destinations(owner,db)).length,0);
 const revoked=await api.issueCode(owner,'user',db);process.env.ALLOWED_GOOGLE_EMAILS=second.email;await deliver(event(revoked.code));assert.equal((await api.destinations(owner,db)).length,0);
+// Admin routes require both a current Google session and a separate admin allowlist.
+process.env.ALLOWED_GOOGLE_EMAILS='owner@gmail.com,second@gmail.com,never@gmail.com,OWNER@gmail.com';
+process.env.ADMIN_GOOGLE_EMAILS=' Owner@gmail.com, outsider@gmail.com ';
+assert.equal(api.isAdmin(owner.email),true);
+assert.equal(api.isAdmin(second.email),false);
+assert.equal(api.isAdmin('outsider@gmail.com'),false);
+for (const value of ['',undefined,{},['owner@gmail.com'],'owner@gmail.com.evil']) assert.equal(api.isAdmin(value),false);
+const adminToken=api.randomToken(), memberToken=api.randomToken();
+await db.query("INSERT INTO relay_private.sessions VALUES($1,$2,$3,now()+interval '1 hour')",[api.hash(adminToken),owner.subject,owner.email]);
+await db.query("INSERT INTO relay_private.sessions VALUES($1,$2,$3,now()+interval '1 hour')",[api.hash(memberToken),second.subject,second.email]);
+const adminRequest=(route,token='',method='GET',host='https://relay.test')=>new Request(host+'/api/relay?route='+route,{method,headers:{cookie:api.cookie(api.sessionCookie,token,28800),'x-admin':'true'}});
+await assert.rejects(api.adminOverview(adminRequest('admin-overview'),db),e=>e.status===401);
+await assert.rejects(api.adminOverview(adminRequest('admin-overview',memberToken),db),e=>e.status===403);
+const overview=await api.adminOverview(adminRequest('admin-overview',adminToken),db);
+assert.equal(overview.accounts.length,3,'Deduplicate account settings without adding unknown sessions');
+assert.equal(overview.accounts.find(a=>a.email==='never@gmail.com').sessions,0);
+assert.equal(overview.accounts.find(a=>a.email===owner.email).role,'admin');
+assert.equal(overview.accounts.find(a=>a.email===second.email).role,'member');
+assert.ok(overview.accounts.find(a=>a.email===owner.email).sessions>0);
+assert.ok(!JSON.stringify(overview).includes(api.hash(adminToken)));
+assert.ok(!JSON.stringify(overview).includes(process.env.LINE_CHANNEL_SECRET));
+process.env.GOOGLE_CLIENT_ID='synthetic-client';process.env.GOOGLE_CLIENT_SECRET='synthetic-secret';process.env.DATABASE_URL='postgres://unused:unused@localhost/unused';
+for (const route of ['admin-page','admin-overview']) {
+ const denied=await api.handle(adminRequest(route,memberToken),db);
+ assert.equal(denied.status,403);
+ assert.ok(!(await denied.text()).includes('never@gmail.com'));
+ assert.equal((await api.handle(adminRequest(route,adminToken,'POST'),db)).status,405);
+}
+const adminHtml=await api.handle(adminRequest('admin-page',adminToken),db);
+assert.equal(adminHtml.status,200);assert.ok((await adminHtml.text()).includes('data-admin="true"'));
+const loginAdmin=await api.handle(adminRequest('admin-page'),db);
+assert.equal(loginAdmin.status,200);const adminLoginHtml=await loginAdmin.text();
+assert.ok(adminLoginHtml.includes('/api/auth/start?destination=admin'));
+assert.ok(adminLoginHtml.includes('action="/admin"'),'Language forms retain the admin entry');
+assert.ok(!adminLoginHtml.includes('never@gmail.com'));
+assert.equal((await api.handle(adminRequest('admin-overview'),db)).status,401);
+assert.equal((await api.handle(adminRequest('admin-overview',adminToken),db)).status,200);
+assert.equal((await api.handle(adminRequest('admin-overview',adminToken,'GET','https://old.test'),db)).status,403);
+process.env.ADMIN_GOOGLE_EMAILS='';
+assert.equal((await api.handle(adminRequest('admin-overview',adminToken),db)).status,403,'Existing sessions lose admin privileges immediately');
+process.env.ADMIN_GOOGLE_EMAILS=owner.email;
+process.env.ALLOWED_GOOGLE_EMAILS=second.email;
+assert.equal((await api.handle(adminRequest('admin-overview',adminToken),db)).status,401,'Admin allowlist cannot bypass ordinary access revocation');
+process.env.ALLOWED_GOOGLE_EMAILS=owner.email+','+second.email;
+await db.query("UPDATE relay_private.sessions SET expires_at=now()-interval '1 second' WHERE token_hash=$1",[api.hash(adminToken)]);
+assert.equal((await api.handle(adminRequest('admin-overview',adminToken),db)).status,401);
+delete process.env.ADMIN_GOOGLE_EMAILS;
+console.log('Admin: signed Google return path, anonymous/member denial, forged-role denial, dedicated allowlist, expiry/revocation, configuration redaction and page/API routing: OK.');
 // No external network is used to prove fail-closed hosting.
 delete process.env.GOOGLE_CLIENT_ID;delete process.env.GOOGLE_CLIENT_SECRET;delete process.env.DATABASE_URL;
-for(const route of ['app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']){
+for(const route of ['admin-overview','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']){
  const response=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route));assert.equal(response.status,503);assert.equal(response.headers.get('cache-control'),'private, no-store');
 }
 for(const route of ['notify','destination','logout','code','webhook','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-token','mcp-revoke']){
  const response=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route,{method:'POST'}));assert.equal(response.status,503);
 }
 process.env.GOOGLE_CLIENT_ID='synthetic-client';process.env.GOOGLE_CLIENT_SECRET='synthetic-secret';process.env.DATABASE_URL='postgres://unused:unused@localhost/unused';
-for(const route of ['app','session','destinations','calendar-status','calendar-callback','mcp-tokens'])assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route))).status,401);
+for(const route of ['admin-overview','app','session','destinations','calendar-status','calendar-callback','mcp-tokens'])assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route))).status,401);
 for(const route of ['logout','code','destination','notify','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-token','mcp-revoke'])assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route='+route,{method:'POST'}))).status,401);
 assert.equal((await api.endpoint.fetch(new Request('https://old-deployment.test/api/relay?route=session'))).status,403);
 assert.equal((await api.endpoint.fetch(new Request('https://old-deployment.test/api/relay?route=page'))).headers.get('location'),'https://relay.test/');

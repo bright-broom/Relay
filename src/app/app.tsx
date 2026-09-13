@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Action, Notice } from "../ui/controls";
 import { Icon } from "../ui/icons";
 import { LanguageForm } from "../ui/language";
+import { Admin } from "./admin";
 import { Today, Cases, Details, Reviews, Imports } from "./pages";
 import { Pricing } from "./pricing";
 import { Scheduling } from "./scheduling";
@@ -58,7 +59,7 @@ const modalTitles: Record<Modal, MessageKey> = {
   "preview-info": "previewInfo",
   handoff: "handoffHeading",
 };
-export function App({ workspace }: { workspace: Workspace }) {
+export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAdmin?: boolean }) {
   const state = useSyncExternalStore(
     workspace.subscribe,
     workspace.getSnapshot,
@@ -179,7 +180,7 @@ export function App({ workspace }: { workspace: Workspace }) {
             </Button>
           </div>
           <nav id="main-nav" aria-label={t("menu")}>
-            {visibleNavigation(installed).map((item) => (
+            {visibleNavigation(installed, isAdmin).map((item) => (
               <Tooltip key={item.id}>
                 <TooltipTrigger asChild>
                   {item.kind === "page" ? (
@@ -241,17 +242,19 @@ export function App({ workspace }: { workspace: Workspace }) {
           </div>
         </aside>
         <main id="main" tabIndex={-1}>
-          <div className="topbar">
-            <span className="meta">{t("previewShort")}</span>
+          <div className="topbar" hidden={state.page === "admin" && !ui.fallback}>
+            {state.page !== "admin" && <span className="meta">{t("previewShort")}</span>}
             {ui.fallback && (
               <span className="meta" role="status">
                 {t("languageFallback")}
               </span>
             )}
           </div>
-          {state.storageError && <Notice error>{t(state.storageError)}</Notice>}
+          {state.page !== "admin" && state.storageError && <Notice error>{t(state.storageError)}</Notice>}
           <div id="page">
-            {state.page === "today" ? (
+            {state.page === "admin" ? (
+              <Admin ui={ui} />
+            ) : state.page === "today" ? (
               <Today {...props} />
             ) : state.page === "cases" ? (
               <Cases {...props} />

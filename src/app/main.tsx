@@ -14,8 +14,8 @@ const workspace = createWorkspace(
   storage,
   browserLocale(),
   hasLocalePreference(),
-  location.hash,
+  location.hash || (location.pathname === "/admin" ? "#admin" : ""),
 );
 const root = document.getElementById("app");
 if (!root) throw new Error("Missing app root");
-createRoot(root).render(<App workspace={workspace} />);
+createRoot(root).render(<App workspace={workspace} isAdmin={root.dataset.admin === "true"} />);

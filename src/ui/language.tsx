@@ -24,8 +24,10 @@ const suggestions = [
 export function LanguageForm({
   ui,
   onApply,
+  action = "/",
 }: {
   ui: UiContext;
+  action?: "/" | "/admin";
   onApply?: (locale: string) => void;
 }) {
   const [selected, setSelected] = useState(ui.locale),
@@ -49,7 +51,7 @@ export function LanguageForm({
   const customForm = (
     <form
       id="language-custom-form"
-      action="/"
+      action={action}
       method="get"
       className="stack"
       onSubmit={(event) => submit(event, custom)}
@@ -82,7 +84,7 @@ export function LanguageForm({
     <div className="stack">
       <form
         id="language-form"
-        action="/"
+        action={action}
         method="get"
         className="stack"
         onSubmit={(event) => submit(event, selected)}

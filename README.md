@@ -50,3 +50,5 @@ Next.js / TypeScript + Vercel、Supabase、Inngest、LLM API。詳細は設計�
 ## 共通UI
 
 2026-09-13に全画面をReact＋shadcn/ui＋lucide-reactへ移行。構成・置換範囲・検証は[共通部品](docs/COMPONENTS.md)を参照。
+
+Google認証付き管理者ページ：[`/admin`の仕様・設定](docs/ADMIN.md)。
