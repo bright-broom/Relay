@@ -110,22 +110,19 @@ export function Today({ ui, state }: Props) {
       <section className="metrics" aria-label={ui.t("today")}>
         {(
           [
-            ["dueToday", due.length, "calendar"],
+            ["dueToday", due.length],
             [
               "overdue",
               active.filter((c) => c.level === "overdue").length,
-              "clock",
             ],
             [
               "unassigned",
               active.filter((c) => !c.owner || c.due === "dueUnknown").length,
-              "user",
             ],
           ] as const
-        ).map(([label, count, symbol]) => (
+        ).map(([label, count]) => (
           <div className="metric" key={label}>
             <p className="metric-label">
-              <Icon name={symbol} />
               {ui.t(label)}
             </p>
             <p className="metric-value">{ui.number(count)}</p>
@@ -142,11 +139,8 @@ export function Today({ ui, state }: Props) {
       )}
       <section className="reading">
         {due.length ? (
-          due.map((c, index) => (
+          due.map((c) => (
             <article className="task" key={c.id}>
-              <span className="task-number">
-                {ui.number(index + 1, { minimumIntegerDigits: 2 })}
-              </span>
               <div>
                 <div className="row space-between">
                   <a className="details-link" href={"#case/" + c.id}>

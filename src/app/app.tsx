@@ -164,7 +164,7 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
           <div className="sidebar-top">
             <Button variant="ghost" size="icon" asChild>
               <a className="brand" href="#today" aria-label={brand}>
-                <Icon name="brand" />
+                <span aria-hidden="true">{brand.slice(0, 1)}</span>
               </a>
             </Button>
           </div>
