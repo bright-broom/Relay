@@ -19,5 +19,5 @@ await rm('public',{recursive:true,force:true});
 await mkdir('public/assets',{recursive:true});
 for(const name of ['styles.css','session.js'])await copyFile('prototype/assets/'+name,'public/assets/'+name);
 for(const name of ['sw.js','manifest.webmanifest'])await copyFile('prototype/'+name,'public/'+name);
-for(const name of ['icons','docs'])await cp('prototype/'+name,'public/'+name,{recursive:true});
+for(const name of ['icons'])await cp('prototype/'+name,'public/'+name,{recursive:true});
 console.log('Built Relay PWA and authenticated server.');

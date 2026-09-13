@@ -1,4 +1,4 @@
-import {writeFile,mkdir,readFile,copyFile} from 'node:fs/promises';
+import {writeFile,mkdir,rm} from 'node:fs/promises';
 import {deflateSync} from 'node:zlib';
 import {build} from 'esbuild';
 
@@ -27,7 +27,6 @@ export async function buildPwa(palette){
  for(const size of [180,192,512])await writeFile(`prototype/icons/icon-${size}.png`,png(size,palette.main,palette.sub));
  const manifest={id:'./',name:'Relay',short_name:'Relay',lang:'ja',start_url:'./',scope:'./',display:'standalone',background_color:palette.sub,theme_color:palette.sub,icons:[{src:'icons/icon-192.png',sizes:'192x192',type:'image/png',purpose:'any'},{src:'icons/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
  await writeFile('prototype/manifest.webmanifest',JSON.stringify(manifest,null,2)+'\n');
- await mkdir('prototype/docs',{recursive:true});
- for(const name of ['DESIGN_GUIDELINES.md','STACK_DECISION.md'])await copyFile(`docs/${name}`,`prototype/docs/${name}`);
+ await rm('prototype/docs',{recursive:true,force:true});
  await build({entryPoints:['src/pwa/worker.ts'],outfile:'prototype/sw.js',bundle:true,format:'iife',target:['safari16','chrome110'],minify:true});
 }
