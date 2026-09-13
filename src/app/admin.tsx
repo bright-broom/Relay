@@ -43,10 +43,18 @@ export function Admin({ui}: {ui:UiContext}) {
     </header>
     {result.status === 'loading' && <Notice>{t('loading')}</Notice>}
     {result.status === 'failed' && <Notice error>{t('adminFailure')}</Notice>}
-    {(result.status === 'login' || result.status === 'denied') && <div className="stack reading">
-      <Notice>{t(result.status==='denied'?'adminDenied':'adminLoginHint')}</Notice>
-      {hosted() ? <Button asChild><a href="/api/auth/start?destination=admin">{t('googleSignIn')}</a></Button> : <p className="meta">{t('authOnline')}</p>}
-    </div>}
+    {(result.status === 'login' || result.status === 'denied') && <section className="stack reading" aria-labelledby="admin-gate-title">
+      <div className="row"><Icon name="adminLocked" /><h2 id="admin-gate-title">{t('adminGateTitle')}</h2></div>
+      {result.status==='denied' && <Notice>{t('adminDenied')}</Notice>}
+      <p>{t('adminLoginHint')}</p>
+      <div className="row">
+        {hosted()
+          ? <Button asChild><a href="/api/auth/start?destination=admin">{t('googleSignIn')}</a></Button>
+          : <Button disabled aria-describedby="admin-online-required">{t('googleSignIn')}</Button>}
+        <Button variant="ghost" asChild><a href="#today"><Icon name="home" />{t('today')}</a></Button>
+      </div>
+      {!hosted() && <p id="admin-online-required" className="meta">{t('authOnline')}</p>}
+    </section>}
     {result.status==='ready' && <div className="stack">
       <p className="meta">{result.data.viewer}</p>
       <section className="stack" aria-labelledby="admin-accounts">

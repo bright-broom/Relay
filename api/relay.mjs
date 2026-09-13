@@ -155,6 +155,8 @@ var ja = {
   myLanguage: "\u8868\u793A\u8A00\u8A9E",
   myGoogle: "Google\u3067\u30ED\u30B0\u30A4\u30F3\u4E2D",
   admin: "\u7BA1\u7406\u8005",
+  adminLocked: "\u7BA1\u7406\u8005\u5C02\u7528\u30FB\u8A8D\u8A3C\u304C\u5FC5\u8981",
+  adminGateTitle: "\u7BA1\u7406\u8005\u8A8D\u8A3C",
   adminLoginHint: "\u7BA1\u7406\u8005\u3068\u3057\u3066\u8A31\u53EF\u3055\u308C\u305FGoogle\u30A2\u30AB\u30A6\u30F3\u30C8\u3067\u30ED\u30B0\u30A4\u30F3\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   adminDenied: "\u3053\u306E\u30A2\u30AB\u30A6\u30F3\u30C8\u306B\u306F\u7BA1\u7406\u8005\u6A29\u9650\u304C\u3042\u308A\u307E\u305B\u3093\u3002",
   adminAccounts: "\u5229\u7528\u8A31\u53EF\u30A2\u30AB\u30A6\u30F3\u30C8",
@@ -457,6 +459,8 @@ var en = {
   myLanguage: "Display language",
   myGoogle: "Signed in with Google",
   admin: "Administration",
+  adminLocked: "Administration \xB7 authorization required",
+  adminGateTitle: "Administrator sign-in",
   adminLoginHint: "Sign in with a Google account authorized as an administrator.",
   adminDenied: "This account does not have administrator access.",
   adminAccounts: "Allowed accounts",
@@ -1271,6 +1275,7 @@ import { useId, useState } from "react";
 import {
   Workflow,
   ShieldCheck,
+  LockKeyhole,
   UserRound,
   CalendarDays,
   Copy,
@@ -1308,6 +1313,7 @@ import { jsx } from "react/jsx-runtime";
 var icons = {
   brand: Workflow,
   admin: ShieldCheck,
+  adminLocked: LockKeyhole,
   user: UserRound,
   calendar: CalendarDays,
   copy: Copy,
