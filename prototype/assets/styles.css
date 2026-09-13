@@ -678,3 +678,7 @@ h3{font-size:var(--type-subheading);font-weight:var(--semibold)}small{font-size:
  .pricing-presentation .price-amount{font-size:var(--price-amount-wide)}
 }
 }
+
+@layer components {
+.nav-link.nav-restricted:not([aria-current=page]){color:var(--muted);border:var(--border-width) dashed var(--control)}
+}

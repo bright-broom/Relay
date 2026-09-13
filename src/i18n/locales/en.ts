@@ -8,6 +8,8 @@ export const en: Record<keyof typeof ja,string> = {
   myGoogle: "Signed in with Google",
 
   admin: "Administration",
+  adminLocked: "Administration · authorization required",
+  adminGateTitle: "Administrator sign-in",
   adminLoginHint: "Sign in with a Google account authorized as an administrator.",
   adminDenied: "This account does not have administrator access.",
   adminAccounts: "Allowed accounts",

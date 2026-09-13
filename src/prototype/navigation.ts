@@ -14,7 +14,12 @@ export const navigationItems=[
  {kind:'dialog',id:'preview-info',label:'previewInfo',icon:'info'},
 ] as const satisfies readonly (LinkItem|DialogItem)[];
 export type Page=LinkItem['id']|'detail';
-export function visibleNavigation(admin=false){return navigationItems.filter(item=>item.id!=='admin'||admin);}
+// The entry is discoverable for everyone; only the server grants access to data.
+export function visibleNavigation(admin=false){
+ return navigationItems.map(item=>item.id==='admin'&&!admin
+  ? {...item,label:'adminLocked' as const,icon:'adminLocked'}
+  : item);
+}
 export const activeNavigation=(page:Page)=>page==='detail'?'cases':page;
 export function resolveRoute(hash:string,caseIds:readonly number[]):{page:Page;caseId?:number}|null{
  const value=hash.replace(/^#/,'');

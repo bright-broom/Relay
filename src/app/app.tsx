@@ -172,7 +172,7 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
               <Tooltip key={item.id}>
                 <TooltipTrigger asChild>
                   {item.kind === "page" ? (
-                    <Button variant="ghost" className={"nav-link" + (item.id === "mypage" ? " nav-personal-start" : "")} asChild>
+                    <Button variant="ghost" className={"nav-link" + (item.id === "mypage" ? " nav-personal-start" : "") + (item.id === "admin" && !isAdmin ? " nav-restricted" : "")} asChild>
                       <a
                         href={"#" + item.id}
                         aria-label={t(item.label)}

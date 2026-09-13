@@ -380,6 +380,38 @@ await screen.findByText(t('adminFailure'));
 assert.equal(screen.queryByText('member@example.test'),null);
 cleanup();
 
+// General pages expose the authentication gate without exposing administration data.
+for (const isAdmin of [false,true]) {
+  dom.reconfigure({url:'https://relay.test/'});
+  adminStatus=403;
+  const entryWorkspace=api.createWorkspace(null,'en',true,'#today');
+  render(createElement(api.App,{workspace:entryWorkspace,isAdmin}));
+  const entry=screen.getByRole('link',{name:t(isAdmin?'admin':'adminLocked')});
+  assert.equal(entry.getAttribute('href'),'#admin');
+  assert.equal(entry.classList.contains('nav-restricted'),!isAdmin);
+  assert.notEqual(entry.getAttribute('aria-disabled'),'true','The gate must remain keyboard-accessible');
+  await user.click(entry);
+  await screen.findByRole('heading',{name:t('adminGateTitle')});
+  assert.equal(entryWorkspace.getSnapshot().page,'admin');
+  assert.ok(screen.getByText(t('adminDenied')));
+  assert.equal(screen.queryByRole('heading',{name:t('adminAccounts')}),null);
+  assert.equal(screen.queryByText('member@example.test'),null,'An entry or client flag cannot grant access');
+  assert.equal(screen.getByRole('link',{name:t('googleSignIn')}).getAttribute('href'),'/api/auth/start?destination=admin');
+  await user.click(within(screen.getByRole('region',{name:t('adminGateTitle')})).getByRole('link',{name:t('today')}));
+  await waitFor(()=>assert.equal(entryWorkspace.getSnapshot().page,'today'));
+  cleanup();
+}
+dom.reconfigure({url:'file:///fixture/index.html#admin'});
+let localAdminRequests=0;
+globalThis.fetch=async()=>{localAdminRequests++;throw new Error('Local preview must not authenticate');};
+render(createElement(api.TooltipProvider,null,createElement(api.Admin,{ui})));
+await screen.findByRole('heading',{name:t('adminGateTitle')});
+assert.equal(screen.getByRole('button',{name:t('googleSignIn')}).disabled,true);
+assert.ok(screen.getByText(t('authOnline')));
+assert.equal(localAdminRequests,0);
+cleanup();
+dom.reconfigure({url:'https://relay.test/'});
+
 // Exercise the real root lifecycle: invalidation removes already rendered data,
 // and aborts a pending request so a late response cannot restore it.
 let host=document.createElement('div');host.dataset.admin='true';document.body.append(host);
