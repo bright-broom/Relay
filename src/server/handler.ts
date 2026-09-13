@@ -1,4 +1,5 @@
 import {isAdmin, adminOverview} from './admin';
+import {administratorIssues} from './access';
 import type {Database} from './database';
 import {normalizeLocale} from '../i18n/messages';
 import {ZodError} from 'zod';
@@ -22,7 +23,8 @@ export async function handle(request: Request, db?: Database): Promise<Response>
       throw new ApiError(403, 'origin');
     }
     if (route === 'page' || route === 'admin-page') {
-      const ready = configured(), adminEntry = route === 'admin-page';
+      const adminEntry = route === 'admin-page';
+      const ready = configured() && (!adminEntry || administratorIssues().length === 0);
       const identity = ready ? await session(request, db) : null;
       if (identity && (!adminEntry || isAdmin(identity.email))) {
         const html = (await readFile('prototype/index.html', 'utf8')).replace('<div id="app">', `<div id="app" data-admin="${isAdmin(identity.email)}">`);

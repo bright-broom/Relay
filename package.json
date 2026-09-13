@@ -31,7 +31,8 @@
     "test:inputs": "node tests/input-ux.mjs",
     "test:ui": "node tests/react-ui.mjs",
     "test:viewport": "node tests/viewport.mjs",
-    "test:session": "node tests/session.mjs"
+    "test:session": "node tests/session.mjs",
+    "check:auth-config": "node scripts/check-auth-config.mjs"
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.5.1",

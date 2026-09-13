@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {spawnSync} from 'node:child_process';
 import {build} from 'esbuild';
 import {mkdir,readFile} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
@@ -6,7 +7,7 @@ import {createHmac,randomUUID,generateKeyPairSync,sign} from 'node:crypto';
 import * as oidc from 'openid-client';
 import {PGlite} from '@electric-sql/pglite';
 await mkdir('.vercel/check-auth',{recursive:true});
-await build({stdin:{contents:`export * from './src/server/config'; export * from './src/server/auth'; export * from './src/server/admin'; export {handle} from './src/server/handler'; export * from './src/server/line'; export {default as endpoint,limitedBody} from './src/server/handler';`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',outfile:'.vercel/check-auth/server.mjs'});
+await build({stdin:{contents:`export * from './src/server/config'; export * from './src/server/access'; export * from './src/server/auth'; export * from './src/server/admin'; export {handle} from './src/server/handler'; export * from './src/server/line'; export {default as endpoint,limitedBody} from './src/server/handler';`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',outfile:'.vercel/check-auth/server.mjs'});
 const api=await import(pathToFileURL(process.cwd()+'/.vercel/check-auth/server.mjs'));
 const pg=new PGlite();
 const wrap=client=>({query:async(text,values)=>(await client.query(text,values)).rows,transaction:work=>client.transaction(tx=>work(wrap(tx)))});
@@ -14,6 +15,7 @@ const db=wrap(pg);
 await pg.exec(await readFile('migrations/001_identity_line.sql','utf8'));
 // Synthetic identities only; the production allowlist is never loaded here.
 process.env.ALLOWED_GOOGLE_EMAILS='owner@gmail.com, second@gmail.com';
+process.env.ADMIN_GOOGLE_EMAILS='owner@gmail.com';
 process.env.APP_ORIGIN='https://relay.test';
 process.env.LINE_CHANNEL_SECRET='synthetic-line-secret';
 process.env.LINE_CHANNEL_ACCESS_TOKEN='synthetic-line-token';
@@ -49,7 +51,7 @@ config[oidc.customFetch]=async(url,options)=>{
  const signature=sign('RSA-SHA256',Buffer.from(payload),privateKey).toString('base64url');
  return Response.json({access_token:'synthetic-access',token_type:'Bearer',id_token:payload+'.'+(tamper?'AAAA'+signature.slice(4):signature)});
 };
-async function callback(overrides={},badState=false,badSignature=false,destination='/'){
+async function callback(overrides={},badState=false,badSignature=false,destination='/',beforeFinish=()=>{}){
  claimOverride=overrides;tamper=badSignature;
  const start=await api.startLogin(db,config,destination);
  const authorization=new URL(start.headers.get('location'));
@@ -59,6 +61,7 @@ async function callback(overrides={},badState=false,badSignature=false,destinati
  const attempt=(await db.query('SELECT verifier FROM relay_private.oauth_attempts WHERE token_hash=$1',[api.hash(browserCookie.split('=')[1])]))[0];expectedVerifier=attempt.verifier;
  currentNonce=authorization.searchParams.get('nonce');
  const req=new Request('https://relay.test/api/auth/callback?code=synthetic&state='+(badState?'wrong-state':authorization.searchParams.get('state')),{headers:{cookie:browserCookie}});
+ await beforeFinish();
  return {result:await api.finishLogin(req,db,config),req};
 }
 const success=await callback();assert.equal(success.result.headers.get('location'),'/');
@@ -70,6 +73,21 @@ assert.equal((await callback({},true)).result.headers.get('location'),'/?auth=de
 assert.equal((await callback({},false,true)).result.headers.get('location'),'/?auth=denied');
 const adminLogin=await callback({},false,false,'/admin');
 assert.equal(adminLogin.result.headers.get('location'),'/admin');
+const beforeDenied = await db.query('SELECT count(*)::int AS count FROM relay_private.sessions');
+const memberAdminLogin = await callback({email:second.email,sub:second.subject},false,false,'/admin');
+assert.equal(memberAdminLogin.result.headers.get('location'),'/admin?auth=denied');
+assert.equal(memberAdminLogin.result.headers.getSetCookie().some(value=>value.startsWith(api.sessionCookie+'=')),false,'Rejected admin login must not issue a session');
+assert.deepEqual(await db.query('SELECT count(*)::int AS count FROM relay_private.sessions'),beforeDenied);
+assert.equal((await callback({email:second.email,sub:second.subject})).result.headers.get('location'),'/', 'Ordinary login still permits registered members');
+const revokedAdminLogin=await callback({},false,false,'/admin',()=>{process.env.ADMIN_GOOGLE_EMAILS=second.email;});
+assert.equal(revokedAdminLogin.result.headers.get('location'),'/admin?auth=denied','Admin permission is rechecked after Google consent');
+assert.equal(revokedAdminLogin.result.headers.getSetCookie().some(value=>value.startsWith(api.sessionCookie+'=')),false);
+process.env.ADMIN_GOOGLE_EMAILS='';
+const attemptsBefore=await db.query('SELECT count(*)::int AS count FROM relay_private.oauth_attempts');
+assert.equal((await api.startLogin(db,config,'/admin')).headers.get('location'),'/admin');
+assert.deepEqual(await db.query('SELECT count(*)::int AS count FROM relay_private.oauth_attempts'),attemptsBefore,'Unset admin permissions do not start OAuth');
+process.env.ADMIN_GOOGLE_EMAILS=owner.email;
+
 assert.equal((await callback({email:'intruder@gmail.com'},false,false,'/admin')).result.headers.get('location'),'/admin?auth=denied');
 assert.equal((await callback({},false,false,'https://evil.test')).result.headers.get('location'),'/', 'Only the fixed admin destination is accepted');
 const noCallback=await api.finishLogin(new Request('https://relay.test/api/auth/callback?code=forged&state=forged'),db);assert.equal(noCallback.headers.get('location'),'/?auth=denied');
@@ -121,6 +139,9 @@ const revoked=await api.issueCode(owner,'user',db);process.env.ALLOWED_GOOGLE_EM
 // Admin routes require both a current Google session and a separate admin allowlist.
 process.env.ALLOWED_GOOGLE_EMAILS='owner@gmail.com,second@gmail.com,never@gmail.com,OWNER@gmail.com';
 process.env.ADMIN_GOOGLE_EMAILS=' Owner@gmail.com, outsider@gmail.com ';
+assert.equal(api.isAdmin(owner.email),false,'Inconsistent admin configuration fails closed');
+assert.deepEqual(api.administratorIssues(),[{field:'ADMIN_GOOGLE_EMAILS',code:'adminNotAllowed'}]);
+process.env.ADMIN_GOOGLE_EMAILS=' Owner@gmail.com ';
 assert.equal(api.isAdmin(owner.email),true);
 assert.equal(api.isAdmin(second.email),false);
 assert.equal(api.isAdmin('outsider@gmail.com'),false);
@@ -157,6 +178,10 @@ assert.equal((await api.handle(adminRequest('admin-overview'),db)).status,401);
 assert.equal((await api.handle(adminRequest('admin-overview',adminToken),db)).status,200);
 assert.equal((await api.handle(adminRequest('admin-overview',adminToken,'GET','https://old.test'),db)).status,403);
 process.env.ADMIN_GOOGLE_EMAILS='';
+const unconfiguredAdminPage=await api.handle(adminRequest('admin-page'),db);
+const unconfiguredAdminHtml=await unconfiguredAdminPage.text();
+assert.ok(!unconfiguredAdminHtml.includes('/api/auth/start?destination=admin'));
+assert.ok(!unconfiguredAdminHtml.includes('assets/app.js'));
 assert.equal((await api.handle(adminRequest('admin-overview',adminToken),db)).status,403,'Existing sessions lose admin privileges immediately');
 process.env.ADMIN_GOOGLE_EMAILS=owner.email;
 process.env.ALLOWED_GOOGLE_EMAILS=second.email;
@@ -184,3 +209,21 @@ const login=await api.endpoint.fetch(new Request('https://relay.test/api/relay?r
 await assert.rejects(api.limitedBody(new Request('https://relay.test',{method:'POST',body:'x'.repeat(65537)})),e=>e.status===413);
 await pg.close();
 console.log('Auth & LINE: real SQL migration, allowlist, verified claims, expiry/revocation, origin, signatures, pairing ownership/replay/expiry, group identity, notification idempotency/retry/quota and fail-closed routes: OK. No real messages sent.');
+
+const validSettings={APP_ORIGIN:'https://relay.test',GOOGLE_CLIENT_ID:'synthetic-client',GOOGLE_CLIENT_SECRET:'synthetic-secret',DATABASE_URL:'postgres://fixture:secret@db.test/relay',ALLOWED_GOOGLE_EMAILS:'owner@gmail.com,second@gmail.com',ADMIN_GOOGLE_EMAILS:' OWNER@gmail.com '};
+assert.deepEqual(api.authConfigurationIssues(validSettings),[]);
+for (const field of Object.keys(validSettings)) assert.ok(api.authConfigurationIssues({...validSettings,[field]:' '}).some(issue=>issue.field===field&&issue.code==='missing'));
+for(const value of ['*', 'owner@gmail.com,', 'owner@gmail.com\nsecond@gmail.com', 'not-an-email']) assert.ok(api.authConfigurationIssues({...validSettings,ADMIN_GOOGLE_EMAILS:value}).some(issue=>issue.code==='invalid'));
+assert.deepEqual(api.authConfigurationIssues({...validSettings,ADMIN_GOOGLE_EMAILS:'other@gmail.com'}),[{field:'ADMIN_GOOGLE_EMAILS',code:'adminNotAllowed'}]);
+for(const value of ['http://relay.test','https://user:password@relay.test','https://relay.test/admin','https://relay.test/?secret=x']) assert.ok(api.authConfigurationIssues({...validSettings,APP_ORIGIN:value}).some(issue=>issue.field==='APP_ORIGIN'&&issue.code==='invalid'));
+assert.ok(api.authConfigurationIssues({...validSettings,DATABASE_URL:'https://db.test'}).some(issue=>issue.field==='DATABASE_URL'&&issue.code==='invalid'));
+const diagnostics=JSON.stringify(api.authConfigurationIssues({...validSettings,ADMIN_GOOGLE_EMAILS:'private@gmail.com',DATABASE_URL:'private-secret'}));
+assert.ok(!diagnostics.includes('private@gmail.com')&&!diagnostics.includes('private-secret'));
+console.log('Admin configuration: exact addresses, malformed lists, subset validation, unset permissions, Google callback rejection and redacted diagnostics: OK.');
+for (const [settings,expected] of [[validSettings,0],[{...validSettings,ADMIN_GOOGLE_EMAILS:'private@gmail.com'},1]]) {
+ const check=spawnSync(process.execPath,['scripts/check-auth-config.mjs'],{env:{...process.env,...settings},encoding:'utf8'});
+ assert.equal(check.status,expected);
+ assert.ok(!(check.stdout+check.stderr).includes('private@gmail.com'));
+ assert.ok(!(check.stdout+check.stderr).includes('synthetic-secret'));
+ if(expected===1) assert.match(check.stderr,/ADMIN_GOOGLE_EMAILS: adminNotAllowed/);
+}

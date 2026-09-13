@@ -1,12 +1,11 @@
-import { allowed, configured, lineConfigured } from './config';
+import { configured, lineConfigured } from './config';
 import { session } from './auth';
 import { database, type Database } from './database';
 import { ApiError } from './line';
 import type { AdminOverview } from '../admin/types';
 
-export function isAdmin(email: unknown): boolean {
-  return allowed(email) && allowed(email, process.env.ADMIN_GOOGLE_EMAILS ?? '');
-}
+import { administratorAllowed as isAdmin } from './access';
+export { isAdmin };
 export async function adminOverview(request: Request, db: Database = database()): Promise<AdminOverview> {
   const identity = await session(request, db);
   if (!identity) throw new ApiError(401, 'unauthorized');
