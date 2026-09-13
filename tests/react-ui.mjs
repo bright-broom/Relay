@@ -401,15 +401,32 @@ for (const isAdmin of [false,true]) {
   await waitFor(()=>assert.equal(entryWorkspace.getSnapshot().page,'today'));
   cleanup();
 }
-dom.reconfigure({url:'file:///fixture/index.html#admin'});
+dom.reconfigure({url:'file:///fixture/index.html?origin=https://untrusted.test&next=https://untrusted.test#admin'});
 let localAdminRequests=0;
 globalThis.fetch=async()=>{localAdminRequests++;throw new Error('Local preview must not authenticate');};
 render(createElement(api.TooltipProvider,null,createElement(api.Admin,{ui})));
 await screen.findByRole('heading',{name:t('adminGateTitle')});
-assert.equal(screen.getByRole('button',{name:t('googleSignIn')}).disabled,true);
-assert.ok(screen.getByText(t('authOnline')));
+const publicLogin=screen.getByRole('link',{name:t('googleSignIn')});
+assert.equal(publicLogin.getAttribute('href'),'https://relay-chi-ecru.vercel.app/admin?lang=en');
+assert.equal(publicLogin.hasAttribute('disabled'),false);
+assert.notEqual(publicLogin.getAttribute('aria-disabled'),'true');
+assert.equal(publicLogin.getAttribute('rel'),'noreferrer');
+assert.ok(screen.getByText(t('adminContinueOnline')));
+publicLogin.focus();
+assert.equal(document.activeElement,publicLogin,'The public login link is keyboard-focusable');
 assert.equal(localAdminRequests,0);
 cleanup();
+for(const locale of ['ja','ar-EG']) {
+ const localUi=api.createUiContext(locale);
+ render(createElement(api.TooltipProvider,null,createElement(api.Admin,{ui:localUi})));
+ const link=await screen.findByRole('link',{name:localUi.t('googleSignIn')});
+ const target=new URL(link.href);
+ assert.equal(target.origin,'https://relay-chi-ecru.vercel.app');
+ assert.equal(target.pathname,'/admin');
+ assert.deepEqual([...target.searchParams],[['lang',locale]],'Only display language is passed to the public page');
+ assert.equal(localAdminRequests,0,'Local rendering must not fetch private APIs or start OAuth');
+ cleanup();
+}
 dom.reconfigure({url:'https://relay.test/'});
 
 // Exercise the real root lifecycle: invalidation removes already rendered data,
