@@ -11,7 +11,7 @@ export async function verifyContactsUi({mount,screen,user,waitFor,cleanup,act,t,
       if(mode==='archive')return Response.json({error:'crmContactArchived'},{status:409});
       if(mode==='denied')return Response.json({error:'crmReadOnly'},{status:403});
       if(saved.has(body.key))return Response.json({contact:saved.get(body.key),replayed:true});
-      const contact={...body.contact,id:'00000000-0000-4000-8000-'+String(71+contacts.length).padStart(12,'0'),email:body.contact.email||null,phone:body.contact.phone||null};
+      const contact={...body.contact,version:'1',id:'00000000-0000-4000-8000-'+String(71+contacts.length).padStart(12,'0'),email:body.contact.email||null,phone:body.contact.phone||null};
       contacts.push(contact);saved.set(body.key,contact);
       if(mode==='lost'){mode='saved';throw Error('lost after commit');}
       return Response.json({contact,replayed:false});

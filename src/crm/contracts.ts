@@ -45,8 +45,16 @@ export const createContactInput = z.object({
   workspaceId: crmId, customerId: crmId, key: crmId, contact: contactInput,
 }).strict();
 export type ContactInput = z.infer<typeof contactInput>;
+export const contactDetailsInput = contactInput.pick({displayName:true,email:true,phone:true});
+export const editContactInput = z.object({
+  ...mutation, customerId:crmId, contact:contactDetailsInput,
+}).strict();
+export type ContactDetailsInput = z.infer<typeof contactDetailsInput>;
+export type ContactEdit = z.infer<typeof editContactInput>;
 export type CustomerContact = Omit<ContactInput,'email'|'phone'> & {
-  id: string; email: string | null; phone: string | null;
+  id: string; email: string | null; phone: string | null; version: string;
 };
 export type ContactPage = {contacts: CustomerContact[]; nextCursor: string | null};
 export type ContactCreated = {contact: CustomerContact; replayed: boolean};
+export type ContactDetails = {contact:CustomerContact;customerArchived:boolean};
+export type ContactEdited = ContactDetails & {replayed:boolean;appliedVersion:string};

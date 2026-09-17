@@ -177,6 +177,13 @@ import { createInstance } from "i18next";
 
 // src/i18n/locales/ja.ts
 var ja = {
+  crmEditContact: "\u9023\u7D61\u5148\u3092\u7DE8\u96C6",
+  crmSaveContactChanges: "\u9023\u7D61\u5148\u306E\u5909\u66F4\u3092\u4FDD\u5B58",
+  crmContactEditScope: "\u6C0F\u540D\u30FB\u30E1\u30FC\u30EB\u30FB\u96FB\u8A71\u3092\u66F4\u65B0\u3057\u307E\u3059\u3002\u3053\u306E\u9023\u7D61\u5148\u3092\u5171\u6709\u3059\u308B\u540C\u3058\u6240\u5C5E\u306E\u9867\u5BA2\u306B\u3082\u53CD\u6620\u3055\u308C\u307E\u3059\u3002\u9867\u5BA2\u3068\u306E\u95A2\u4FC2\u30FB\u4E3B\u9023\u7D61\u5148\u306E\u533A\u5206\u306F\u5909\u308F\u308A\u307E\u305B\u3093\u3002",
+  crmContactUpdated: "\u9023\u7D61\u5148\u3092\u66F4\u65B0\u3057\u307E\u3057\u305F\u3002",
+  crmContactReplayedNewer: "\u3053\u306E\u5909\u66F4\u306F\u4FDD\u5B58\u6E08\u307F\u3067\u3001\u9023\u7D61\u5148\u306B\u306F\u305D\u306E\u5F8C\u306E\u5909\u66F4\u3082\u3042\u308A\u307E\u3059\u3002",
+  crmContactEditArchived: "\u30A2\u30FC\u30AB\u30A4\u30D6\u6E08\u307F\u306E\u9867\u5BA2\u304B\u3089\u306F\u9023\u7D61\u5148\u3092\u7DE8\u96C6\u3067\u304D\u307E\u305B\u3093\u3002\u7DE8\u96C6\u3092\u9589\u3058\u3066\u9867\u5BA2\u3092\u518D\u53D6\u5F97\u3057\u3001\u5FA9\u5143\u3057\u3066\u304B\u3089\u7DE8\u96C6\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  crmContactConflict: "\u9023\u7D61\u5148\u307E\u305F\u306F\u9867\u5BA2\u306E\u72B6\u614B\u304C\u5909\u66F4\u3055\u308C\u3066\u3044\u307E\u3059\u3002\u5165\u529B\u306F\u4FDD\u6301\u3057\u3066\u3044\u307E\u3059\u3002\u6700\u65B0\u5185\u5BB9\u3092\u78BA\u8A8D\u3057\u3001\u5165\u529B\u3092\u7834\u68C4\u3057\u3066\u304B\u3089\u7DE8\u96C6\u3057\u76F4\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   crmContacts: "\u9023\u7D61\u5148",
   crmContactScope: "\u3053\u306E\u9867\u5BA2\u306E\u9023\u7D61\u5148\u3092\u3001\u540C\u3058\u6240\u5C5E\u306E\u30E1\u30F3\u30D0\u30FC\u3067\u5171\u6709\u3057\u307E\u3059\u3002",
   crmLoadContacts: "\u9023\u7D61\u5148\u3092\u518D\u53D6\u5F97",
@@ -560,6 +567,13 @@ var ja = {
 
 // src/i18n/locales/en.ts
 var en = {
+  crmEditContact: "Edit contact",
+  crmSaveContactChanges: "Save contact changes",
+  crmContactEditScope: "Update the name, email and phone for this contact. Changes apply to any customers sharing it in this workspace. Relationships and primary-contact settings stay the same.",
+  crmContactUpdated: "Contact updated.",
+  crmContactReplayedNewer: "This change was already saved. The contact has also been changed since then.",
+  crmContactEditArchived: "Contacts cannot be edited through an archived customer. Close the editor, refresh the customer, and restore it before editing.",
+  crmContactConflict: "The contact or customer state has changed. Your draft is retained. Review the latest details, then discard the draft before editing again.",
   crmContactSaved: "Contact saved: {name}.",
   crmContactInvalid: "Use a name of 1\u2013200 characters, a valid email address up to 254 characters, and a phone number up to 64 characters. Line breaks and control characters are not allowed.",
   crmContactArchived: "Contacts cannot be added to an archived customer. Cancel the draft, refresh the customer, and restore it first.",
@@ -2202,6 +2216,12 @@ var createContactInput = z5.object({
   key: crmId,
   contact: contactInput
 }).strict();
+var contactDetailsInput = contactInput.pick({ displayName: true, email: true, phone: true });
+var editContactInput = z5.object({
+  ...mutation,
+  customerId: crmId,
+  contact: contactDetailsInput
+}).strict();
 
 // src/server/crm.ts
 var connection2;
@@ -2371,7 +2391,7 @@ async function createCustomer(identity, input, db) {
 }
 
 // src/server/crm-contacts.ts
-var columns2 = `c.id, c.display_name AS "displayName", c.email, c.phone, r.relationship, r.is_primary AS "isPrimary"`;
+var columns2 = `c.id, c.display_name AS "displayName", c.email, c.phone, c.version::text, r.relationship, r.is_primary AS "isPrimary"`;
 var joined = `relay_crm.contacts c JOIN relay_crm.customer_contacts r ON r.workspace_id=c.workspace_id AND r.contact_id=c.id`;
 var cursorSchema2 = z7.object({ workspaceId: crmId, customerId: crmId, id: crmId }).strict();
 async function listContacts(identity, workspace, customer, cursor, db) {
@@ -2429,7 +2449,58 @@ async function createContact(identity, input, db) {
     await audit(tx, workspaceId, member.principalId, contactId, "create", { customerId }, "contact");
     await tx.query(`INSERT INTO relay_crm.request_dedup(workspace_id,actor_id,operation,key,payload_hash,response_status,result_id,expires_at)
       VALUES($1,$2,'contact.create',$3,$4,201,$5,now()+interval '7 days')`, [workspaceId, member.principalId, key, payloadHash, contactId]);
-    return { contact: { ...data, id: contactId, email: data.email || null, phone: data.phone || null }, replayed: false };
+    return { contact: { ...data, id: contactId, email: data.email || null, phone: data.phone || null, version: "1" }, replayed: false };
+  }, db);
+}
+async function getContact(identity, workspace, customer, id, db) {
+  const workspaceId = crmId.parse(workspace), customerId = crmId.parse(customer), contactId = crmId.parse(id);
+  return transaction(identity, async (tx) => {
+    const member = await access(tx, workspaceId, false);
+    const [parent] = await tx.query(`SELECT archived_at IS NOT NULL AS archived FROM relay_crm.customers WHERE workspace_id=$1 AND id=$2`, [workspaceId, customerId]);
+    const [contact] = await tx.query(`SELECT ${columns2} FROM ${joined}
+      WHERE r.workspace_id=$1 AND r.customer_id=$2 AND c.id=$3 AND c.archived_at IS NULL`, [workspaceId, customerId, contactId]);
+    if (!parent || !contact) throw new ApiError(404, "missing");
+    await audit(tx, workspaceId, member.principalId, contactId, "read", { customerId }, "contact");
+    return { contact, customerArchived: parent.archived };
+  }, db);
+}
+async function editContact(identity, id, input, db) {
+  const contactId = crmId.parse(id), parsed = editContactInput.safeParse(input);
+  if (!parsed.success) throw new ApiError(400, "crmContactInvalid");
+  const { workspaceId, customerId, key, version: version2, contact: data } = parsed.data;
+  const payloadHash = createHash3("sha256").update(JSON.stringify({ contactId, customerId, version: version2, contact: data })).digest("hex");
+  return transaction(identity, async (tx) => {
+    const member = await access(tx, workspaceId, true);
+    await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`${workspaceId}:${member.principalId}:contact.edit:${key}`]);
+    const [prior] = await tx.query(
+      `SELECT payload_hash,expires_at <= now() AS expired,result_version::text FROM relay_crm.request_dedup
+       WHERE workspace_id=$1 AND actor_id=$2 AND operation='contact.edit' AND key=$3`,
+      [workspaceId, member.principalId, key]
+    );
+    if (prior && (prior.payload_hash !== payloadHash || prior.expired || !prior.result_version)) throw new ApiError(409, "crmRetryConflict");
+    const [parent] = await tx.query(`SELECT archived_at IS NOT NULL AS archived FROM relay_crm.customers WHERE workspace_id=$1 AND id=$2 FOR UPDATE`, [workspaceId, customerId]);
+    if (!parent) throw new ApiError(404, "missing");
+    const [before] = await tx.query(`SELECT ${columns2} FROM ${joined}
+      WHERE r.workspace_id=$1 AND r.customer_id=$2 AND c.id=$3 AND c.archived_at IS NULL FOR UPDATE OF c`, [workspaceId, customerId, contactId]);
+    if (!before) throw new ApiError(404, "missing");
+    if (prior) {
+      await audit(tx, workspaceId, member.principalId, contactId, "replay", { customerId, operation: "contact.edit", appliedVersion: prior.result_version }, "contact");
+      return { contact: before, customerArchived: parent.archived, replayed: true, appliedVersion: prior.result_version };
+    }
+    if (parent.archived) throw new ApiError(409, "crmContactEditArchived");
+    if (before.version !== version2) throw new ApiError(409, "crmVersionConflict");
+    const values = { ...data, email: data.email || null, phone: data.phone || null };
+    const fields = ["displayName", "email", "phone"].filter((field) => before[field] !== values[field]);
+    const [updated] = await tx.query(
+      `UPDATE relay_crm.contacts SET display_name=$4,email=$5,phone=$6,
+      version=version+1,updated_at=clock_timestamp() WHERE workspace_id=$1 AND id=$2 AND version=$3::bigint RETURNING version::text`,
+      [workspaceId, contactId, version2, values.displayName, values.email, values.phone]
+    );
+    if (!updated) throw new ApiError(409, "crmVersionConflict");
+    await audit(tx, workspaceId, member.principalId, contactId, "edit", { customerId, fields, fromVersion: version2, toVersion: updated.version }, "contact");
+    await tx.query(`INSERT INTO relay_crm.request_dedup(workspace_id,actor_id,operation,key,payload_hash,response_status,result_id,result_version,expires_at)
+      VALUES($1,$2,'contact.edit',$3,$4,200,$5,$6::bigint,now()+interval '7 days')`, [workspaceId, member.principalId, key, payloadHash, contactId, updated.version]);
+    return { contact: { ...before, ...values, version: updated.version }, customerArchived: false, replayed: false, appliedVersion: updated.version };
   }, db);
 }
 
@@ -2439,9 +2510,9 @@ async function handle(request, db, authProvider, crmDb) {
   const url = new URL(request.url), route = url.searchParams.get("route") ?? "";
   const locale = normalizeLocale(url.searchParams.get("lang") ?? request.headers.get("cookie")?.split("; ").find((value) => value.startsWith("relay-locale="))?.slice(13) ?? request.headers.get("accept-language")?.split(",")[0]?.split(";")[0]);
   try {
-    const crmRoute = ["crm-workspaces", "crm-customers", "crm-customer", "crm-search", "crm-contacts", "crm-customer-contacts"].includes(route);
+    const crmRoute = ["crm-workspaces", "crm-customers", "crm-customer", "crm-search", "crm-contacts", "crm-customer-contacts", "crm-contact"].includes(route);
     if (!crmRoute && !["login-page", "admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "logout", "code", "destination", "notify", "webhook", "calendar-status", "calendar-callback", "calendar-connect", "calendar-disconnect", "schedule-propose", "schedule-book", "mcp", "mcp-tokens", "mcp-token", "mcp-revoke"].includes(route)) throw new ApiError(404, "missing");
-    if (crmRoute ? !(route === "crm-customers" ? ["GET", "POST"] : route === "crm-customer" ? ["GET", "PATCH"] : ["crm-search", "crm-contacts"].includes(route) ? ["POST"] : ["GET"]).includes(request.method) : request.method !== (readRoutes.has(route) ? "GET" : "POST")) throw new ApiError(405, "method");
+    if (crmRoute ? !(route === "crm-customers" ? ["GET", "POST"] : ["crm-customer", "crm-contact"].includes(route) ? ["GET", "PATCH"] : ["crm-search", "crm-contacts"].includes(route) ? ["POST"] : ["GET"]).includes(request.method) : request.method !== (readRoutes.has(route) ? "GET" : "POST")) throw new ApiError(405, "method");
     if (configured() && url.origin !== origin()) {
       if (route === "page" || route === "admin-page" || route === "login-page") {
         const target = new URL(route === "admin-page" ? "/admin" : route === "login-page" ? "/login" : "/", origin());
@@ -2497,8 +2568,9 @@ async function handle(request, db, authProvider, crmDb) {
       return Response.json(await listCustomers(identity, url.searchParams.get("workspaceId"), url.searchParams.get("cursor"), crmDb, archived === "true"));
     }
     if (route === "crm-customer" && request.method === "GET") return Response.json(await getCustomer(identity, url.searchParams.get("workspaceId"), url.searchParams.get("id"), crmDb));
+    if (route === "crm-contact" && request.method === "GET") return Response.json(await getContact(identity, url.searchParams.get("workspaceId"), url.searchParams.get("customerId"), url.searchParams.get("id"), crmDb));
     if (route === "crm-customer-contacts") return Response.json(await listContacts(identity, url.searchParams.get("workspaceId"), url.searchParams.get("id"), url.searchParams.get("cursor"), crmDb));
-    if (route === "crm-contacts" || route === "crm-customers" || route === "crm-customer" || route === "crm-search") {
+    if (route === "crm-contact" || route === "crm-contacts" || route === "crm-customers" || route === "crm-customer" || route === "crm-search") {
       let input2;
       try {
         input2 = JSON.parse(await limitedBody(request));
@@ -2506,6 +2578,7 @@ async function handle(request, db, authProvider, crmDb) {
         if (error instanceof ApiError) throw error;
         throw new ApiError(400, "invalid");
       }
+      if (route === "crm-contact") return Response.json(await editContact(identity, url.searchParams.get("id"), input2, crmDb));
       if (route === "crm-search") return Response.json(await searchCustomers(identity, input2, crmDb));
       if (route === "crm-customer") return Response.json(await changeCustomer(identity, url.searchParams.get("id"), input2, crmDb));
       const result = route === "crm-contacts" ? await createContact(identity, input2, crmDb) : await createCustomer(identity, input2, crmDb);
