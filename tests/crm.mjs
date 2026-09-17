@@ -32,6 +32,8 @@ try {
   assert.deepEqual(await api.listWorkspaces(identity(4),db),[]);
   const input = {workspaceId:id(11),key:randomUUID(),customer:{displayName:'Synthetic Customer',kind:'organization'}};
   const created = await api.createCustomer(identity(1),input,db);
+  // Upgrade an existing 003 customer; preserve its ID, version and dedup history.
+  await pg.exec(await readFile('migrations/004_crm_customer_lifecycle.sql','utf8'));
   assert.equal(created.replayed,false);
   assert.equal(created.customer.version,'1');
   assert.equal(created.customer.status,'prospect');
@@ -75,9 +77,50 @@ try {
   assert.equal(await count('customers'),before);
   assert.equal(await count('audit_events'),auditsBefore);
 
+  // Lifecycle changes preserve identity and atomically increment a string bigint version.
+  const customerId = created.customer.id;
+  const edit = {workspaceId:id(11),key:randomUUID(),version:'1',action:'edit',customer:{displayName:'Synthetic edited customer',kind:'individual'}};
+  const updated = await api.changeCustomer(identity(1),customerId,edit,db);
+  assert.equal(updated.customer.version,'2'); assert.equal(updated.appliedVersion,'2');
+  assert.equal(updated.customer.id,customerId); assert.equal(updated.customer.displayName,edit.customer.displayName);
+  assert.equal((await api.changeCustomer(identity(1),customerId,{...edit,key:edit.key.toUpperCase()},db)).replayed,true);
+  await reject(()=>api.changeCustomer(identity(1),customerId,{...edit,customer:{...edit.customer,displayName:'Different'}},db),409,'crmRetryConflict');
+  await reject(()=>api.changeCustomer(identity(1),customerId,{...edit,key:randomUUID()},db),409,'crmVersionConflict');
+  await reject(()=>api.changeCustomer(identity(2),customerId,edit,db),403);
+  await reject(()=>api.changeCustomer(identity(3),customerId,edit,db),404);
+  await reject(()=>api.changeCustomer(identity(3),customerId,{...edit,workspaceId:id(12)},db),404);
+  const archive = {workspaceId:id(11),key:randomUUID(),version:'2',action:'archive'};
+  const archived = await api.changeCustomer(identity(1),customerId,archive,db);
+  assert.equal(archived.customer.version,'3'); assert.ok(archived.customer.archivedAt);
+  assert.equal((await api.listCustomers(identity(1),id(11),null,db)).customers.length,0);
+  assert.equal((await api.listCustomers(identity(1),id(11),null,db,true)).customers[0].id,customerId);
+  assert.ok((await api.getCustomer(identity(2),id(11),customerId,db)).archivedAt);
+  await reject(()=>api.changeCustomer(identity(1),customerId,{...edit,key:randomUUID(),version:'3'},db),409,'crmStateConflict');
+  await reject(()=>api.createCustomer(identity(1),input,db),409,'crmRetryConflict');
+  const restore = {...archive,key:randomUUID(),version:'3',action:'restore'};
+  const restored = await api.changeCustomer(identity(1),customerId,restore,db);
+  assert.equal(restored.customer.version,'4'); assert.equal(restored.customer.archivedAt,null);
+  const replay = await api.changeCustomer(identity(1),customerId,archive,db);
+  assert.equal(replay.replayed,true); assert.equal(replay.appliedVersion,'3');
+  assert.equal(replay.customer.version,'4'); assert.equal(replay.customer.archivedAt,null,'retry never reapplies an old archive');
+  const events = (await pg.query("SELECT action,changes FROM relay_crm.audit_events WHERE action IN ('edit','archive','restore') ORDER BY created_at")).rows;
+  assert.equal(events.length,3);
+  assert.deepEqual(events[0].changes,{fields:['displayName','kind'],fromVersion:'1',toVersion:'2'});
+  assert.ok(!JSON.stringify(events).includes(edit.customer.displayName));
+  const changesBefore = await count('audit_events'), keysBefore = await count('request_dedup');
+  for (const broken of [failing,failedDedup]) {
+    await assert.rejects(()=>api.changeCustomer(identity(1),customerId,{...edit,key:randomUUID(),version:'4'},broken));
+    assert.equal((await pg.query('SELECT version::text FROM relay_crm.customers WHERE id=$1',[customerId])).rows[0].version,'4');
+    assert.equal(await count('audit_events'),changesBefore); assert.equal(await count('request_dedup'),keysBefore);
+  }
+  await pg.query("UPDATE relay_crm.memberships SET role='viewer' WHERE principal_id=$1",[id(1)]);
+  await reject(()=>api.changeCustomer(identity(1),customerId,edit,db),403,'crmReadOnly');
+  await pg.query("UPDATE relay_crm.memberships SET role='editor' WHERE principal_id=$1",[id(1)]);
+
   // Revocation applies to reads AND retries, even when the original save succeeded.
   await pg.query(`UPDATE relay_crm.memberships SET status='suspended' WHERE principal_id=$1`,[id(1)]);
   await reject(()=>api.createCustomer(identity(1),input,db),404);
+  await reject(()=>api.changeCustomer(identity(1),customerId,edit,db),404);
   assert.deepEqual(await api.listWorkspaces(identity(1),db),[]);
   await pg.query(`UPDATE relay_crm.memberships SET status='active' WHERE principal_id=$1`,[id(1)]);
   await pg.query(`UPDATE relay_crm.principals SET disabled_at=now() WHERE id=$1`,[id(1)]);
@@ -88,6 +131,7 @@ try {
   await pg.query(`UPDATE relay_crm.workspaces SET archived_at=NULL WHERE id=$1`,[id(11)]);
   await pg.query(`UPDATE relay_crm.request_dedup SET created_at=now()-interval '8 days',expires_at=now()-interval '1 day'`);
   await reject(()=>api.createCustomer(identity(1),input,db),409,'crmRetryConflict');
+  await reject(()=>api.changeCustomer(identity(1),customerId,edit,db),409,'crmRetryConflict');
 
   // Bypass the API entirely and exercise real SQL policies using a non-owner role.
   const scoped = (person,workspace,work) => db.transaction(async tx=>{
@@ -104,6 +148,12 @@ try {
   await sqlReject(()=>scoped(1,11,tx=>tx.query('DELETE FROM relay_crm.audit_events')));
   await sqlReject(()=>scoped(1,11,tx=>tx.query('TRUNCATE relay_crm.customers')));
   await sqlReject(()=>scoped(1,11,tx=>tx.query(`INSERT INTO relay_crm.audit_events(id,workspace_id,actor_id,request_id,entity_type,entity_id,action,changes) VALUES($1,$2,$3,$4,'customer',$5,'create','{}')`,[randomUUID(),id(11),id(2),randomUUID(),created.customer.id])));
+
+  await sqlReject(()=>scoped(1,11,tx=>tx.query('UPDATE relay_crm.customers SET workspace_id=$1 WHERE id=$2',[id(12),customerId])));
+  await sqlReject(()=>scoped(1,11,tx=>tx.query('UPDATE relay_crm.customers SET owner_id=$1 WHERE id=$2',[id(2),customerId])));
+  await sqlReject(()=>scoped(1,11,tx=>tx.query('DELETE FROM relay_crm.customers WHERE id=$1',[customerId])));
+  assert.deepEqual(await scoped(2,11,tx=>tx.query("UPDATE relay_crm.customers SET display_name='Unauthorized' RETURNING id")),[]);
+  assert.deepEqual(await scoped(3,12,tx=>tx.query("UPDATE relay_crm.customers SET display_name='Unauthorized' WHERE id=$1 RETURNING id",[customerId])),[]);
 
   // More than one page, including microsecond timestamps and a stable UUID tie break.
   for (let n=0;n<52;n++) await pg.query(`INSERT INTO relay_crm.customers(id,workspace_id,kind,display_name,name_search,status,updated_at)
@@ -129,7 +179,20 @@ try {
   assert.equal((await call(request('crm-customers','POST',post))).status,201);
   assert.equal((await call(request('crm-customers','POST',post))).status,200);
   assert.equal((await call(request('crm-customers&workspaceId='+id(11)))).status,200);
+  const changeRoute = 'crm-customer&id='+customerId;
+  const patch = {...edit,key:randomUUID(),version:'4'};
+  assert.equal((await call(request(changeRoute,'PATCH',patch,{origin:'https://evil.test'}))).status,403);
+  for (const version of [0,1,'0','01','-1','1.1','abc','9223372036854775807','9223372036854775808']) {
+    assert.equal((await call(request(changeRoute,'PATCH',{...patch,version}))).status,400);
+  }
+  assert.equal((await call(request(changeRoute,'PATCH',{...patch,ownerId:id(2)}))).status,400);
+  assert.equal((await call(request('crm-customers&workspaceId='+id(11)+'&archived=unknown'))).status,400);
+  assert.equal((await call(request(changeRoute,'PATCH',patch))).status,200);
+  assert.equal((await call(request(changeRoute,'PATCH',{...patch,key:randomUUID()}))).status,409);
+  await pg.query('UPDATE relay_crm.customers SET version=9007199254740993 WHERE id=$1',[customerId]);
+  const precise = await api.changeCustomer(identity(1),customerId,{...edit,key:randomUUID(),version:'9007199254740993'},db);
+  assert.equal(precise.customer.version,'9007199254740994');
   process.env.ALLOWED_GOOGLE_EMAILS=identity(2).email;
   assert.equal((await call(request('crm-workspaces'))).status,401);
-  console.log('CRM: runtime-role RLS, tenant isolation, viewer denial, revocation, immutable audit, atomic save/retry, pagination and authenticated routes passed. Synthetic PGlite only.');
+  console.log('CRM: runtime-role RLS, tenant isolation, viewer denial, revocation, immutable audit, atomic save/retry, upgrade preservation, edit/archive/restore, bigint conflicts, rollback, pagination and authenticated PATCH routes passed. Synthetic PGlite only.');
 } finally { await pg.close(); }

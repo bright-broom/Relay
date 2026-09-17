@@ -177,11 +177,31 @@ import { createInstance } from "i18next";
 
 // src/i18n/locales/ja.ts
 var ja = {
+  crmEdit: "\u9867\u5BA2\u3092\u7DE8\u96C6",
+  crmEditName: "\u7DE8\u96C6\u3059\u308B\u9867\u5BA2\u540D",
+  crmSaveChanges: "\u5909\u66F4\u3092\u4FDD\u5B58",
+  crmCancelEdit: "\u7DE8\u96C6\u3092\u53D6\u308A\u6D88\u3059",
+  crmUpdated: "\u9867\u5BA2\u306E\u5909\u66F4\u3092\u4FDD\u5B58\u3057\u307E\u3057\u305F\u3002",
+  crmArchive: "\u30A2\u30FC\u30AB\u30A4\u30D6",
+  crmArchiveTitle: "\u9867\u5BA2\u3092\u30A2\u30FC\u30AB\u30A4\u30D6\u3057\u307E\u3059\u304B\uFF1F",
+  crmArchiveHint: "\u901A\u5E38\u306E\u4E00\u89A7\u304B\u3089\u5916\u3057\u307E\u3059\u3002\u30C7\u30FC\u30BF\u306F\u524A\u9664\u3055\u308C\u305A\u3001\u30A2\u30FC\u30AB\u30A4\u30D6\u4E00\u89A7\u304B\u3089\u5FA9\u5143\u3067\u304D\u307E\u3059\u3002",
+  crmArchiveSaved: "\u9867\u5BA2\u3092\u30A2\u30FC\u30AB\u30A4\u30D6\u3057\u307E\u3057\u305F\u3002",
+  crmRestore: "\u9867\u5BA2\u3092\u5FA9\u5143",
+  crmRestoreSaved: "\u9867\u5BA2\u3092\u5FA9\u5143\u3057\u307E\u3057\u305F\u3002",
+  crmListState: "\u8868\u793A\u3059\u308B\u9867\u5BA2",
+  crmCurrent: "\u901A\u5E38\u306E\u9867\u5BA2",
+  crmArchived: "\u30A2\u30FC\u30AB\u30A4\u30D6\u6E08\u307F",
+  crmConflict: "\u5225\u306E\u64CD\u4F5C\u3067\u9867\u5BA2\u304C\u66F4\u65B0\u3055\u308C\u3066\u3044\u307E\u3059\u3002\u4ECA\u56DE\u306E\u5909\u66F4\u306F\u4FDD\u5B58\u3057\u3066\u3044\u307E\u305B\u3093\u3002\u5165\u529B\u3092\u6B8B\u3057\u305F\u307E\u307E\u6700\u65B0\u306E\u5185\u5BB9\u3092\u8868\u793A\u3057\u307E\u3059\u3002\u78BA\u8A8D\u5F8C\u3001\u6700\u65B0\u306E\u5185\u5BB9\u304B\u3089\u7DE8\u96C6\u3057\u76F4\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  crmLatest: "\u73FE\u5728\u4FDD\u5B58\u3055\u308C\u3066\u3044\u308B\u5185\u5BB9",
+  crmUseLatest: "\u5165\u529B\u3092\u7834\u68C4\u3057\u3001\u6700\u65B0\u306E\u5185\u5BB9\u306B\u623B\u3059",
+  crmLoadLatest: "\u6700\u65B0\u306E\u5185\u5BB9\u3092\u53D6\u5F97",
+  crmReplayedNewer: "\u3053\u306E\u64CD\u4F5C\u306F\u4FDD\u5B58\u6E08\u307F\u3067\u3059\u3002\u305D\u306E\u5F8C\u306E\u5909\u66F4\u3092\u542B\u3080\u6700\u65B0\u306E\u9867\u5BA2\u60C5\u5831\u3092\u8868\u793A\u3057\u3066\u3044\u307E\u3059\u3002",
+  crmReloadList: "\u9867\u5BA2\u4E00\u89A7\u3092\u518D\u53D6\u5F97",
   crmCustomers: "\u9867\u5BA2\u53F0\u5E33",
   crmScope: "\u6240\u5C5E\u5148\u3067\u5171\u6709\u3059\u308B\u9867\u5BA2\u3092\u30B5\u30FC\u30D0\u30FC\u306B\u4FDD\u5B58\u3057\u307E\u3059\u3002\u516C\u958B\u30C7\u30E2\u306E\u6848\u4EF6\u3068\u306F\u5225\u306E\u30C7\u30FC\u30BF\u3067\u3059\u3002",
   crmWorkspace: "\u6240\u5C5E\u5148",
   crmNoWorkspace: "\u5229\u7528\u3067\u304D\u308B\u6240\u5C5E\u5148\u304C\u3042\u308A\u307E\u305B\u3093\u3002\u904B\u7528\u62C5\u5F53\u8005\u3078\u6240\u5C5E\u767B\u9332\u3092\u4F9D\u983C\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
-  crmReadOnly: "\u95B2\u89A7\u6A29\u9650\u3067\u5229\u7528\u3057\u3066\u3044\u307E\u3059\u3002\u9867\u5BA2\u306E\u767B\u9332\u306F\u3067\u304D\u307E\u305B\u3093\u3002",
+  crmReadOnly: "\u95B2\u89A7\u6A29\u9650\u3067\u5229\u7528\u3057\u3066\u3044\u307E\u3059\u3002\u9867\u5BA2\u306E\u767B\u9332\u30FB\u5909\u66F4\u306F\u3067\u304D\u307E\u305B\u3093\u3002",
   crmCreate: "\u9867\u5BA2\u3092\u767B\u9332",
   crmName: "\u9867\u5BA2\u540D",
   crmKind: "\u9867\u5BA2\u306E\u7A2E\u985E",
@@ -193,10 +213,11 @@ var ja = {
   crmUnavailable: "\u9867\u5BA2\u53F0\u5E33\u3092\u5229\u7528\u3067\u304D\u307E\u305B\u3093\u3002\u63A5\u7D9A\u8A2D\u5B9A\u30FB\u6A29\u9650\u30FB\u79FB\u884C\u72B6\u6CC1\u306E\u78BA\u8A8D\u3092\u904B\u7528\u62C5\u5F53\u8005\u3078\u4F9D\u983C\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   crmAccessLost: "\u5BFE\u8C61\u3092\u53C2\u7167\u3067\u304D\u307E\u305B\u3093\u3002\u6240\u5C5E\u5148\u3068\u6A29\u9650\u3092\u518D\u8AAD\u307F\u8FBC\u307F\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   crmRetryConflict: "\u3053\u306E\u767B\u9332\u8981\u6C42\u306F\u518D\u9001\u3067\u304D\u307E\u305B\u3093\u3002\u4E00\u89A7\u3092\u78BA\u8A8D\u3057\u3001\u904B\u7528\u62C5\u5F53\u8005\u3078\u767B\u9332\u7D50\u679C\u306E\u78BA\u8A8D\u3092\u4F9D\u983C\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
-  crmPending: "\u767B\u9332\u7D50\u679C\u306E\u78BA\u8A8D\u304C\u7D42\u308F\u308B\u307E\u3067\u5165\u529B\u3092\u4FDD\u6301\u3057\u307E\u3059\u3002\u518D\u9001\u3057\u3066\u3082\u540C\u3058\u8981\u6C42\u3092\u91CD\u8907\u767B\u9332\u3057\u307E\u305B\u3093\u3002",
+  crmPending: "\u4FDD\u5B58\u7D50\u679C\u306E\u78BA\u8A8D\u304C\u7D42\u308F\u308B\u307E\u3067\u5165\u529B\u3092\u4FDD\u6301\u3057\u307E\u3059\u3002\u518D\u9001\u3057\u3066\u3082\u540C\u3058\u64CD\u4F5C\u3092\u91CD\u8907\u5B9F\u884C\u3057\u307E\u305B\u3093\u3002",
   crmRetry: "\u540C\u3058\u5185\u5BB9\u3067\u518D\u9001",
   crmSaved: "\u9867\u5BA2\u3092\u30B5\u30FC\u30D0\u30FC\u306B\u4FDD\u5B58\u3057\u307E\u3057\u305F\u3002",
   crmDetails: "\u767B\u9332\u5185\u5BB9\u3092\u78BA\u8A8D",
+  crmEmptyArchived: "\u30A2\u30FC\u30AB\u30A4\u30D6\u6E08\u307F\u306E\u9867\u5BA2\u306F\u3044\u307E\u305B\u3093\u3002",
   crmEmpty: "\u767B\u9332\u6E08\u307F\u306E\u9867\u5BA2\u306F\u3042\u308A\u307E\u305B\u3093\u3002",
   crmNextPage: "\u6B21\u306E 50 \u4EF6",
   myPage: "\u30DE\u30A4\u30DA\u30FC\u30B8",
@@ -507,11 +528,31 @@ var ja = {
 
 // src/i18n/locales/en.ts
 var en = {
+  crmEdit: "Edit customer",
+  crmEditName: "Customer name to edit",
+  crmSaveChanges: "Save changes",
+  crmCancelEdit: "Cancel editing",
+  crmUpdated: "Customer changes saved.",
+  crmArchive: "Archive customer",
+  crmArchiveTitle: "Archive this customer?",
+  crmArchiveHint: "The customer will leave the current list. Records are retained and can be restored from the archive.",
+  crmArchiveSaved: "Customer archived.",
+  crmRestore: "Restore customer",
+  crmRestoreSaved: "Customer restored.",
+  crmListState: "Customer list",
+  crmCurrent: "Current customers",
+  crmArchived: "Archived",
+  crmConflict: "Another operation changed this customer. Your change was not saved. Your input is retained alongside the latest record. Review it before starting again.",
+  crmLatest: "Latest saved record",
+  crmUseLatest: "Discard input and use latest record",
+  crmLoadLatest: "Load latest record",
+  crmReplayedNewer: "This operation was already saved. The displayed record includes later changes.",
+  crmReloadList: "Reload customer list",
   crmCustomers: "Customers",
   crmScope: "Customers are saved on the server and shared within your workspace, separately from demo cases.",
   crmWorkspace: "Workspace",
   crmNoWorkspace: "No workspace is available. Ask your administrator to provision your membership.",
-  crmReadOnly: "You have read-only access. Customer creation is unavailable.",
+  crmReadOnly: "You have read-only access. Customer creation and changes are unavailable.",
   crmCreate: "Create customer",
   crmName: "Customer name",
   crmKind: "Customer type",
@@ -523,10 +564,11 @@ var en = {
   crmUnavailable: "Customers are unavailable. Ask your administrator to check the connection, permissions and migrations.",
   crmAccessLost: "This resource is unavailable. Refresh your workspaces and permissions.",
   crmRetryConflict: "This submission cannot be retried. Check the list and ask your administrator to verify the saved result.",
-  crmPending: "The original input is retained until the result is confirmed. Retrying the same request will not create a duplicate.",
+  crmPending: "The original input is retained until the result is confirmed. Retrying the same request will not apply the operation twice.",
   crmRetry: "Retry submission",
   crmSaved: "Customer saved on the server.",
   crmDetails: "View customer",
+  crmEmptyArchived: "There are no archived customers.",
   crmEmpty: "There are no customers yet.",
   crmNextPage: "Next 50 customers",
   myPage: "My page",
@@ -1043,8 +1085,8 @@ function seal(value, subject) {
   return ["v1", iv.toString("base64url"), cipher.getAuthTag().toString("base64url"), data.toString("base64url")].join(".");
 }
 function unseal(value, subject) {
-  const [version, iv, tag, data, ...extra] = value.split(".");
-  if (version !== "v1" || !iv || !tag || !data || extra.length) throw new Error("invalidCiphertext");
+  const [version2, iv, tag, data, ...extra] = value.split(".");
+  if (version2 !== "v1" || !iv || !tag || !data || extra.length) throw new Error("invalidCiphertext");
   const decipher = createDecipheriv("aes-256-gcm", encryptionKey(), Buffer.from(iv, "base64url"));
   decipher.setAAD(Buffer.from("relay-calendar:" + subject));
   decipher.setAuthTag(Buffer.from(tag, "base64url"));
@@ -2063,6 +2105,13 @@ var createCustomerInput = z5.object({
   key: crmId,
   customer: customerInput
 }).strict();
+var version = z5.string().regex(/^[1-9][0-9]{0,18}$/).pipe(z5.string().refine((value) => BigInt(value) < 9223372036854775807n));
+var mutation = { workspaceId: crmId, key: crmId, version };
+var changeCustomerInput = z5.discriminatedUnion("action", [
+  z5.object({ ...mutation, action: z5.literal("edit"), customer: customerInput }).strict(),
+  z5.object({ ...mutation, action: z5.literal("archive") }).strict(),
+  z5.object({ ...mutation, action: z5.literal("restore") }).strict()
+]);
 
 // src/server/crm.ts
 var connection2;
@@ -2071,7 +2120,8 @@ function crmDatabase() {
   return connection2 ??= connectDatabase(process.env.CRM_DATABASE_URL);
 }
 var columns = `id, display_name AS "displayName", kind, status, version::text,
- to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "updatedAt"`;
+ to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "updatedAt",
+ to_char(archived_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "archivedAt"`;
 async function verifyCrmRole(db) {
   const [row] = await db.query(`SELECT
     NOT (r.rolsuper OR r.rolbypassrls OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication)
@@ -2108,9 +2158,9 @@ async function access(tx, workspaceId, writing) {
   await tx.query(`SELECT set_config('relay.workspace_id', $1, true), set_config('relay.principal_id', $2, true)`, [workspaceId, principal.id]);
   return { principalId: principal.id, role: member.role };
 }
-async function audit(tx, workspaceId, actor, entityId, action) {
+async function audit(tx, workspaceId, actor, entityId, action, changes = {}) {
   await tx.query(`INSERT INTO relay_crm.audit_events(id, workspace_id, actor_id, request_id, entity_type, entity_id, action, changes)
-    VALUES($1,$2,$3,$4,'customer',$5,$6,'{}')`, [randomUUID4(), workspaceId, actor, randomUUID4(), entityId, action]);
+    VALUES($1,$2,$3,$4,'customer',$5,$6,$7::text::jsonb)`, [randomUUID4(), workspaceId, actor, randomUUID4(), entityId, action, JSON.stringify(changes)]);
 }
 async function listWorkspaces(identity, db) {
   return transaction(identity, async (tx) => {
@@ -2121,7 +2171,7 @@ async function listWorkspaces(identity, db) {
   }, db);
 }
 var cursorSchema = z6.object({ updatedAt: z6.iso.datetime({ offset: true }), id: crmId }).strict();
-async function listCustomers(identity, workspace, cursor, db) {
+async function listCustomers(identity, workspace, cursor, db, archived = false) {
   const workspaceId = crmId.parse(workspace);
   let after = null;
   if (cursor !== null) {
@@ -2135,7 +2185,7 @@ async function listCustomers(identity, workspace, cursor, db) {
   return transaction(identity, async (tx) => {
     const member = await access(tx, workspaceId, false);
     const rows = await tx.query(`SELECT ${columns} FROM relay_crm.customers
-      WHERE workspace_id=$1 AND archived_at IS NULL
+      WHERE workspace_id=$1 AND archived_at IS ${archived ? "NOT NULL" : "NULL"}
       ${after ? "AND (updated_at,id) < ($2::timestamptz,$3::uuid)" : ""}
       ORDER BY updated_at DESC, id DESC LIMIT 51`, after ? [workspaceId, after.updatedAt, after.id] : [workspaceId]);
     const customers = rows.slice(0, 50), last = customers.at(-1);
@@ -2148,10 +2198,44 @@ async function getCustomer(identity, workspace, id, db) {
   const workspaceId = crmId.parse(workspace), customerId = crmId.parse(id);
   return transaction(identity, async (tx) => {
     const member = await access(tx, workspaceId, false);
-    const [customer] = await tx.query(`SELECT ${columns} FROM relay_crm.customers WHERE workspace_id=$1 AND id=$2 AND archived_at IS NULL`, [workspaceId, customerId]);
+    const [customer] = await tx.query(`SELECT ${columns} FROM relay_crm.customers WHERE workspace_id=$1 AND id=$2`, [workspaceId, customerId]);
     if (!customer) throw new ApiError(404, "missing");
     await audit(tx, workspaceId, member.principalId, customer.id, "read");
     return customer;
+  }, db);
+}
+async function changeCustomer(identity, id, input, db) {
+  const customerId = crmId.parse(id), data = changeCustomerInput.parse(input);
+  const { workspaceId, key, version: version2, action } = data;
+  const operation = "customer." + action;
+  const payloadHash = createHash2("sha256").update(JSON.stringify({ customerId, ...data })).digest("hex");
+  return transaction(identity, async (tx) => {
+    const member = await access(tx, workspaceId, true);
+    await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`${workspaceId}:${member.principalId}:${operation}:${key}`]);
+    const [prior] = await tx.query(
+      `SELECT payload_hash, expires_at <= now() AS expired, result_version::text FROM relay_crm.request_dedup
+       WHERE workspace_id=$1 AND actor_id=$2 AND operation=$3 AND key=$4`,
+      [workspaceId, member.principalId, operation, key]
+    );
+    if (prior && (prior.payload_hash !== payloadHash || prior.expired || !prior.result_version)) throw new ApiError(409, "crmRetryConflict");
+    const [before] = await tx.query(`SELECT ${columns} FROM relay_crm.customers WHERE workspace_id=$1 AND id=$2 FOR UPDATE`, [workspaceId, customerId]);
+    if (!before) throw new ApiError(404, "missing");
+    if (prior) {
+      await audit(tx, workspaceId, member.principalId, customerId, "replay", { operation, appliedVersion: prior.result_version });
+      return { customer: before, replayed: true, appliedVersion: prior.result_version };
+    }
+    if (before.version !== version2) throw new ApiError(409, "crmVersionConflict");
+    if (action === "restore" !== !!before.archivedAt) throw new ApiError(409, "crmStateConflict");
+    const changes = action === "edit" ? ["displayName", "kind"].filter((field) => before[field] !== data.customer[field]) : ["archivedAt"];
+    const values = action === "edit" ? [data.customer.displayName, data.customer.displayName.normalize("NFKC").toLocaleLowerCase("en-US"), data.customer.kind] : [];
+    const update = action === "edit" ? "display_name=$4,name_search=$5,kind=$6" : `archived_at=${action === "archive" ? "clock_timestamp()" : "NULL"}`;
+    const [customer] = await tx.query(`UPDATE relay_crm.customers SET ${update},version=version+1,updated_at=clock_timestamp()
+      WHERE workspace_id=$1 AND id=$2 AND version=$3::bigint RETURNING ${columns}`, [workspaceId, customerId, version2, ...values]);
+    if (!customer) throw new ApiError(409, "crmVersionConflict");
+    await audit(tx, workspaceId, member.principalId, customerId, action, { fields: changes, fromVersion: version2, toVersion: customer.version });
+    await tx.query(`INSERT INTO relay_crm.request_dedup(workspace_id,actor_id,operation,key,payload_hash,response_status,result_id,result_version,expires_at)
+      VALUES($1,$2,$3,$4,$5,200,$6,$7::bigint,now()+interval '7 days')`, [workspaceId, member.principalId, operation, key, payloadHash, customerId, customer.version]);
+    return { customer, replayed: false, appliedVersion: customer.version };
   }, db);
 }
 async function createCustomer(identity, input, db) {
@@ -2194,7 +2278,7 @@ async function handle(request, db, authProvider, crmDb) {
   try {
     const crmRoute = ["crm-workspaces", "crm-customers", "crm-customer"].includes(route);
     if (!crmRoute && !["login-page", "admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "logout", "code", "destination", "notify", "webhook", "calendar-status", "calendar-callback", "calendar-connect", "calendar-disconnect", "schedule-propose", "schedule-book", "mcp", "mcp-tokens", "mcp-token", "mcp-revoke"].includes(route)) throw new ApiError(404, "missing");
-    if (crmRoute ? !(route === "crm-customers" ? ["GET", "POST"] : ["GET"]).includes(request.method) : request.method !== (readRoutes.has(route) ? "GET" : "POST")) throw new ApiError(405, "method");
+    if (crmRoute ? !(route === "crm-customers" ? ["GET", "POST"] : route === "crm-customer" ? ["GET", "PATCH"] : ["GET"]).includes(request.method) : request.method !== (readRoutes.has(route) ? "GET" : "POST")) throw new ApiError(405, "method");
     if (configured() && url.origin !== origin()) {
       if (route === "page" || route === "admin-page" || route === "login-page") {
         const target = new URL(route === "admin-page" ? "/admin" : route === "login-page" ? "/login" : "/", origin());
@@ -2242,11 +2326,15 @@ async function handle(request, db, authProvider, crmDb) {
     if (route === "mcp") return await handleMcp(request, await limitedBody(request));
     const identity = await session(request, db);
     if (!identity) throw new ApiError(401, "unauthorized");
-    if (request.method === "POST" && !sameOrigin(request)) throw new ApiError(403, "origin");
+    if (request.method !== "GET" && !sameOrigin(request)) throw new ApiError(403, "origin");
     if (route === "crm-workspaces") return Response.json(await listWorkspaces(identity, crmDb));
-    if (route === "crm-customers" && request.method === "GET") return Response.json(await listCustomers(identity, url.searchParams.get("workspaceId"), url.searchParams.get("cursor"), crmDb));
-    if (route === "crm-customer") return Response.json(await getCustomer(identity, url.searchParams.get("workspaceId"), url.searchParams.get("id"), crmDb));
-    if (route === "crm-customers") {
+    if (route === "crm-customers" && request.method === "GET") {
+      const archived = url.searchParams.get("archived");
+      if (archived !== null && archived !== "true" && archived !== "false") throw new ApiError(400, "invalid");
+      return Response.json(await listCustomers(identity, url.searchParams.get("workspaceId"), url.searchParams.get("cursor"), crmDb, archived === "true"));
+    }
+    if (route === "crm-customer" && request.method === "GET") return Response.json(await getCustomer(identity, url.searchParams.get("workspaceId"), url.searchParams.get("id"), crmDb));
+    if (route === "crm-customers" || route === "crm-customer") {
       let input2;
       try {
         input2 = JSON.parse(await limitedBody(request));
@@ -2254,6 +2342,7 @@ async function handle(request, db, authProvider, crmDb) {
         if (error instanceof ApiError) throw error;
         throw new ApiError(400, "invalid");
       }
+      if (route === "crm-customer") return Response.json(await changeCustomer(identity, url.searchParams.get("id"), input2, crmDb));
       const result = await createCustomer(identity, input2, crmDb);
       return Response.json(result, { status: result.replayed ? 200 : 201 });
     }

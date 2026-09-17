@@ -3,7 +3,7 @@ import {z} from 'zod';
 import type {Identity} from './auth';
 import {connectDatabase, type Database, type Row} from './database';
 import {ApiError} from './line';
-import {crmId, createCustomerInput, type CrmWorkspace, type Customer, type CustomerPage, type CustomerCreated} from '../crm/contracts';
+import {crmId, createCustomerInput, changeCustomerInput, type CrmWorkspace, type Customer, type CustomerPage, type CustomerCreated, type CustomerChanged} from '../crm/contracts';
 
 let connection: Database | undefined;
 function crmDatabase(): Database {
@@ -12,7 +12,8 @@ function crmDatabase(): Database {
 }
 type Access = {principalId: string; role: CrmWorkspace['role']};
 const columns = `id, display_name AS "displayName", kind, status, version::text,
- to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "updatedAt"`;
+ to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "updatedAt",
+ to_char(archived_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "archivedAt"`;
 
 // Refuse owner/admin credentials instead of silently bypassing tenant policies.
 export async function verifyCrmRole(db: Database): Promise<void> {
@@ -54,10 +55,10 @@ async function access(tx: Database, workspaceId: string, writing: boolean): Prom
   return {principalId: principal.id, role: member.role};
 }
 
-async function audit(tx: Database, workspaceId: string, actor: string, entityId: string, action: string) {
+async function audit(tx: Database, workspaceId: string, actor: string, entityId: string, action: string, changes: object = {}) {
   // Record the operation, not customer names, contacts or request bodies.
   await tx.query(`INSERT INTO relay_crm.audit_events(id, workspace_id, actor_id, request_id, entity_type, entity_id, action, changes)
-    VALUES($1,$2,$3,$4,'customer',$5,$6,'{}')`, [randomUUID(), workspaceId, actor, randomUUID(), entityId, action]);
+    VALUES($1,$2,$3,$4,'customer',$5,$6,$7::text::jsonb)`, [randomUUID(), workspaceId, actor, randomUUID(), entityId, action, JSON.stringify(changes)]);
 }
 
 export async function listWorkspaces(identity: Identity, db?: Database): Promise<CrmWorkspace[]> {
@@ -70,7 +71,7 @@ export async function listWorkspaces(identity: Identity, db?: Database): Promise
 }
 
 const cursorSchema = z.object({updatedAt: z.iso.datetime({offset: true}), id: crmId}).strict();
-export async function listCustomers(identity: Identity, workspace: unknown, cursor: string | null, db?: Database): Promise<CustomerPage> {
+export async function listCustomers(identity: Identity, workspace: unknown, cursor: string | null, db?: Database, archived = false): Promise<CustomerPage> {
   const workspaceId = crmId.parse(workspace);
   let after: z.infer<typeof cursorSchema> | null = null;
   if (cursor !== null) {
@@ -81,7 +82,7 @@ export async function listCustomers(identity: Identity, workspace: unknown, curs
   return transaction(identity, async tx => {
     const member = await access(tx, workspaceId, false);
     const rows = await tx.query<Customer & Row>(`SELECT ${columns} FROM relay_crm.customers
-      WHERE workspace_id=$1 AND archived_at IS NULL
+      WHERE workspace_id=$1 AND archived_at IS ${archived ? 'NOT NULL' : 'NULL'}
       ${after ? 'AND (updated_at,id) < ($2::timestamptz,$3::uuid)' : ''}
       ORDER BY updated_at DESC, id DESC LIMIT 51`, after ? [workspaceId,after.updatedAt,after.id] : [workspaceId]);
     const customers = rows.slice(0, 50), last = customers.at(-1);
@@ -95,10 +96,46 @@ export async function getCustomer(identity: Identity, workspace: unknown, id: un
   const workspaceId = crmId.parse(workspace), customerId = crmId.parse(id);
   return transaction(identity, async tx => {
     const member = await access(tx, workspaceId, false);
-    const [customer] = await tx.query<Customer & Row>(`SELECT ${columns} FROM relay_crm.customers WHERE workspace_id=$1 AND id=$2 AND archived_at IS NULL`, [workspaceId, customerId]);
+    const [customer] = await tx.query<Customer & Row>(`SELECT ${columns} FROM relay_crm.customers WHERE workspace_id=$1 AND id=$2`, [workspaceId, customerId]);
     if (!customer) throw new ApiError(404, 'missing');
     await audit(tx, workspaceId, member.principalId, customer.id, 'read');
     return customer;
+  }, db);
+}
+
+export async function changeCustomer(identity: Identity, id: unknown, input: unknown, db?: Database): Promise<CustomerChanged> {
+  const customerId = crmId.parse(id), data = changeCustomerInput.parse(input);
+  const {workspaceId, key, version, action} = data;
+  const operation = 'customer.' + action;
+  const payloadHash = createHash('sha256').update(JSON.stringify({customerId, ...data})).digest('hex');
+  return transaction(identity, async tx => {
+    const member = await access(tx, workspaceId, true);
+    await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [`${workspaceId}:${member.principalId}:${operation}:${key}`]);
+    const [prior] = await tx.query<{payload_hash: string; expired: boolean; result_version: string}>(
+      `SELECT payload_hash, expires_at <= now() AS expired, result_version::text FROM relay_crm.request_dedup
+       WHERE workspace_id=$1 AND actor_id=$2 AND operation=$3 AND key=$4`, [workspaceId,member.principalId,operation,key]);
+    if (prior && (prior.payload_hash !== payloadHash || prior.expired || !prior.result_version)) throw new ApiError(409, 'crmRetryConflict');
+    // Serialize edits and lifecycle transitions; authorization locks stay held too.
+    const [before] = await tx.query<Customer & Row>(`SELECT ${columns} FROM relay_crm.customers WHERE workspace_id=$1 AND id=$2 FOR UPDATE`, [workspaceId,customerId]);
+    if (!before) throw new ApiError(404, 'missing');
+    if (prior) {
+      await audit(tx, workspaceId, member.principalId, customerId, 'replay', {operation, appliedVersion:prior.result_version});
+      return {customer:before, replayed:true, appliedVersion:prior.result_version};
+    }
+    if (before.version !== version) throw new ApiError(409, 'crmVersionConflict');
+    if ((action === 'restore') !== !!before.archivedAt) throw new ApiError(409, 'crmStateConflict');
+    const changes = action === 'edit'
+      ? (['displayName','kind'] as const).filter(field => before[field] !== data.customer[field])
+      : ['archivedAt'];
+    const values = action === 'edit' ? [data.customer.displayName, data.customer.displayName.normalize('NFKC').toLocaleLowerCase('en-US'), data.customer.kind] : [];
+    const update = action === 'edit' ? 'display_name=$4,name_search=$5,kind=$6' : `archived_at=${action === 'archive' ? 'clock_timestamp()' : 'NULL'}`;
+    const [customer] = await tx.query<Customer & Row>(`UPDATE relay_crm.customers SET ${update},version=version+1,updated_at=clock_timestamp()
+      WHERE workspace_id=$1 AND id=$2 AND version=$3::bigint RETURNING ${columns}`, [workspaceId,customerId,version,...values]);
+    if (!customer) throw new ApiError(409, 'crmVersionConflict');
+    await audit(tx, workspaceId, member.principalId, customerId, action, {fields:changes,fromVersion:version,toVersion:customer.version});
+    await tx.query(`INSERT INTO relay_crm.request_dedup(workspace_id,actor_id,operation,key,payload_hash,response_status,result_id,result_version,expires_at)
+      VALUES($1,$2,$3,$4,$5,200,$6,$7::bigint,now()+interval '7 days')`, [workspaceId,member.principalId,operation,key,payloadHash,customerId,customer.version]);
+    return {customer, replayed:false, appliedVersion:customer.version};
   }, db);
 }
 
