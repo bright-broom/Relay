@@ -56,6 +56,9 @@ try {
   assert.equal((await admin`SELECT count(*)::int AS n FROM relay_crm.customers`)[0].n,1);
   assert.equal((await admin`SELECT count(*)::int AS n FROM relay_crm.audit_events WHERE action='create'`)[0].n,1);
   assert.equal((await api.getCustomer(identity,workspace,results[0].customer.id,db)).displayName,input.customer.displayName);
+  assert.equal((await api.searchCustomers(identity,{workspaceId:workspace,query:'ＣＯＮＣＵＲＲＥＮＴ'},db)).customers[0].id,results[0].customer.id);
+  assert.equal((await api.searchCustomers(identity,{workspaceId:workspace,query:'%'},db)).customers.length,0);
+  await assert.rejects(()=>api.searchCustomers({subject:'other-subject',email:'other@example.invalid'},{workspaceId:workspace,query:'concurrent'},db),e=>e.status===404);
   await assert.rejects(()=>api.getCustomer({subject:'other-subject',email:'other@example.invalid'},workspace,results[0].customer.id,db),e=>e.status===404);
   assert.equal((await runtime`SELECT count(*)::int AS n FROM relay_crm.customers`)[0].n,0,'pooled connections must not retain tenant context');
   await assert.rejects(()=>runtime`TRUNCATE relay_crm.customers`,e=>e.code==='42501');
@@ -119,7 +122,7 @@ try {
     const rejected=assert.rejects(()=>waiting,e=>e.status===404);
     await pause(100);releaseSuspend();await stopping;await rejected;
   }
-  console.log('PostgreSQL 18.6: restricted login, real RLS, four concurrent create/edit retries, competing edits and archive, pooled-context cleanup and both membership-revocation orders passed. Disposable synthetic database only.');
+  console.log('PostgreSQL 18.6: restricted login, real RLS, four concurrent create/edit retries, competing edits and archive, normalized literal search, pooled-context cleanup and both membership-revocation orders passed. Disposable synthetic database only.');
 } finally {
   await Promise.allSettled([runtime?.end({timeout:1}),admin?.end({timeout:1})]);
   if(started)await execFile('docker',['rm','--force',name]);

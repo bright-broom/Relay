@@ -179,6 +179,61 @@ assert.equal(screen.queryByLabelText(t('crmEditName')),null);
 assert.equal(screen.queryByText(record.displayName),null);
 cleanup();
 
+// Searches are explicit submissions; pagination uses the applied filter, not unsent input.
+const otherWorkspace={...workspace,id:'00000000-0000-4000-8000-000000000012',name:'Other workspace',role:'viewer'};
+const alpha={...customer,displayName:'Alpha customer',archivedAt:null};
+let searches=[], searchPaths=[], searchCalls=0;
+globalThis.fetch=async(path,options)=>{
+  searchCalls++;searchPaths.push(path);
+  if(path.endsWith('workspaces'))return Response.json([{...workspace,role:'viewer'},otherWorkspace]);
+  if(path==='/api/crm/customers/search'){
+    assert.equal(options.method,'POST');assert.equal(options.cache,'no-store');assert.equal(options.credentials,'same-origin');
+    const body=JSON.parse(options.body);searches.push(body);
+    return Response.json({customers:body.query==='Alpha'?[{...alpha,displayName:body.cursor?'Alpha page two':body.archived?'Alpha archived':'Alpha customer'}]:[],nextCursor:body.query==='Alpha'&&!body.cursor?'search-next':null});
+  }
+  return Response.json({customers:[customer],nextCursor:null});
+};
+mount();await screen.findByText(t('crmReadOnly'));
+await screen.findByText(customer.displayName);
+const callsBeforeTyping=searchCalls;
+await user.type(screen.getByLabelText(t('crmSearchName')),'Alpha');
+assert.equal(searchCalls,callsBeforeTyping,'typing must not send private search terms');
+await user.click(screen.getByRole('button',{name:t('crmSearch')}));
+await screen.findByText('Alpha customer');
+assert.deepEqual(searches[0],{workspaceId:workspace.id,query:'Alpha',archived:false,cursor:null});
+await user.clear(screen.getByLabelText(t('crmSearchName')));
+await user.type(screen.getByLabelText(t('crmSearchName')),'Other');
+await user.click(screen.getByRole('button',{name:t('crmNextPage')}));
+await screen.findByText('Alpha page two');
+assert.equal(searches.at(-1).query,'Alpha');assert.equal(searches.at(-1).cursor,'search-next');
+await user.selectOptions(screen.getByLabelText(t('crmListState')),'archived');
+await screen.findByText('Alpha archived');
+assert.equal(searches.at(-1).archived,true);assert.equal(searches.at(-1).cursor,null);
+await user.click(screen.getByRole('button',{name:t('crmSearch')}));
+await screen.findByText(t('crmNoMatches'));assert.equal(searches.at(-1).query,'Other');
+assert.equal(screen.queryByText(t('crmEmpty')),null);
+assert.ok(searchPaths.every(path=>!path.includes('Alpha')&&!path.includes('Other')));
+assert.ok(!location.href.includes('Alpha'));assert.equal(localStorage.length,0);assert.equal(window.sessionStorage.length,0);
+await user.click(screen.getByRole('button',{name:t('crmClearSearch')}));
+await screen.findByText(customer.displayName);
+assert.equal(screen.getByLabelText(t('crmSearchName')).value,'');
+await user.type(screen.getByLabelText(t('crmSearchName')),'Alpha');
+await user.click(screen.getByRole('button',{name:t('crmSearch')}));await screen.findByText('Alpha archived');
+await user.selectOptions(screen.getByLabelText(t('crmWorkspace')),otherWorkspace.id);
+await screen.findByText(customer.displayName);
+assert.equal(screen.getByLabelText(t('crmSearchName')).value,'');
+assert.ok(searchPaths.at(-1).includes(otherWorkspace.id));
+// A delayed search body cannot restore data or the private term after logout.
+let finishSearch;
+globalThis.fetch=async()=>({ok:true,status:200,json:()=>new Promise(resolve=>{finishSearch=resolve;})});
+await user.type(screen.getByLabelText(t('crmSearchName')),'Private synthetic term');
+await user.click(screen.getByRole('button',{name:t('crmSearch')}));
+await waitFor(()=>assert.ok(finishSearch));
+await act(async()=>{window.dispatchEvent(new Event('relay-session-invalidated'));finishSearch({customers:[alpha],nextCursor:null});});
+assert.equal(screen.queryByText('Alpha customer'),null);assert.equal(screen.queryByLabelText(t('crmSearchName')),null);
+assert.ok(!document.body.textContent.includes('Private synthetic term'));
+cleanup();
+
 // A late body must not repopulate private records after session invalidation.
 let resolveBody;
 globalThis.fetch = async path=>path.endsWith('workspaces') ? Response.json([workspace]) : {ok:true,status:200,json:()=>new Promise(resolve=>{resolveBody=resolve;})};
@@ -196,4 +251,4 @@ assert.equal(screen.queryByText(t('crmEmpty')),null,'unavailable is not an empty
 cleanup();
 globalThis.fetch = async ()=>Response.json([]);
 mount(); await screen.findByText(t('crmNoWorkspace')); cleanup();
-console.log('CRM UI: guest isolation, creation/edit retry identity, retained conflict input, archive/restore, permission loss, viewer mode, empty/error states and late-response session cleanup passed (simulated DOM).');
+console.log('CRM UI: guest isolation, creation/edit retry identity, retained conflict input, archive/restore, permission loss, viewer search, applied-filter paging, search privacy, empty/error states and late-response session cleanup passed (simulated DOM).');

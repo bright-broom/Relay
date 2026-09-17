@@ -177,6 +177,14 @@ import { createInstance } from "i18next";
 
 // src/i18n/locales/ja.ts
 var ja = {
+  crmSearch: "\u9867\u5BA2\u3092\u691C\u7D22",
+  crmSearchName: "\u691C\u7D22\u3059\u308B\u9867\u5BA2\u540D",
+  crmSearchHint: "\u9867\u5BA2\u540D\u306E\u4E00\u90E8\u3067\u691C\u7D22\u3057\u307E\u3059\u3002\u5168\u89D2\u30FB\u534A\u89D2\u3068\u82F1\u5B57\u306E\u5927\u5C0F\u6587\u5B57\u3092\u305D\u308D\u3048\u3066\u7167\u5408\u3057\u307E\u3059\u3002",
+  crmSearchInvalid: "\u691C\u7D22\u3059\u308B\u9867\u5BA2\u540D\u306F 200 \u6587\u5B57\u4EE5\u5185\u3067\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u6539\u884C\u3084\u5236\u5FA1\u6587\u5B57\u306F\u4F7F\u3048\u307E\u305B\u3093\u3002",
+  crmSearchRestart: "\u691C\u7D22\u6761\u4EF6\u304C\u5909\u308F\u3063\u305F\u305F\u3081\u3001\u4E00\u89A7\u3092\u5148\u982D\u304B\u3089\u518D\u53D6\u5F97\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  crmClearSearch: "\u691C\u7D22\u3092\u89E3\u9664",
+  crmSearchApplied: "\u9069\u7528\u4E2D\u306E\u691C\u7D22\uFF1A{query}",
+  crmNoMatches: "\u6761\u4EF6\u306B\u4E00\u81F4\u3059\u308B\u9867\u5BA2\u306F\u3044\u307E\u305B\u3093\u3002\u691C\u7D22\u3059\u308B\u540D\u524D\u3084\u8868\u793A\u3059\u308B\u9867\u5BA2\u3092\u5909\u66F4\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   crmEdit: "\u9867\u5BA2\u3092\u7DE8\u96C6",
   crmEditName: "\u7DE8\u96C6\u3059\u308B\u9867\u5BA2\u540D",
   crmSaveChanges: "\u5909\u66F4\u3092\u4FDD\u5B58",
@@ -528,6 +536,14 @@ var ja = {
 
 // src/i18n/locales/en.ts
 var en = {
+  crmSearch: "Search customers",
+  crmSearchName: "Customer name to search",
+  crmSearchHint: "Search by part of a name. Character width and letter case are normalized.",
+  crmSearchInvalid: "Enter up to 200 characters without line breaks or control characters.",
+  crmSearchRestart: "The search conditions changed. Reload the list from the first page.",
+  crmClearSearch: "Clear search",
+  crmSearchApplied: "Applied search: {query}",
+  crmNoMatches: "No customers match. Change the search name or the customer list filter.",
   crmEdit: "Edit customer",
   crmEditName: "Customer name to edit",
   crmSaveChanges: "Save changes",
@@ -2100,6 +2116,14 @@ var customerInput = z5.object({
   kind: z5.enum(["individual", "organization", "household"])
 }).strict();
 var crmId = z5.uuid().transform((value) => value.toLowerCase());
+var normalizeCustomerName = (value) => value.normalize("NFKC").toLocaleLowerCase("en-US");
+var customerSearchTerm = z5.string().trim().max(200).regex(/^[^\u0000-\u001f\u007f]*$/u);
+var searchCustomersInput = z5.object({
+  workspaceId: crmId,
+  query: customerSearchTerm,
+  archived: z5.boolean().default(false),
+  cursor: z5.string().max(512).nullable().default(null)
+}).strict();
 var createCustomerInput = z5.object({
   workspaceId: crmId,
   key: crmId,
@@ -2170,27 +2194,37 @@ async function listWorkspaces(identity, db) {
     return rows;
   }, db);
 }
-var cursorSchema = z6.object({ updatedAt: z6.iso.datetime({ offset: true }), id: crmId }).strict();
-async function listCustomers(identity, workspace, cursor, db, archived = false) {
+var cursorSchema = z6.object({ updatedAt: z6.iso.datetime({ offset: true }), id: crmId, scope: z6.string().regex(/^[a-f0-9]{64}$/).optional() }).strict();
+async function searchCustomers(identity, input, db) {
+  const parsed = searchCustomersInput.safeParse(input);
+  if (!parsed.success) throw new ApiError(400, "crmSearchInvalid");
+  const { workspaceId, cursor, archived, query } = parsed.data;
+  return listCustomers(identity, workspaceId, cursor, db, archived, query);
+}
+async function listCustomers(identity, workspace, cursor, db, archived = false, query = "") {
   const workspaceId = crmId.parse(workspace);
+  const term = normalizeCustomerName(customerSearchTerm.parse(query));
+  const scope = createHash2("sha256").update(JSON.stringify([workspaceId, archived, term])).digest("hex");
   let after = null;
   if (cursor !== null) {
-    if (!/^[A-Za-z0-9_-]{1,256}$/.test(cursor)) throw new ApiError(400, "invalid");
+    if (!/^[A-Za-z0-9_-]{1,512}$/.test(cursor)) throw new ApiError(400, "crmCursorInvalid");
     try {
       after = cursorSchema.parse(JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")));
     } catch {
-      throw new ApiError(400, "invalid");
+      throw new ApiError(400, "crmCursorInvalid");
     }
+    if (after.scope ? after.scope !== scope : !!term) throw new ApiError(400, "crmCursorInvalid");
   }
   return transaction(identity, async (tx) => {
     const member = await access(tx, workspaceId, false);
     const rows = await tx.query(`SELECT ${columns} FROM relay_crm.customers
       WHERE workspace_id=$1 AND archived_at IS ${archived ? "NOT NULL" : "NULL"}
-      ${after ? "AND (updated_at,id) < ($2::timestamptz,$3::uuid)" : ""}
-      ORDER BY updated_at DESC, id DESC LIMIT 51`, after ? [workspaceId, after.updatedAt, after.id] : [workspaceId]);
+      AND strpos(name_search,$2::text) > 0
+      ${after ? "AND (updated_at,id) < ($3::timestamptz,$4::uuid)" : ""}
+      ORDER BY updated_at DESC, id DESC LIMIT 51`, after ? [workspaceId, term, after.updatedAt, after.id] : [workspaceId, term]);
     const customers = rows.slice(0, 50), last = customers.at(-1);
-    const nextCursor = rows.length > 50 && last ? Buffer.from(JSON.stringify({ updatedAt: last.updatedAt, id: last.id })).toString("base64url") : null;
-    await audit(tx, workspaceId, member.principalId, workspaceId, "list");
+    const nextCursor = rows.length > 50 && last ? Buffer.from(JSON.stringify({ updatedAt: last.updatedAt, id: last.id, scope })).toString("base64url") : null;
+    await audit(tx, workspaceId, member.principalId, workspaceId, "list", { searched: !!term, archived });
     return { customers, nextCursor };
   }, db);
 }
@@ -2227,7 +2261,7 @@ async function changeCustomer(identity, id, input, db) {
     if (before.version !== version2) throw new ApiError(409, "crmVersionConflict");
     if (action === "restore" !== !!before.archivedAt) throw new ApiError(409, "crmStateConflict");
     const changes = action === "edit" ? ["displayName", "kind"].filter((field) => before[field] !== data.customer[field]) : ["archivedAt"];
-    const values = action === "edit" ? [data.customer.displayName, data.customer.displayName.normalize("NFKC").toLocaleLowerCase("en-US"), data.customer.kind] : [];
+    const values = action === "edit" ? [data.customer.displayName, normalizeCustomerName(data.customer.displayName), data.customer.kind] : [];
     const update = action === "edit" ? "display_name=$4,name_search=$5,kind=$6" : `archived_at=${action === "archive" ? "clock_timestamp()" : "NULL"}`;
     const [customer] = await tx.query(`UPDATE relay_crm.customers SET ${update},version=version+1,updated_at=clock_timestamp()
       WHERE workspace_id=$1 AND id=$2 AND version=$3::bigint RETURNING ${columns}`, [workspaceId, customerId, version2, ...values]);
@@ -2261,7 +2295,7 @@ async function createCustomer(identity, input, db) {
       `INSERT INTO relay_crm.customers
       (id,workspace_id,kind,display_name,name_search,status,owner_id)
       VALUES($1,$2,$3,$4,$5,'prospect',$6) RETURNING ${columns}`,
-      [randomUUID4(), workspaceId, data.kind, data.displayName, data.displayName.normalize("NFKC").toLocaleLowerCase("en-US"), member.principalId]
+      [randomUUID4(), workspaceId, data.kind, data.displayName, normalizeCustomerName(data.displayName), member.principalId]
     );
     await audit(tx, workspaceId, member.principalId, customer.id, "create");
     await tx.query(`INSERT INTO relay_crm.request_dedup(workspace_id,actor_id,operation,key,payload_hash,response_status,result_id,expires_at)
@@ -2276,9 +2310,9 @@ async function handle(request, db, authProvider, crmDb) {
   const url = new URL(request.url), route = url.searchParams.get("route") ?? "";
   const locale = normalizeLocale(url.searchParams.get("lang") ?? request.headers.get("cookie")?.split("; ").find((value) => value.startsWith("relay-locale="))?.slice(13) ?? request.headers.get("accept-language")?.split(",")[0]?.split(";")[0]);
   try {
-    const crmRoute = ["crm-workspaces", "crm-customers", "crm-customer"].includes(route);
+    const crmRoute = ["crm-workspaces", "crm-customers", "crm-customer", "crm-search"].includes(route);
     if (!crmRoute && !["login-page", "admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "logout", "code", "destination", "notify", "webhook", "calendar-status", "calendar-callback", "calendar-connect", "calendar-disconnect", "schedule-propose", "schedule-book", "mcp", "mcp-tokens", "mcp-token", "mcp-revoke"].includes(route)) throw new ApiError(404, "missing");
-    if (crmRoute ? !(route === "crm-customers" ? ["GET", "POST"] : route === "crm-customer" ? ["GET", "PATCH"] : ["GET"]).includes(request.method) : request.method !== (readRoutes.has(route) ? "GET" : "POST")) throw new ApiError(405, "method");
+    if (crmRoute ? !(route === "crm-customers" ? ["GET", "POST"] : route === "crm-customer" ? ["GET", "PATCH"] : route === "crm-search" ? ["POST"] : ["GET"]).includes(request.method) : request.method !== (readRoutes.has(route) ? "GET" : "POST")) throw new ApiError(405, "method");
     if (configured() && url.origin !== origin()) {
       if (route === "page" || route === "admin-page" || route === "login-page") {
         const target = new URL(route === "admin-page" ? "/admin" : route === "login-page" ? "/login" : "/", origin());
@@ -2334,7 +2368,7 @@ async function handle(request, db, authProvider, crmDb) {
       return Response.json(await listCustomers(identity, url.searchParams.get("workspaceId"), url.searchParams.get("cursor"), crmDb, archived === "true"));
     }
     if (route === "crm-customer" && request.method === "GET") return Response.json(await getCustomer(identity, url.searchParams.get("workspaceId"), url.searchParams.get("id"), crmDb));
-    if (route === "crm-customers" || route === "crm-customer") {
+    if (route === "crm-customers" || route === "crm-customer" || route === "crm-search") {
       let input2;
       try {
         input2 = JSON.parse(await limitedBody(request));
@@ -2342,6 +2376,7 @@ async function handle(request, db, authProvider, crmDb) {
         if (error instanceof ApiError) throw error;
         throw new ApiError(400, "invalid");
       }
+      if (route === "crm-search") return Response.json(await searchCustomers(identity, input2, crmDb));
       if (route === "crm-customer") return Response.json(await changeCustomer(identity, url.searchParams.get("id"), input2, crmDb));
       const result = await createCustomer(identity, input2, crmDb);
       return Response.json(result, { status: result.replayed ? 200 : 201 });

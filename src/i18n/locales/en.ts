@@ -1,5 +1,13 @@
 import type {ja} from './ja';
 export const en: Record<keyof typeof ja,string> = {
+  crmSearch: "Search customers",
+  crmSearchName: "Customer name to search",
+  crmSearchHint: "Search by part of a name. Character width and letter case are normalized.",
+  crmSearchInvalid: "Enter up to 200 characters without line breaks or control characters.",
+  crmSearchRestart: "The search conditions changed. Reload the list from the first page.",
+  crmClearSearch: "Clear search",
+  crmSearchApplied: "Applied search: {query}",
+  crmNoMatches: "No customers match. Change the search name or the customer list filter.",
   crmEdit: "Edit customer",
   crmEditName: "Customer name to edit",
   crmSaveChanges: "Save changes",

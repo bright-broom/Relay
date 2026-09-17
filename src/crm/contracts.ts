@@ -5,6 +5,12 @@ export const customerInput = z.object({
   kind: z.enum(['individual', 'organization', 'household']),
 }).strict();
 export const crmId = z.uuid().transform(value => value.toLowerCase());
+export const normalizeCustomerName = (value: string) => value.normalize('NFKC').toLocaleLowerCase('en-US');
+export const customerSearchTerm = z.string().trim().max(200).regex(/^[^\u0000-\u001f\u007f]*$/u);
+export const searchCustomersInput = z.object({
+  workspaceId: crmId, query: customerSearchTerm,
+  archived: z.boolean().default(false), cursor: z.string().max(512).nullable().default(null),
+}).strict();
 export const createCustomerInput = z.object({
   workspaceId: crmId, key: crmId, customer: customerInput,
 }).strict();

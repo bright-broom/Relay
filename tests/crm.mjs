@@ -192,7 +192,62 @@ try {
   await pg.query('UPDATE relay_crm.customers SET version=9007199254740993 WHERE id=$1',[customerId]);
   const precise = await api.changeCustomer(identity(1),customerId,{...edit,key:randomUUID(),version:'9007199254740993'},db);
   assert.equal(precise.customer.version,'9007199254740994');
+  // Search uses literal substrings with the same normalization as saved names.
+  const add = (name,person=1,workspace=11)=>api.createCustomer(identity(person),{workspaceId:id(workspace),key:randomUUID(),customer:{displayName:name,kind:'organization'}},db);
+  const acme = (await add('ＡＣＭＥ 株式会社')).customer;
+  const oldAcme = (await add('Acme West')).customer;
+  await api.changeCustomer(identity(1),oldAcme.id,{workspaceId:id(11),key:randomUUID(),version:'1',action:'archive'},db);
+  await add('ACME other workspace',3,12);
+  const literal = (await add(String.raw`Quota 100%_done\branch`)).customer;
+  const search = (query,extra={})=>api.searchCustomers(identity(1),{workspaceId:id(11),query,...extra},db);
+  assert.deepEqual((await search('  ａｃｍｅ  ')).customers.map(c=>c.id),[acme.id]);
+  assert.deepEqual((await search('ACME',{archived:true})).customers.map(c=>c.id),[oldAcme.id]);
+  for (const query of ['%','_',String.fromCharCode(92)]) assert.deepEqual((await search(query)).customers.map(c=>c.id),[literal.id]);
+  assert.equal((await search("' OR true --")).customers.length,0);
+  assert.equal((await search('absent synthetic name')).customers.length,0);
+  assert.equal((await api.searchCustomers(identity(2),{workspaceId:id(11),query:'acme'},db)).customers[0].id,acme.id);
+  await reject(()=>api.searchCustomers(identity(3),{workspaceId:id(11),query:'acme'},db),404);
+  await reject(()=>api.searchCustomers(identity(4),{workspaceId:id(11),query:''},db),404);
+  await assert.rejects(()=>api.searchCustomers(identity(1),{workspaceId:id(11),query:'acme'},failing));
+  for (const query of ['x'.repeat(201),'bad\u0000name','bad\nname',42]) {
+    await reject(()=>search(query),400,'crmSearchInvalid');
+  }
+  await reject(()=>search('acme',{role:'admin'}),400,'crmSearchInvalid');
+  await reject(()=>search('acme',{archived:'false'}),400,'crmSearchInvalid');
+  await api.changeCustomer(identity(1),acme.id,{workspaceId:id(11),key:randomUUID(),version:'1',action:'edit',customer:{displayName:'Changed Unique Name',kind:'organization'}},db);
+  assert.equal((await search('acme')).customers.length,0);
+  assert.equal((await search('unique')).customers[0].id,acme.id);
+  await pg.query("UPDATE relay_crm.memberships SET status='suspended' WHERE principal_id=$1",[id(2)]);
+  await reject(()=>api.searchCustomers(identity(2),{workspaceId:id(11),query:'unique'},db),404);
+  await pg.query("UPDATE relay_crm.memberships SET status='active' WHERE principal_id=$1",[id(2)]);
+
+  // All matching records span pages; filters cannot silently reuse a different cursor.
+  for(let n=0;n<51;n++) await pg.query(`INSERT INTO relay_crm.customers(id,workspace_id,kind,display_name,name_search,status,updated_at)
+    VALUES($1,$2,'organization',$3,$4,'prospect','2026-09-17T00:00:00.123456Z')`,[randomUUID(),id(11),'Search batch '+n,'search batch '+n]);
+  const found1=await search('SEARCH BATCH');
+  assert.equal(found1.customers.length,50);assert.ok(found1.nextCursor);
+  const found2=await search('ｓｅａｒｃｈ ｂａｔｃｈ',{cursor:found1.nextCursor});
+  assert.equal(found2.customers.length,1);assert.equal(found2.nextCursor,null);
+  assert.equal(new Set([...found1.customers,...found2.customers].map(c=>c.id)).size,51);
+  assert.ok(!Buffer.from(found1.nextCursor,'base64url').toString().includes('search batch'));
+  await reject(()=>search('unique',{cursor:found1.nextCursor}),400,'crmCursorInvalid');
+  await reject(()=>search('search batch',{cursor:found1.nextCursor,archived:true}),400,'crmCursorInvalid');
+  await reject(()=>api.searchCustomers(identity(3),{workspaceId:id(12),query:'search batch',cursor:found1.nextCursor},db),400,'crmCursorInvalid');
+  const legacy=Buffer.from(JSON.stringify({updatedAt:page1.customers.at(-1).updatedAt,id:page1.customers.at(-1).id})).toString('base64url');
+  await api.listCustomers(identity(1),id(11),legacy,db); // Existing unfiltered client compatibility.
+  await reject(()=>search('search batch',{cursor:legacy}),400,'crmCursorInvalid');
+  const listAudits=(await pg.query("SELECT changes FROM relay_crm.audit_events WHERE action='list'")).rows;
+  assert.ok(listAudits.some(row=>row.changes.searched===true));
+  assert.ok(!JSON.stringify(listAudits).toLowerCase().includes('acme'));
+  assert.ok(!JSON.stringify(listAudits).includes('search batch'));
+  const searchBody={workspaceId:id(11),query:'unique'};
+  const searchResponse=await call(request('crm-search','POST',searchBody));
+  assert.equal(searchResponse.status,200);assert.equal((await searchResponse.json()).customers[0].id,acme.id);
+  assert.equal((await call(request('crm-search','POST',searchBody,{origin:'https://evil.test'}))).status,403);
+  assert.equal((await call(request('crm-search','GET'))).status,405);
+  assert.equal((await call(new Request('https://relay.test/api/relay?route=crm-search',{method:'POST',body:JSON.stringify(searchBody)}))).status,401);
+  assert.equal((await call(request('crm-search','POST',{...searchBody,query:'x'.repeat(201)}))).status,400);
   process.env.ALLOWED_GOOGLE_EMAILS=identity(2).email;
   assert.equal((await call(request('crm-workspaces'))).status,401);
-  console.log('CRM: runtime-role RLS, tenant isolation, viewer denial, revocation, immutable audit, atomic save/retry, upgrade preservation, edit/archive/restore, bigint conflicts, rollback, pagination and authenticated PATCH routes passed. Synthetic PGlite only.');
+  console.log('CRM: runtime-role RLS, tenant isolation, viewer denial, revocation, immutable audit, atomic save/retry, upgrade preservation, edit/archive/restore, bigint conflicts, rollback, filter-bound search pagination, literal matching, search privacy and authenticated routes passed. Synthetic PGlite only.');
 } finally { await pg.close(); }
