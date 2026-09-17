@@ -1,5 +1,15 @@
 // Generated from src/server/handler.ts. Do not edit.
 
+// src/server/app-modules.ts
+import { readFile } from "node:fs/promises";
+
+// src/server/line.ts
+import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
+
+// src/server/auth.ts
+import { createHash, randomBytes } from "node:crypto";
+import * as oidc from "openid-client";
+
 // src/server/config.ts
 function allowed(email, list = process.env.ALLOWED_GOOGLE_EMAILS ?? "") {
   return typeof email === "string" && list.split(",").some((item) => item.trim().toLowerCase() === email.toLowerCase() && item.trim() !== "");
@@ -23,10 +33,6 @@ function lineConfigured() {
 function sameOrigin(request) {
   return request.headers.get("origin") === origin();
 }
-
-// src/server/auth.ts
-import { createHash, randomBytes } from "node:crypto";
-import * as oidc from "openid-client";
 
 // src/server/access.ts
 import { z } from "zod";
@@ -169,14 +175,35 @@ async function logout(request, db = database()) {
   return Response.json({ ok: true }, { headers });
 }
 
-// src/server/line.ts
-import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
+// src/i18n/locale.ts
+function canonicalLocale(value) {
+  if (typeof value !== "string" || value.length > 100 || !value.trim()) return null;
+  try {
+    return Intl.getCanonicalLocales(value.trim())[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+var normalizeLocale = (value) => canonicalLocale(value) ?? "ja";
 
 // src/i18n/messages.ts
 import { createInstance } from "i18next";
 
+// src/i18n/locales/session.ts
+var sessionMessages = {
+  "ja": {
+    "authOnline": "\u5229\u7528\u306B\u306F\u30AA\u30F3\u30E9\u30A4\u30F3\u3067\u306E\u30ED\u30B0\u30A4\u30F3\u78BA\u8A8D\u304C\u5FC5\u8981\u3067\u3059\u3002"
+  },
+  "en": {
+    "authOnline": "An online sign-in check is required to use Relay."
+  }
+};
+
 // src/i18n/locales/ja.ts
 var ja = {
+  ...sessionMessages.ja,
+  featureLoadFailed: "\u753B\u9762\u3092\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u63A5\u7D9A\u3092\u78BA\u8A8D\u3057\u3001\u30DA\u30FC\u30B8\u3092\u518D\u8AAD\u307F\u8FBC\u307F\u3057\u3066\u304F\u3060\u3055\u3044\u3002\u672A\u4FDD\u5B58\u306E\u5165\u529B\u306F\u5931\u308F\u308C\u308B\u5834\u5408\u304C\u3042\u308A\u307E\u3059\u3002",
+  reloadPage: "\u30DA\u30FC\u30B8\u3092\u518D\u8AAD\u307F\u8FBC\u307F",
   crmEditContact: "\u9023\u7D61\u5148\u3092\u7DE8\u96C6",
   crmSaveContactChanges: "\u9023\u7D61\u5148\u306E\u5909\u66F4\u3092\u4FDD\u5B58",
   crmContactEditScope: "\u6C0F\u540D\u30FB\u30E1\u30FC\u30EB\u30FB\u96FB\u8A71\u3092\u66F4\u65B0\u3057\u307E\u3059\u3002\u3053\u306E\u9023\u7D61\u5148\u3092\u5171\u6709\u3059\u308B\u540C\u3058\u6240\u5C5E\u306E\u9867\u5BA2\u306B\u3082\u53CD\u6620\u3055\u308C\u307E\u3059\u3002\u9867\u5BA2\u3068\u306E\u95A2\u4FC2\u30FB\u4E3B\u9023\u7D61\u5148\u306E\u533A\u5206\u306F\u5909\u308F\u308A\u307E\u305B\u3093\u3002",
@@ -433,7 +460,6 @@ var ja = {
   lineRetry: "\u9001\u4FE1\u7D50\u679C\u3092\u78BA\u8A8D\u3067\u304D\u307E\u305B\u3093\u3002\u540C\u3058\u901A\u77E5\u3092\u518D\u8A66\u884C\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   lineRateLimit: "\u901A\u77E5\u306E\u4E0A\u9650\u306B\u9054\u3057\u307E\u3057\u305F\u30021\u6642\u9593\u307B\u3069\u304A\u5F85\u3061\u304F\u3060\u3055\u3044\u3002",
   refreshConnections: "\u66F4\u65B0",
-  authOnline: "\u5229\u7528\u306B\u306F\u30AA\u30F3\u30E9\u30A4\u30F3\u3067\u306E\u30ED\u30B0\u30A4\u30F3\u78BA\u8A8D\u304C\u5FC5\u8981\u3067\u3059\u3002",
   copyLinkCode: "\u9023\u643A\u30B3\u30FC\u30C9\u3092\u30B3\u30D4\u30FC",
   storageConflict: "\u5225\u306E\u753B\u9762\u3067\u8A18\u9332\u304C\u66F4\u65B0\u3055\u308C\u307E\u3057\u305F\u3002\u3053\u306E\u753B\u9762\u306E\u5165\u529B\u3092\u30B3\u30D4\u30FC\u3057\u3066\u304B\u3089\u3001\u958B\u304D\u76F4\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
   localFailure: "\u7AEF\u672B\u306B\u4FDD\u5B58\u3067\u304D\u307E\u305B\u3093\u3002\u8A18\u9332\u3092\u30B3\u30D4\u30FC\u3057\u3066\u4FDD\u7BA1\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
@@ -567,6 +593,9 @@ var ja = {
 
 // src/i18n/locales/en.ts
 var en = {
+  ...sessionMessages.en,
+  featureLoadFailed: "This view could not be loaded. Check your connection and reload the page. Unsaved input may be lost.",
+  reloadPage: "Reload page",
   crmEditContact: "Edit contact",
   crmSaveContactChanges: "Save contact changes",
   crmContactEditScope: "Update the name, email and phone for this contact. Changes apply to any customers sharing it in this workspace. Relationships and primary-contact settings stay the same.",
@@ -823,7 +852,6 @@ var en = {
   lineRetry: "Delivery could not be confirmed. Retry the same notification.",
   lineRateLimit: "Notification limit reached. Please wait about an hour.",
   refreshConnections: "Refresh",
-  authOnline: "An online sign-in check is required to use Relay.",
   copyLinkCode: "Copy linking code",
   storageConflict: "Another window saved newer records. Copy your input before reopening this page.",
   localFailure: "Device storage failed. Copy your records to keep them.",
@@ -958,15 +986,6 @@ var en = {
 // src/i18n/messages.ts
 var brand = "Relay";
 var catalogs = { ja, en };
-function canonicalLocale(value) {
-  if (typeof value !== "string" || value.length > 100 || !value.trim()) return null;
-  try {
-    return Intl.getCanonicalLocales(value.trim())[0] ?? null;
-  } catch {
-    return null;
-  }
-}
-var normalizeLocale = (value) => canonicalLocale(value) ?? "ja";
 var engine = createInstance();
 void engine.init({
   initAsync: false,
@@ -1111,6 +1130,27 @@ async function notify(identity, input, db = database(), send = fetch) {
   async function txResult(state) {
     await db.query("UPDATE relay_private.notifications SET state=$2,lease_until=NULL WHERE id=$1", [id, state]);
   }
+}
+
+// src/server/app-modules.ts
+var manifest;
+var contents = /* @__PURE__ */ new Map();
+async function appModule(file) {
+  if (!file || !/^(app|chunk)-[A-Z0-9]{8}\.js$/.test(file)) throw new ApiError(404, "missing");
+  manifest ??= readFile("prototype/assets/module-manifest.json", "utf8").then((value) => JSON.parse(value)).catch((error) => {
+    manifest = void 0;
+    throw error;
+  });
+  if (!Object.hasOwn((await manifest).files, file)) throw new ApiError(404, "missing");
+  let content = contents.get(file);
+  if (!content) {
+    content = readFile(`prototype/assets/modules/${file}`, "utf8").catch((error) => {
+      contents.delete(file);
+      throw error;
+    });
+    contents.set(file, content);
+  }
+  return new Response(await content, { headers: { "Content-Type": "text/javascript; charset=utf-8" } });
 }
 
 // src/server/admin.ts
@@ -1437,7 +1477,7 @@ async function handleMcp(request, raw, db = database()) {
 }
 
 // src/server/handler.ts
-import { readFile } from "node:fs/promises";
+import { readFile as readFile2 } from "node:fs/promises";
 
 // src/server/page.tsx
 import { renderToStaticMarkup } from "react-dom/server";
@@ -2480,13 +2520,13 @@ async function editContact(identity, id, input, db) {
 }
 
 // src/server/handler.ts
-var readRoutes = /* @__PURE__ */ new Set(["login-page", "admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "calendar-status", "calendar-callback", "mcp-tokens"]);
+var readRoutes = /* @__PURE__ */ new Set(["login-page", "admin-page", "admin-overview", "page", "app", "app-module", "session", "destinations", "start", "callback", "calendar-status", "calendar-callback", "mcp-tokens"]);
 async function handle(request, db, authProvider, crmDb) {
   const url = new URL(request.url), route = url.searchParams.get("route") ?? "";
   const locale = normalizeLocale(url.searchParams.get("lang") ?? request.headers.get("cookie")?.split("; ").find((value) => value.startsWith("relay-locale="))?.slice(13) ?? request.headers.get("accept-language")?.split(",")[0]?.split(";")[0]);
   try {
     const crmRoute = ["crm-workspaces", "crm-customers", "crm-customer", "crm-search", "crm-contacts", "crm-customer-contacts", "crm-contact"].includes(route);
-    if (!crmRoute && !["login-page", "admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "logout", "code", "destination", "notify", "webhook", "calendar-status", "calendar-callback", "calendar-connect", "calendar-disconnect", "schedule-propose", "schedule-book", "mcp", "mcp-tokens", "mcp-token", "mcp-revoke"].includes(route)) throw new ApiError(404, "missing");
+    if (!crmRoute && !["login-page", "admin-page", "admin-overview", "page", "app", "app-module", "session", "destinations", "start", "callback", "logout", "code", "destination", "notify", "webhook", "calendar-status", "calendar-callback", "calendar-connect", "calendar-disconnect", "schedule-propose", "schedule-book", "mcp", "mcp-tokens", "mcp-token", "mcp-revoke"].includes(route)) throw new ApiError(404, "missing");
     if (crmRoute ? !(route === "crm-customers" ? ["GET", "POST"] : ["crm-customer", "crm-contact"].includes(route) ? ["GET", "PATCH"] : ["crm-search", "crm-contacts"].includes(route) ? ["POST"] : ["GET"]).includes(request.method) : request.method !== (readRoutes.has(route) ? "GET" : "POST")) throw new ApiError(405, "method");
     if (configured() && url.origin !== origin()) {
       if (route === "page" || route === "admin-page" || route === "login-page") {
@@ -2496,14 +2536,15 @@ async function handle(request, db, authProvider, crmDb) {
       }
       throw new ApiError(403, "origin");
     }
-    if (route === "app") return new Response(await readFile("prototype/assets/app.js", "utf8"), { headers: { "Content-Type": "text/javascript; charset=utf-8" } });
+    if (route === "app-module") return await appModule(url.searchParams.get("file"));
+    if (route === "app") return new Response(await readFile2("prototype/assets/app.js", "utf8"), { headers: { "Content-Type": "text/javascript; charset=utf-8" } });
     if (route === "page" && !["denied", "unavailable"].includes(url.searchParams.get("auth") ?? "")) {
       let identity2 = null;
       try {
         if (configured()) identity2 = await session(request, db);
       } catch {
       }
-      const html = (await readFile("prototype/index.html", "utf8")).replace('<div id="app">', `<div id="app" data-public-preview="${!identity2}" data-admin="${identity2 ? administratorAllowed(identity2.email) : false}">`);
+      const html = (await readFile2("prototype/index.html", "utf8")).replace('<div id="app">', `<div id="app" data-public-preview="${!identity2}" data-admin="${identity2 ? administratorAllowed(identity2.email) : false}">`);
       return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
     if (route === "page" || route === "admin-page" || route === "login-page") {
@@ -2513,7 +2554,7 @@ async function handle(request, db, authProvider, crmDb) {
       const authOutcome = url.searchParams.get("auth");
       const failedLogin = authOutcome === "denied" || authOutcome === "unavailable";
       if (identity2 && (!adminEntry || administratorAllowed(identity2.email)) && !failedLogin) {
-        const html = (await readFile("prototype/index.html", "utf8")).replace('<div id="app">', `<div id="app" data-admin="${administratorAllowed(identity2.email)}">`);
+        const html = (await readFile2("prototype/index.html", "utf8")).replace('<div id="app">', `<div id="app" data-admin="${administratorAllowed(identity2.email)}">`);
         return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
       }
       const loginStatus = !ready ? "setup" : authOutcome === "unavailable" ? "unavailable" : identity2 || authOutcome === "denied" ? "denied" : "ready";

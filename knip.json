@@ -13,7 +13,8 @@
     "**/*.{ts,tsx,js,mjs,cjs,css}",
     "!api/relay.mjs",
     "!prototype/assets/{app.js,session.js,styles.css}",
-    "!prototype/sw.js"
+    "!prototype/sw.js",
+    "!prototype/assets/modules/**"
   ],
   "includeEntryExports": true,
   "treatConfigHintsAsErrors": true

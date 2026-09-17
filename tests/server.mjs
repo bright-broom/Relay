@@ -321,3 +321,20 @@ assert.equal(independent.status,1);
 assert.match(independent.stderr,/GOOGLE_CLIENT_SECRET: missing/);
 assert.match(independent.stderr,/DATABASE_URL: connectionSchemaOrPermissions/);
 assert.doesNotMatch(independent.stdout+independent.stderr,/private-fixture-password|127\.0\.0\.1|synthetic-client|owner@gmail\.com/);
+
+const appModules=JSON.parse(await readFile('prototype/assets/module-manifest.json','utf8'));
+for(const file of Object.keys(appModules.files)) {
+ const response=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route=app-module&file='+file));
+ assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/javascript/);
+ assert.equal(response.headers.get('cache-control'),'private, no-store');assert.equal(response.headers.get('vercel-cdn-cache-control'),'no-store');
+ assert.equal(await response.text(),await readFile('prototype/assets/modules/'+file,'utf8'));
+}
+for(const file of ['../app.js','../../.env','chunk-AAAAAAAA.js','constructor','app-AAAAAAAA.js/extra','', '%2e%2e%2f.env']) {
+ const response=await api.endpoint.fetch(new Request('https://relay.test/api/relay?route=app-module&file='+encodeURIComponent(file)));
+ assert.equal(response.status,404);assert.ok(!(await response.text()).includes('private-secret'));
+}
+assert.equal((await api.endpoint.fetch(new Request('https://relay.test/api/relay?route=app-module&file='+appModules.entry,{method:'POST'}))).status,405);
+process.env.GOOGLE_CLIENT_ID='synthetic-client';
+assert.equal((await api.endpoint.fetch(new Request('https://untrusted.test/api/relay?route=app-module&file='+appModules.entry))).status,403);
+delete process.env.GOOGLE_CLIENT_ID;
+console.log('Split modules: build allowlist, exact assets, no-store, traversal rejection, origin and method restrictions passed.');

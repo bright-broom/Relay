@@ -270,6 +270,9 @@
     white-space: nowrap;
     border-width: 0;
   }
+  .static {
+    position: static;
+  }
   .container {
     width: 100%;
     @media (width >= 40rem) {

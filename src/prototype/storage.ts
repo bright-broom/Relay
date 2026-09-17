@@ -2,7 +2,8 @@ import {canonicalLocale} from '../i18n/messages';
 import type {Locale} from '../i18n/messages';
 import {initialCases,caseStages,caseDueDates,caseStatuses,caseLevels,type CaseRecord} from './data';
 import {channels,outcomes,type ReportDraft} from './report';
-export const storageKey='relay-demo-v1';
+import {storageKey} from './storage-key';
+export {storageKey} from './storage-key';
 export interface Snapshot {locale:Locale;cases:CaseRecord[];drafts:Record<number,ReportDraft>;review:string;reviewOwner:string;reviewDue:'dueNow'|'futureDate'|'dueUnknown';imported:boolean}
 const member=(value:unknown,values:readonly string[])=>typeof value==='string'&&values.includes(value);
 const fixtureIds=new Set(initialCases.map(c=>c.id));

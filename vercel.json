@@ -5,7 +5,7 @@
   "outputDirectory": "public",
   "functions": {
     "api/relay.mjs": {
-      "includeFiles": "prototype/{index.html,assets/app.js}",
+      "includeFiles": "prototype/{index.html,assets/app.js,assets/module-manifest.json,assets/modules/**}",
       "maxDuration": 60
     }
   },
@@ -51,6 +51,10 @@
     {
       "src": "/index.html",
       "dest": "/api/relay?route=page"
+    },
+    {
+      "src": "/assets/modules/(.*)",
+      "dest": "/api/relay?route=app-module&file=$1"
     },
     {
       "src": "/assets/app.js",

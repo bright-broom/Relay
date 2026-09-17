@@ -1,3 +1,4 @@
+import {appModule} from './app-modules';
 import {isAdmin, adminOverview} from './admin';
 import {administratorIssues} from './access';
 import type {Database} from './database';
@@ -14,14 +15,14 @@ import {ApiError, destinations, issueCode, changeDestination, webhook, notify} f
 import {listContacts, createContact, getContact, editContact} from './crm-contacts';
 import {listWorkspaces, listCustomers, getCustomer, createCustomer, changeCustomer, searchCustomers} from './crm';
 
-const readRoutes = new Set(['login-page','admin-page','admin-overview','page','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
+const readRoutes = new Set(['login-page','admin-page','admin-overview','page','app','app-module','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
 /** @public Invoked by tests/server.mjs and tests/crm.mjs; source is loaded through esbuild. */
 export async function handle(request: Request, db?: Database, authProvider?: Configuration, crmDb?: Database): Promise<Response> {
   const url = new URL(request.url), route = url.searchParams.get('route') ?? '';
   const locale = normalizeLocale(url.searchParams.get('lang')??request.headers.get('cookie')?.split('; ').find(value=>value.startsWith('relay-locale='))?.slice(13)??request.headers.get('accept-language')?.split(',')[0]?.split(';')[0]);
   try {
     const crmRoute = ['crm-workspaces','crm-customers','crm-customer','crm-search','crm-contacts','crm-customer-contacts','crm-contact'].includes(route);
-    if (!crmRoute && !['login-page','admin-page','admin-overview','page','app','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
+    if (!crmRoute && !['login-page','admin-page','admin-overview','page','app','app-module','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
     if (crmRoute ? !(route === 'crm-customers' ? ['GET','POST'] : ['crm-customer','crm-contact'].includes(route) ? ['GET','PATCH'] : ['crm-search','crm-contacts'].includes(route) ? ['POST'] : ['GET']).includes(request.method) : request.method !== (readRoutes.has(route) ? 'GET' : 'POST')) throw new ApiError(405, 'method');
     if (configured() && url.origin !== origin()) {
       if (route === 'page' || route === 'admin-page' || route === 'login-page') {
@@ -32,6 +33,7 @@ export async function handle(request: Request, db?: Database, authProvider?: Con
       throw new ApiError(403, 'origin');
     }
     // The bundle contains public UI and fictional fixtures only, never private records.
+    if (route === 'app-module') return await appModule(url.searchParams.get('file'));
     if (route === 'app') return new Response(await readFile('prototype/assets/app.js', 'utf8'), {headers: {'Content-Type': 'text/javascript; charset=utf-8'}});
     if (route === 'page' && !['denied','unavailable'].includes(url.searchParams.get('auth') ?? '')) {
       // Authentication failure cannot prevent access to the public workspace.
