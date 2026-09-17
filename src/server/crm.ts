@@ -3,7 +3,7 @@ import {z} from 'zod';
 import type {Identity} from './auth';
 import {connectDatabase, type Database, type Row} from './database';
 import {ApiError} from './line';
-import {crmId, createCustomerInput, changeCustomerInput, type CrmWorkspace, type Customer, type CustomerPage, type CustomerCreated, type CustomerChanged} from '../crm/contracts';
+import {crmId, createCustomerInput, changeCustomerInput, customerSearchTerm, searchCustomersInput, normalizeCustomerName, type CrmWorkspace, type Customer, type CustomerPage, type CustomerCreated, type CustomerChanged} from '../crm/contracts';
 
 let connection: Database | undefined;
 function crmDatabase(): Database {
@@ -70,24 +70,37 @@ export async function listWorkspaces(identity: Identity, db?: Database): Promise
   }, db);
 }
 
-const cursorSchema = z.object({updatedAt: z.iso.datetime({offset: true}), id: crmId}).strict();
-export async function listCustomers(identity: Identity, workspace: unknown, cursor: string | null, db?: Database, archived = false): Promise<CustomerPage> {
+const cursorSchema = z.object({updatedAt: z.iso.datetime({offset: true}), id: crmId, scope: z.string().regex(/^[a-f0-9]{64}$/).optional()}).strict();
+export async function searchCustomers(identity: Identity, input: unknown, db?: Database): Promise<CustomerPage> {
+  const parsed = searchCustomersInput.safeParse(input);
+  if (!parsed.success) throw new ApiError(400, 'crmSearchInvalid');
+  const {workspaceId, cursor, archived, query} = parsed.data;
+  return listCustomers(identity, workspaceId, cursor, db, archived, query);
+}
+
+export async function listCustomers(identity: Identity, workspace: unknown, cursor: string | null, db?: Database, archived = false, query = ''): Promise<CustomerPage> {
   const workspaceId = crmId.parse(workspace);
+  const term = normalizeCustomerName(customerSearchTerm.parse(query));
+  // Bind paging to the canonical filter, without putting names in the cursor.
+  const scope = createHash('sha256').update(JSON.stringify([workspaceId,archived,term])).digest('hex');
   let after: z.infer<typeof cursorSchema> | null = null;
   if (cursor !== null) {
-    if (!/^[A-Za-z0-9_-]{1,256}$/.test(cursor)) throw new ApiError(400, 'invalid');
+    if (!/^[A-Za-z0-9_-]{1,512}$/.test(cursor)) throw new ApiError(400, 'crmCursorInvalid');
     try { after = cursorSchema.parse(JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'))); }
-    catch { throw new ApiError(400, 'invalid'); }
+    catch { throw new ApiError(400, 'crmCursorInvalid'); }
+    // Older clients can finish an unfiltered listing with their legacy cursor.
+    if (after.scope ? after.scope !== scope : !!term) throw new ApiError(400, 'crmCursorInvalid');
   }
   return transaction(identity, async tx => {
     const member = await access(tx, workspaceId, false);
     const rows = await tx.query<Customer & Row>(`SELECT ${columns} FROM relay_crm.customers
       WHERE workspace_id=$1 AND archived_at IS ${archived ? 'NOT NULL' : 'NULL'}
-      ${after ? 'AND (updated_at,id) < ($2::timestamptz,$3::uuid)' : ''}
-      ORDER BY updated_at DESC, id DESC LIMIT 51`, after ? [workspaceId,after.updatedAt,after.id] : [workspaceId]);
+      AND strpos(name_search,$2::text) > 0
+      ${after ? 'AND (updated_at,id) < ($3::timestamptz,$4::uuid)' : ''}
+      ORDER BY updated_at DESC, id DESC LIMIT 51`, after ? [workspaceId,term,after.updatedAt,after.id] : [workspaceId,term]);
     const customers = rows.slice(0, 50), last = customers.at(-1);
-    const nextCursor = rows.length > 50 && last ? Buffer.from(JSON.stringify({updatedAt:last.updatedAt,id:last.id})).toString('base64url') : null;
-    await audit(tx, workspaceId, member.principalId, workspaceId, 'list');
+    const nextCursor = rows.length > 50 && last ? Buffer.from(JSON.stringify({updatedAt:last.updatedAt,id:last.id,scope})).toString('base64url') : null;
+    await audit(tx, workspaceId, member.principalId, workspaceId, 'list', {searched:!!term,archived});
     return {customers, nextCursor};
   }, db);
 }
@@ -127,7 +140,7 @@ export async function changeCustomer(identity: Identity, id: unknown, input: unk
     const changes = action === 'edit'
       ? (['displayName','kind'] as const).filter(field => before[field] !== data.customer[field])
       : ['archivedAt'];
-    const values = action === 'edit' ? [data.customer.displayName, data.customer.displayName.normalize('NFKC').toLocaleLowerCase('en-US'), data.customer.kind] : [];
+    const values = action === 'edit' ? [data.customer.displayName, normalizeCustomerName(data.customer.displayName), data.customer.kind] : [];
     const update = action === 'edit' ? 'display_name=$4,name_search=$5,kind=$6' : `archived_at=${action === 'archive' ? 'clock_timestamp()' : 'NULL'}`;
     const [customer] = await tx.query<Customer & Row>(`UPDATE relay_crm.customers SET ${update},version=version+1,updated_at=clock_timestamp()
       WHERE workspace_id=$1 AND id=$2 AND version=$3::bigint RETURNING ${columns}`, [workspaceId,customerId,version,...values]);
@@ -159,7 +172,7 @@ export async function createCustomer(identity: Identity, input: unknown, db?: Da
     const [customer] = await tx.query<Customer & Row>(`INSERT INTO relay_crm.customers
       (id,workspace_id,kind,display_name,name_search,status,owner_id)
       VALUES($1,$2,$3,$4,$5,'prospect',$6) RETURNING ${columns}`,
-    [randomUUID(),workspaceId,data.kind,data.displayName,data.displayName.normalize('NFKC').toLocaleLowerCase('en-US'),member.principalId]);
+    [randomUUID(),workspaceId,data.kind,data.displayName,normalizeCustomerName(data.displayName),member.principalId]);
     await audit(tx, workspaceId, member.principalId, customer.id, 'create');
     await tx.query(`INSERT INTO relay_crm.request_dedup(workspace_id,actor_id,operation,key,payload_hash,response_status,result_id,expires_at)
       VALUES($1,$2,'customer.create',$3,$4,201,$5,now()+interval '7 days')`, [workspaceId,member.principalId,key,payloadHash,customer.id]);

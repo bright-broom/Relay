@@ -1,4 +1,12 @@
 export const ja = {
+  crmSearch: "顧客を検索",
+  crmSearchName: "検索する顧客名",
+  crmSearchHint: "顧客名の一部で検索します。全角・半角と英字の大小文字をそろえて照合します。",
+  crmSearchInvalid: "検索する顧客名は 200 文字以内で入力してください。改行や制御文字は使えません。",
+  crmSearchRestart: "検索条件が変わったため、一覧を先頭から再取得してください。",
+  crmClearSearch: "検索を解除",
+  crmSearchApplied: "適用中の検索：{query}",
+  crmNoMatches: "条件に一致する顧客はいません。検索する名前や表示する顧客を変更してください。",
   crmEdit: "顧客を編集",
   crmEditName: "編集する顧客名",
   crmSaveChanges: "変更を保存",

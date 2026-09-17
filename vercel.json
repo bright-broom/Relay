@@ -141,6 +141,10 @@
       "dest": "/api/relay?route=crm-customers"
     },
     {
+      "src": "/api/crm/customers/search",
+      "dest": "/api/relay?route=crm-search"
+    },
+    {
       "src": "/api/crm/customers/([0-9a-fA-F-]+)",
       "dest": "/api/relay?route=crm-customer&id=$1"
     },
