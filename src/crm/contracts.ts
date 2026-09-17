@@ -32,3 +32,21 @@ export type CustomerPage = {customers: Customer[]; nextCursor: string | null};
 export type CustomerCreated = {customer: Customer; replayed: boolean};
 // A replay returns the current record, which may have changed since this operation.
 export type CustomerChanged = CustomerCreated & {appliedVersion: string};
+
+export const contactInput = z.object({
+  displayName: customerInput.shape.displayName,
+  email: z.string().trim().max(254).pipe(z.union([z.literal(''), z.email()])),
+  // Keep the supplied country code and extension; never infer a dialing country.
+  phone: z.string().trim().max(64).regex(/^[^\u0000-\u001f\u007f]*$/u),
+  relationship: z.enum(['contact','self','billing','other']),
+  isPrimary: z.boolean(),
+}).strict();
+export const createContactInput = z.object({
+  workspaceId: crmId, customerId: crmId, key: crmId, contact: contactInput,
+}).strict();
+export type ContactInput = z.infer<typeof contactInput>;
+export type CustomerContact = Omit<ContactInput,'email'|'phone'> & {
+  id: string; email: string | null; phone: string | null;
+};
+export type ContactPage = {contacts: CustomerContact[]; nextCursor: string | null};
+export type ContactCreated = {contact: CustomerContact; replayed: boolean};

@@ -21,7 +21,7 @@ export async function verifyCrmRole(db: Database): Promise<void> {
     NOT (r.rolsuper OR r.rolbypassrls OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication)
     AND pg_has_role(current_user, 'relay_crm_runtime', 'USAGE')
     AND NOT has_schema_privilege(current_user, 'relay_crm', 'CREATE')
-    AND (SELECT count(*) = 6 AND bool_and(c.relrowsecurity AND c.relforcerowsecurity
+    AND (SELECT count(*) = 8 AND bool_and(c.relrowsecurity AND c.relforcerowsecurity
       AND NOT pg_has_role(current_user, c.relowner, 'MEMBER')
       AND NOT has_table_privilege(current_user, c.oid, 'TRUNCATE'))
       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -31,7 +31,7 @@ export async function verifyCrmRole(db: Database): Promise<void> {
   if (!row?.safe) throw new ApiError(503, 'crmUnavailable');
 }
 
-async function transaction<T>(identity: Identity, work: (tx: Database) => Promise<T>, db?: Database): Promise<T> {
+export async function transaction<T>(identity: Identity, work: (tx: Database) => Promise<T>, db?: Database): Promise<T> {
   return (db ?? crmDatabase()).transaction(async tx => {
     await verifyCrmRole(tx);
     await tx.query(`SELECT set_config('relay.subject', $1, true),
@@ -41,7 +41,7 @@ async function transaction<T>(identity: Identity, work: (tx: Database) => Promis
   });
 }
 
-async function access(tx: Database, workspaceId: string, writing: boolean): Promise<Access> {
+export async function access(tx: Database, workspaceId: string, writing: boolean): Promise<Access> {
   // Hold all revocable authorization rows until commit. Runtime UPDATE is denied
   // by WITH CHECK(false); narrow UPDATE grants exist solely to allow these locks.
   const [principal] = await tx.query<{id: string}>('SELECT id FROM relay_crm.principals FOR SHARE');
@@ -55,10 +55,10 @@ async function access(tx: Database, workspaceId: string, writing: boolean): Prom
   return {principalId: principal.id, role: member.role};
 }
 
-async function audit(tx: Database, workspaceId: string, actor: string, entityId: string, action: string, changes: object = {}) {
+export async function audit(tx: Database, workspaceId: string, actor: string, entityId: string, action: string, changes: object = {}, entityType: 'customer' | 'contact' = 'customer') {
   // Record the operation, not customer names, contacts or request bodies.
   await tx.query(`INSERT INTO relay_crm.audit_events(id, workspace_id, actor_id, request_id, entity_type, entity_id, action, changes)
-    VALUES($1,$2,$3,$4,'customer',$5,$6,$7::text::jsonb)`, [randomUUID(), workspaceId, actor, randomUUID(), entityId, action, JSON.stringify(changes)]);
+    VALUES($1,$2,$3,$4,$8,$5,$6,$7::text::jsonb)`, [randomUUID(), workspaceId, actor, randomUUID(), entityId, action, JSON.stringify(changes), entityType]);
 }
 
 export async function listWorkspaces(identity: Identity, db?: Database): Promise<CrmWorkspace[]> {

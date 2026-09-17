@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
+import {verifyContacts} from './crm-contacts.mjs';
+import {randomUUID, createHash} from 'node:crypto';
 import {readFile, mkdir} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 import {build} from 'esbuild';
 import {PGlite} from '@electric-sql/pglite';
 
 await mkdir('.vercel/check-crm', {recursive:true});
-await build({stdin:{contents:`export * from './src/server/crm'; export * from './src/server/auth'; export {handle} from './src/server/handler';`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',outfile:'.vercel/check-crm/server.mjs'});
+await build({stdin:{contents:`export * from './src/server/crm'; export * from './src/server/crm-contacts'; export * from './src/server/auth'; export {handle} from './src/server/handler';`,resolveDir:process.cwd()},bundle:true,platform:'node',format:'esm',packages:'external',outfile:'.vercel/check-crm/server.mjs'});
 const api = await import(pathToFileURL(process.cwd()+'/.vercel/check-crm/server.mjs'));
 const pg = new PGlite();
 const wrap = client => ({query:async (text,values) => (await client.query(text,values)).rows, transaction:work=>client.transaction(tx=>work(wrap(tx)))});
@@ -27,13 +28,26 @@ try {
   for (const n of [11,12]) await pg.query(`INSERT INTO relay_crm.workspaces(id,name) VALUES($1,$2)`,[id(n),`Synthetic workspace ${n}`]);
   for (const [workspace,person,role] of [[11,1,'editor'],[11,2,'viewer'],[12,3,'admin']]) await pg.query(`INSERT INTO relay_crm.memberships(workspace_id,principal_id,role,status) VALUES($1,$2,$3,'active')`,[id(workspace),id(person),role]);
 
+  // Preserve a real pre-upgrade row while adding lifecycle and contacts tables.
+  const legacyId = randomUUID();
+  await pg.query(`INSERT INTO relay_crm.customers(id,workspace_id,kind,display_name,name_search,status) VALUES($1,$2,'individual','Legacy synthetic','legacy synthetic','prospect')`,[legacyId,id(12)]);
+  const legacyInput = {workspaceId:id(12),key:randomUUID(),customer:{displayName:'Legacy synthetic',kind:'individual'}};
+  const legacyHash = createHash('sha256').update(JSON.stringify(legacyInput.customer)).digest('hex');
+  await pg.query(`INSERT INTO relay_crm.request_dedup(workspace_id,actor_id,operation,key,payload_hash,response_status,result_id,expires_at)
+    VALUES($1,$2,'customer.create',$3,$4,201,$5,now()+interval '7 days')`,[id(12),id(3),legacyInput.key,legacyHash,legacyId]);
+  await pg.exec(await readFile('migrations/004_crm_customer_lifecycle.sql','utf8'));
+  await pg.exec(await readFile('migrations/005_crm_contacts.sql','utf8'));
+  const legacyCustomer = await api.getCustomer(identity(3),id(12),legacyId,db);
+  assert.equal(legacyCustomer.displayName,'Legacy synthetic'); assert.equal(legacyCustomer.version,'1');
+  const legacyReplay = await api.createCustomer(identity(3),legacyInput,db);
+  assert.equal(legacyReplay.replayed,true);assert.equal(legacyReplay.customer.id,legacyId);
+  await pg.query('DELETE FROM relay_crm.request_dedup WHERE key=$1',[legacyInput.key]);
+  await pg.query('DELETE FROM relay_crm.customers WHERE id=$1',[legacyId]);
   await reject(()=>api.listWorkspaces(identity(1),ownerDb),503,'crmUnavailable');
   assert.deepEqual(await api.listWorkspaces(identity(1),db),[{id:id(11),name:'Synthetic workspace 11',role:'editor'}]);
   assert.deepEqual(await api.listWorkspaces(identity(4),db),[]);
   const input = {workspaceId:id(11),key:randomUUID(),customer:{displayName:'Synthetic Customer',kind:'organization'}};
   const created = await api.createCustomer(identity(1),input,db);
-  // Upgrade an existing 003 customer; preserve its ID, version and dedup history.
-  await pg.exec(await readFile('migrations/004_crm_customer_lifecycle.sql','utf8'));
   assert.equal(created.replayed,false);
   assert.equal(created.customer.version,'1');
   assert.equal(created.customer.status,'prospect');
@@ -247,6 +261,7 @@ try {
   assert.equal((await call(request('crm-search','GET'))).status,405);
   assert.equal((await call(new Request('https://relay.test/api/relay?route=crm-search',{method:'POST',body:JSON.stringify(searchBody)}))).status,401);
   assert.equal((await call(request('crm-search','POST',{...searchBody,query:'x'.repeat(201)}))).status,400);
+  await verifyContacts({api,pg,db,id,identity,reject,scoped,sqlReject,call,request,failing,failedDedup});
   process.env.ALLOWED_GOOGLE_EMAILS=identity(2).email;
   assert.equal((await call(request('crm-workspaces'))).status,401);
   console.log('CRM: runtime-role RLS, tenant isolation, viewer denial, revocation, immutable audit, atomic save/retry, upgrade preservation, edit/archive/restore, bigint conflicts, rollback, filter-bound search pagination, literal matching, search privacy and authenticated routes passed. Synthetic PGlite only.');

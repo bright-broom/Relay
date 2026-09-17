@@ -11,6 +11,7 @@ import {configured, lineConfigured, sameOrigin, origin} from './config';
 import {session, startLogin, finishLogin, logout, cookie, oauthCookie} from './auth';
 import {loginPage, type LoginStatus} from './page';
 import {ApiError, destinations, issueCode, changeDestination, webhook, notify} from './line';
+import {listContacts, createContact} from './crm-contacts';
 import {listWorkspaces, listCustomers, getCustomer, createCustomer, changeCustomer, searchCustomers} from './crm';
 
 const readRoutes = new Set(['login-page','admin-page','admin-overview','page','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
@@ -18,9 +19,9 @@ export async function handle(request: Request, db?: Database, authProvider?: Con
   const url = new URL(request.url), route = url.searchParams.get('route') ?? '';
   const locale = normalizeLocale(url.searchParams.get('lang')??request.headers.get('cookie')?.split('; ').find(value=>value.startsWith('relay-locale='))?.slice(13)??request.headers.get('accept-language')?.split(',')[0]?.split(';')[0]);
   try {
-    const crmRoute = ['crm-workspaces','crm-customers','crm-customer','crm-search'].includes(route);
+    const crmRoute = ['crm-workspaces','crm-customers','crm-customer','crm-search','crm-contacts','crm-customer-contacts'].includes(route);
     if (!crmRoute && !['login-page','admin-page','admin-overview','page','app','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
-    if (crmRoute ? !(route === 'crm-customers' ? ['GET','POST'] : route === 'crm-customer' ? ['GET','PATCH'] : route === 'crm-search' ? ['POST'] : ['GET']).includes(request.method) : request.method !== (readRoutes.has(route) ? 'GET' : 'POST')) throw new ApiError(405, 'method');
+    if (crmRoute ? !(route === 'crm-customers' ? ['GET','POST'] : route === 'crm-customer' ? ['GET','PATCH'] : ['crm-search','crm-contacts'].includes(route) ? ['POST'] : ['GET']).includes(request.method) : request.method !== (readRoutes.has(route) ? 'GET' : 'POST')) throw new ApiError(405, 'method');
     if (configured() && url.origin !== origin()) {
       if (route === 'page' || route === 'admin-page' || route === 'login-page') {
         const target = new URL(route === 'admin-page' ? '/admin' : route === 'login-page' ? '/login' : '/', origin());
@@ -76,12 +77,13 @@ export async function handle(request: Request, db?: Database, authProvider?: Con
       return Response.json(await listCustomers(identity, url.searchParams.get('workspaceId'), url.searchParams.get('cursor'), crmDb, archived === 'true'));
     }
     if (route === 'crm-customer' && request.method === 'GET') return Response.json(await getCustomer(identity, url.searchParams.get('workspaceId'), url.searchParams.get('id'), crmDb));
-    if (route === 'crm-customers' || route === 'crm-customer' || route === 'crm-search') {
+    if (route === 'crm-customer-contacts') return Response.json(await listContacts(identity, url.searchParams.get('workspaceId'), url.searchParams.get('id'), url.searchParams.get('cursor'), crmDb));
+    if (route === 'crm-contacts' || route === 'crm-customers' || route === 'crm-customer' || route === 'crm-search') {
       let input: unknown;
       try { input = JSON.parse(await limitedBody(request)); } catch (error) { if (error instanceof ApiError) throw error; throw new ApiError(400, 'invalid'); }
       if (route === 'crm-search') return Response.json(await searchCustomers(identity, input, crmDb));
       if (route === 'crm-customer') return Response.json(await changeCustomer(identity, url.searchParams.get('id'), input, crmDb));
-      const result = await createCustomer(identity, input, crmDb);
+      const result = route === 'crm-contacts' ? await createContact(identity, input, crmDb) : await createCustomer(identity, input, crmDb);
       return Response.json(result, {status: result.replayed ? 200 : 201});
     }
     if (route === 'admin-overview') return Response.json(await adminOverview(request, db));

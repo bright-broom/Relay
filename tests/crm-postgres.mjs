@@ -30,6 +30,7 @@ try {
     await tx`SET LOCAL ROLE relay_fixture_migration`;
     await tx.unsafe(await readFile('migrations/003_crm_customers.sql','utf8'));
     await tx.unsafe(await readFile('migrations/004_crm_customer_lifecycle.sql','utf8'));
+    await tx.unsafe(await readFile('migrations/005_crm_contacts.sql','utf8'));
     await tx`INSERT INTO relay_crm.workspaces(id,name) VALUES(${randomUUID()},'Synthetic provisioner check')`;
   });
   await admin`CREATE ROLE relay_fixture_runtime LOGIN PASSWORD 'synthetic-runtime-only' IN ROLE relay_crm_runtime`;
@@ -37,7 +38,7 @@ try {
   const wrap=sql=>({query:(text,values=[])=>sql.unsafe(text,values),transaction:work=>sql.begin(tx=>work(wrap(tx)))});
   const db=wrap(runtime);
   await mkdir('.vercel/check-crm-postgres',{recursive:true});
-  await build({entryPoints:['src/server/crm.ts'],bundle:true,packages:'external',platform:'node',format:'esm',outfile:'.vercel/check-crm-postgres/server.mjs'});
+  await build({stdin:{contents:`export * from './src/server/crm'; export * from './src/server/crm-contacts';`,resolveDir:process.cwd()},bundle:true,packages:'external',platform:'node',format:'esm',outfile:'.vercel/check-crm-postgres/server.mjs'});
   const api=await import(pathToFileURL(process.cwd()+'/.vercel/check-crm-postgres/server.mjs'));
   const person=randomUUID(),other=randomUUID(),workspace=randomUUID(),otherWorkspace=randomUUID();
   const identity={subject:'synthetic-postgres',email:'synthetic@example.invalid'};
@@ -83,8 +84,46 @@ try {
   let current=await api.getCustomer(identity,workspace,customerId,db);
   if(current.archivedAt) current=(await api.changeCustomer(identity,customerId,{workspaceId:workspace,key:randomUUID(),version:current.version,action:'restore'},db)).customer;
 
+  const contactInput={workspaceId:workspace,customerId,key:randomUUID(),contact:{displayName:'Concurrent contact',email:'contact@example.invalid',phone:'+81 3 0000 0000',relationship:'contact',isPrimary:false}};
+  const contacts=await Promise.all(Array.from({length:4},(_,i)=>api.createContact(identity,i%2?{...contactInput,key:contactInput.key.toUpperCase()}:contactInput,db)));
+  assert.equal(contacts.filter(r=>!r.replayed).length,1);
+  assert.equal(new Set(contacts.map(r=>r.contact.id)).size,1);
+  assert.equal((await api.listContacts(identity,workspace,customerId,null,db)).contacts.length,1);
+  assert.equal((await runtime`SELECT count(*)::int AS n FROM relay_crm.contacts`)[0].n,0);
+  const primaryRace=await Promise.allSettled(Array.from({length:2},()=>api.createContact(identity,{...contactInput,key:randomUUID(),contact:{...contactInput.contact,isPrimary:true}},db)));
+  assert.equal(primaryRace.filter(r=>r.status==='fulfilled').length,1);
+  assert.equal(primaryRace.find(r=>r.status==='rejected').reason.code,'crmPrimaryConflict');
+  assert.equal((await admin`SELECT count(*)::int AS n FROM relay_crm.contacts`)[0].n,2,'losing primary registration leaves no orphan');
+  for(const first of ['contact','archive']) {
+    const parent=(await api.createCustomer(identity,{...input,key:randomUUID()},db)).customer;
+    const attempt={...contactInput,customerId:parent.id,key:randomUUID()};
+    const archive={workspaceId:workspace,key:randomUUID(),version:'1',action:'archive'};
+    let unlock,entered;
+    const gate=new Promise(resolve=>{unlock=resolve;}), locked=new Promise(resolve=>{entered=resolve;});
+    const pausedDb={transaction:work=>db.transaction(tx=>work({...tx,query:async(text,values)=>{
+      const rows=await tx.query(text,values);
+      if(text.includes('FROM relay_crm.customers WHERE workspace_id=$1 AND id=$2 FOR UPDATE')){entered();await gate;}
+      return rows;
+    }}))};
+    const leading=first==='contact'?api.createContact(identity,attempt,pausedDb):api.changeCustomer(identity,parent.id,archive,pausedDb);
+    await locked;
+    let settled=false;
+    const following=(first==='contact'?api.changeCustomer(identity,parent.id,archive,db):api.createContact(identity,attempt,db))
+      .then(value=>{settled=true;return {value};},error=>{settled=true;return {error};});
+    await pause(100);assert.equal(settled,false,'the shared parent lock serializes both orders');
+    unlock();await leading;const result=await following;
+    if(first==='contact') {
+      assert.ok(result.value.customer.archivedAt);
+      assert.equal((await api.createContact(identity,attempt,db)).replayed,true);
+      assert.equal((await api.listContacts(identity,workspace,parent.id,null,db)).contacts.length,1);
+    } else {
+      assert.equal(result.error.code,'crmContactArchived');
+      assert.equal((await api.listContacts(identity,workspace,parent.id,null,db)).contacts.length,0);
+    }
+  }
+
   // Keep the original creation race coverage and add the same contracts for editing.
-  for (const operation of ['create','edit']) {
+  for (const operation of ['create','edit','contact']) {
     await admin`UPDATE relay_crm.memberships SET status='active' WHERE principal_id=${person}`;
     current=await api.getCustomer(identity,workspace,customerId,db);
     // Pause after authorization locks. A concurrent suspension must wait for commit.
@@ -96,7 +135,7 @@ try {
       if(text.includes("set_config('relay.workspace_id', $1")){entered();await gate;}
       return rows;
     }}))};
-    const save=operation==='create' ? api.createCustomer(identity,{...input,key:randomUUID()},pausedDb)
+    const save=operation==='contact' ? api.createContact(identity,{...contactInput,key:randomUUID()},pausedDb) : operation==='create' ? api.createCustomer(identity,{...input,key:randomUUID()},pausedDb)
       : api.changeCustomer(identity,customerId,{...edit,key:randomUUID(),version:current.version},pausedDb);
     await locked;
     let suspended=false;
@@ -106,6 +145,8 @@ try {
     await assert.rejects(()=>api.createCustomer(identity,input,db),e=>e.status===404);
     await assert.rejects(()=>api.changeCustomer(identity,customerId,retry,db),e=>e.status===404);
     await assert.rejects(()=>api.listCustomers(identity,workspace,null,db),e=>e.status===404);
+    await assert.rejects(()=>api.createContact(identity,contactInput,db),e=>e.status===404);
+    await assert.rejects(()=>api.listContacts(identity,workspace,customerId,null,db),e=>e.status===404);
 
     // Suspension that commits first must also reject an already-waiting request.
     await admin`UPDATE relay_crm.memberships SET status='active' WHERE principal_id=${person}`;
@@ -117,12 +158,12 @@ try {
       startedSuspend();await suspensionGate;
     });
     await suspensionStarted;
-    const waiting=operation==='create' ? api.createCustomer(identity,{...input,key:randomUUID()},db)
+    const waiting=operation==='contact' ? api.createContact(identity,{...contactInput,key:randomUUID()},db) : operation==='create' ? api.createCustomer(identity,{...input,key:randomUUID()},db)
       : api.changeCustomer(identity,customerId,{...edit,key:randomUUID(),version:(BigInt(current.version)+1n).toString()},db);
     const rejected=assert.rejects(()=>waiting,e=>e.status===404);
     await pause(100);releaseSuspend();await stopping;await rejected;
   }
-  console.log('PostgreSQL 18.6: restricted login, real RLS, four concurrent create/edit retries, competing edits and archive, normalized literal search, pooled-context cleanup and both membership-revocation orders passed. Disposable synthetic database only.');
+  console.log('PostgreSQL 18.6: restricted login, real RLS, four concurrent customer/contact/edit retries, primary-contact races, both contact/archive orders, competing edits and archive, normalized literal search, pooled-context cleanup and both membership-revocation orders passed. Disposable synthetic database only.');
 } finally {
   await Promise.allSettled([runtime?.end({timeout:1}),admin?.end({timeout:1})]);
   if(started)await execFile('docker',['rm','--force',name]);
