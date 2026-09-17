@@ -2,7 +2,7 @@ name: Verify
 
 on:
   pull_request:
-    branches: [main]
+    # Stacked PRs need the same checks before their base reaches main.
     paths:
       - 'src/**'
       - 'tests/**'
