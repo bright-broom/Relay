@@ -1,10 +1,10 @@
 {
-  "entry": "app-3QSI4ZZF.js",
+  "entry": "app-OEUUEC2W.js",
   "eager": [
-    "app-3QSI4ZZF.js",
+    "app-OEUUEC2W.js",
     "chunk-FT72KONI.js",
     "chunk-GQXRK6BM.js",
-    "chunk-T5DBZCGA.js",
+    "chunk-L263CYY7.js",
     "chunk-UCBJRMKB.js",
     "chunk-YYRDWHIT.js",
     "chunk-DFJJM52Q.js",
@@ -30,8 +30,8 @@
       "chunk-ARJQARGA.js"
     ],
     "customers": [
-      "chunk-ZXVJ6T7R.js",
-      "chunk-T5DBZCGA.js",
+      "chunk-J2MSFMXB.js",
+      "chunk-L263CYY7.js",
       "chunk-GQXRK6BM.js",
       "chunk-KP2OYVRW.js",
       "chunk-YYRDWHIT.js",
@@ -57,12 +57,12 @@
     ]
   },
   "files": {
-    "app-3QSI4ZZF.js": {
-      "bytes": 240029,
-      "sha256": "3423661b8f26186621aa5aaa74eb6271b84f1b98ce8c392650fc4af5fceff039",
+    "app-OEUUEC2W.js": {
+      "bytes": 239989,
+      "sha256": "679f210fb752d97e78632a68437076f21da8aa1af8b3e695056eca1f86b285d2",
       "imports": [
         "chunk-FT72KONI.js",
-        "chunk-T5DBZCGA.js",
+        "chunk-L263CYY7.js",
         "chunk-UCBJRMKB.js",
         "chunk-YYRDWHIT.js",
         "chunk-DFJJM52Q.js",
@@ -148,11 +148,11 @@
         "src/ui/input-values.ts"
       ]
     },
-    "chunk-ZXVJ6T7R.js": {
+    "chunk-J2MSFMXB.js": {
       "bytes": 21240,
-      "sha256": "84228908358d164fc1a8deb7739e5b8295b658513ace399cc994aa21d43ba989",
+      "sha256": "a29fb2496009fa76eef063c7ea161e0d5303edd832632c7e3c7b4ce159c4d247",
       "imports": [
-        "chunk-T5DBZCGA.js",
+        "chunk-L263CYY7.js",
         "chunk-KP2OYVRW.js",
         "chunk-YYRDWHIT.js",
         "chunk-ARJQARGA.js",
@@ -166,9 +166,9 @@
         "src/app/customer-editor.tsx"
       ]
     },
-    "chunk-T5DBZCGA.js": {
-      "bytes": 1420,
-      "sha256": "02f8ad89bdcce3ba255095156df6e623bd1020899155093993e99e2e6775e8f0",
+    "chunk-L263CYY7.js": {
+      "bytes": 1761,
+      "sha256": "27f22d6904b420ffa22a415f5c01800286f3ebf3776d74320eead48b1e0b0550",
       "imports": [
         "chunk-GQXRK6BM.js"
       ],

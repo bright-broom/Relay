@@ -525,6 +525,41 @@ for(const page of ['today','cases','reviews','imports','mypage','admin']) {
  cleanup();
 }
 console.log('Public workspace: general pages, pricing, sign-in links and no private API requests: OK.');
+// Every mini-window dismisses on its backdrop, while interior clicks remain safe.
+const popupRoot=document.createElement('div');popupRoot.id='app';popupRoot.dataset.publicPreview='true';document.body.append(popupRoot);
+render(createElement(api.App,{workspace:api.createWorkspace(null,'en',true,'#case/1')}),{container:popupRoot});
+for(const label of ['pricing','scheduling','language','previewInfo','handoff']) {
+ const trigger=screen.getByRole('button',{name:t(label),exact:true});
+ await user.click(trigger);
+ const popup=await screen.findByRole('dialog');
+ await user.click(within(popup).getByRole('heading'));
+ assert.ok(screen.getByRole('dialog'),'Clicking inside must not close the window');
+ await user.click(document.querySelector('[data-slot="dialog-overlay"]'));
+ await waitFor(()=>assert.equal(screen.queryByRole('dialog')===null,true,'Backdrop must dismiss the dialog'));
+ assert.equal(document.activeElement,trigger,'Backdrop dismissal restores trigger focus');
+}
+// A nested confirmation cancels only itself; it must never perform the destructive action.
+const infoTrigger=screen.getByRole('button',{name:t('previewInfo'),exact:true});
+await user.click(infoTrigger);
+const resetTrigger=screen.getByRole('button',{name:t('resetDemo')});
+window.sessionStorage.setItem('relay-demo-v1','synthetic-preserved-draft');
+await user.click(resetTrigger);
+const confirmation=await screen.findByRole('alertdialog');
+await user.click(within(confirmation).getByRole('heading'));
+assert.ok(screen.getByRole('alertdialog'));
+await user.click(document.querySelector('[data-slot="alert-dialog-overlay"]'));
+await waitFor(()=>assert.equal(screen.queryByRole('alertdialog')===null,true,'Backdrop must cancel the confirmation'));
+assert.ok(screen.getByRole('dialog'),'Parent window stays open when its confirmation is cancelled');
+assert.equal(window.sessionStorage.getItem('relay-demo-v1'),'synthetic-preserved-draft','Background click cannot reset saved work');
+assert.equal(document.activeElement,resetTrigger);
+await user.click(document.querySelector('[data-slot="dialog-overlay"]'));
+await waitFor(()=>assert.equal(screen.queryByRole('dialog')===null,true,'Backdrop must dismiss the dialog'));
+assert.equal(document.activeElement,infoTrigger);
+window.sessionStorage.removeItem('relay-demo-v1');
+assert.equal(guestRequests,0);
+cleanup();
+console.log('Backdrop dismissal: all five windows, interior clicks, focus restoration and nested reset cancellation passed.');
+
 // A slow or failed feature must leave its surrounding navigation usable.
 let finish;
 let mounts=0;

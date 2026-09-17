@@ -162,6 +162,14 @@ await user.click(screen.getByRole('button',{name:t('crmArchive')}));
 let dialog=await screen.findByRole('alertdialog');
 await user.click(within(dialog).getByRole('button',{name:t('close')}));
 assert.equal(record.archivedAt,null);assert.equal(patches.length,3,'cancel must not send a mutation');
+const archiveTrigger=screen.getByRole('button',{name:t('crmArchive')});
+await user.click(archiveTrigger);
+await screen.findByRole('alertdialog');
+await user.click(document.querySelector('[data-slot="alert-dialog-overlay"]'));
+await waitFor(()=>assert.equal(screen.queryByRole('alertdialog')===null,true));
+assert.equal(record.archivedAt,null);assert.equal(patches.length,3,'backdrop cancellation must not archive or send a mutation');
+assert.equal(document.activeElement,archiveTrigger);
+
 await user.click(screen.getByRole('button',{name:t('crmArchive')}));
 dialog=await screen.findByRole('alertdialog');
 await user.click(within(dialog).getByRole('button',{name:t('crmArchive')}));
