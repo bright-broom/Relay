@@ -1,6 +1,7 @@
 import {build} from 'esbuild';
 import postcss from 'postcss';
 import tailwind from '@tailwindcss/postcss';
+import {buildModules} from './build-modules.ts';
 import {buildPwa} from './pwa.mjs';
 import {readFile, writeFile, mkdir, copyFile, cp, rm} from 'node:fs/promises';
 // The public demo can deploy before OAuth is configured. Private routes fail closed.
@@ -16,8 +17,10 @@ let css=await readFile('src/prototype/styles.css','utf8');
 for(const [name,width] of Object.entries(breakpoints)) css=css.replaceAll(`__${name.toUpperCase()}__`,width);
 const componentCss=await postcss([tailwind()]).process(await readFile('src/design/components.css','utf8'),{from:'src/design/components.css'});
 await writeFile('prototype/assets/styles.css','/* Generated from src/design/tokens.ts and src/prototype/styles.css */\n:root {\n'+Object.entries(tokens).map(([k,v])=>`  --${k}: ${v};`).join('\n')+'\n}\n'+componentCss.css+'\n'+css);
+const applicationAssets = await buildModules();
+// Standalone IIFE remains the file:// preview entry; HTTP uses split ESM modules.
 await build({entryPoints:['src/app/main.tsx'],outfile:'prototype/assets/app.js',bundle:true,format:'iife',target:['safari16','chrome110'],minify:true});
-await build({entryPoints:['src/prototype/session.ts'],outfile:'prototype/assets/session.js',bundle:true,format:'iife',target:['safari16','chrome110'],minify:true});
+await build({entryPoints:['src/prototype/session.ts'],define:{__APP_ASSETS__:JSON.stringify(applicationAssets)},outfile:'prototype/assets/session.js',bundle:true,format:'iife',target:['safari16','chrome110'],minify:true});
 await mkdir('api',{recursive:true});
 await build({entryPoints:['src/server/handler.ts'],outfile:'api/relay.mjs',bundle:true,packages:'external',platform:'node',format:'esm',target:'node24',banner:{js:'// Generated from src/server/handler.ts. Do not edit.'}});
 await buildPwa(palette,brand);

@@ -3,5 +3,8 @@
   "compilerOptions": {
     "allowImportingTsExtensions": true
   },
-  "include": ["scripts/**/*.ts"]
+  "include": [
+    "scripts/**/*.ts",
+    "tests/loading.ts"
+  ]
 }

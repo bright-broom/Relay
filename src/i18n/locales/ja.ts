@@ -1,4 +1,9 @@
+import {sessionMessages} from './session';
 export const ja = {
+  ...sessionMessages.ja,
+  featureLoadFailed: "画面を読み込めませんでした。接続を確認し、ページを再読み込みしてください。未保存の入力は失われる場合があります。",
+  reloadPage: "ページを再読み込み",
+
   crmEditContact: "連絡先を編集",
   crmSaveContactChanges: "連絡先の変更を保存",
   crmContactEditScope: "氏名・メール・電話を更新します。この連絡先を共有する同じ所属の顧客にも反映されます。顧客との関係・主連絡先の区分は変わりません。",
@@ -265,7 +270,6 @@ export const ja = {
   lineRetry: "送信結果を確認できません。同じ通知を再試行してください。",
   lineRateLimit: "通知の上限に達しました。1時間ほどお待ちください。",
   refreshConnections: "更新",
-  authOnline: "利用にはオンラインでのログイン確認が必要です。",
   copyLinkCode: "連携コードをコピー",
 
   storageConflict: "別の画面で記録が更新されました。この画面の入力をコピーしてから、開き直してください。",

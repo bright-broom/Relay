@@ -1,3 +1,5 @@
+import {normalizeLocale} from './locale';
+export {canonicalLocale,normalizeLocale} from './locale';
 import {createInstance} from 'i18next';
 import {ja} from './locales/ja';
 import {en} from './locales/en';
@@ -7,11 +9,6 @@ export const brand='Relay';
 export const catalogs={ja,en};
 export type MessageKey=keyof typeof ja;
 export type Locale=string;
-export function canonicalLocale(value:unknown):string|null{
- if(typeof value!=='string'||value.length>100||!value.trim())return null;
- try{return Intl.getCanonicalLocales(value.trim())[0]??null;}catch{return null;}
-}
-export const normalizeLocale=(value:unknown)=>canonicalLocale(value)??'ja';
 const engine=createInstance();
 // Bundled resources and synchronous initialization: no network or mutable active language.
 void engine.init({initAsync:false,lng:'en',fallbackLng:'en',keySeparator:false,nsSeparator:false,

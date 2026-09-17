@@ -53,3 +53,7 @@ HTML は `src/prototype/index.html` が正本、`prototype/index.html` はサー
 `api/relay.mjs` と `prototype/` は既存の配信・プレビュー・生成一致検査で使うため Git 管理を継続し、`.gitattributes` で生成物として明示する。生成物はソースから再生成する。`public/` は公開可能なファイルだけをビルド時に作り直し、HTML とアプリ本体を静的公開しない。
 
 未使用コードの削除と、使用中の JavaScript を TypeScript へ移す作業は別。既存の `.mjs` テスト・スクリプトは実行されており、削除対象ではない。新しいアセット監査は TypeScript で実装し、`tsconfig.tools.json` で strict に検査する。SQL の履歴、設計資料、評価用 XML、ライセンスも用途に応じて維持する。静的解析だけで動的な全実行経路の未使用を証明したとは扱わない。
+
+## 読み込み性能の維持
+
+[読み込み性能](PERFORMANCE.md)に eager / lazy / 操作意図による先読み、manifest と配信境界、計測方法をまとめた。`npm run test:loading` を統合検証に含め、初期コードの上限と重い機能の分離を確認する。分割チャンクは生成物の監査対象とし、手書きソースの未使用を隠す除外として扱わない。ブラウザー用の新規コード・ビルド処理・性能テストは TypeScript と strict 検査を使う。

@@ -36,13 +36,11 @@ import { Button } from "@/components/ui/button";
 import { Action, Notice } from "../ui/controls";
 import { Icon } from "../ui/icons";
 import { LanguageForm } from "../ui/language";
-import { Admin } from "./admin";
 import { Today, Cases, Details, Reviews, Imports } from "./pages";
-import { Pricing } from "./pricing";
-import { Scheduling } from "./scheduling";
-import { Customers } from "./customers";
-import { MyPage } from "./my-page";
 import type { Workspace } from "./store";
+import {pricingFeature,schedulingFeature,customersFeature,myPageFeature,adminFeature,warmFeature} from "./features";
+import {FeatureBoundary} from "./feature-boundary";
+const Pricing = pricingFeature.Component, Scheduling = schedulingFeature.Component, Customers = customersFeature.Component, MyPage = myPageFeature.Component, Admin = adminFeature.Component;
 type Modal =
   | "pricing"
   | "scheduling"
@@ -96,7 +94,7 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
       setPresenting(false);
       window.scrollTo({top:0});
       requestAnimationFrame(() =>
-        document.getElementById("page-title")?.focus({ preventScroll: true }),
+        (document.getElementById("page-title") ?? document.getElementById("main"))?.focus({ preventScroll: true }),
       );
     };
     window.addEventListener("hashchange", route);
@@ -176,6 +174,8 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
                   {item.kind === "page" ? (
                     <Button variant="ghost" className={"nav-link" + (item.id === "mypage" ? " nav-personal-start" : "") + (item.id === "admin" && !isAdmin ? " nav-restricted" : "")} asChild>
                       <a
+                        onPointerEnter={() => {if (item.id !== "admin" || isAdmin) warmFeature(item.id);}}
+                        onFocus={() => {if (item.id !== "admin" || isAdmin) warmFeature(item.id);}}
                         href={"#" + item.id}
                         aria-label={t(item.label)}
                         aria-current={
@@ -204,6 +204,8 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
                       aria-haspopup="dialog"
                       aria-controls="modal"
                       aria-expanded={modal === item.id}
+                      onPointerEnter={() => warmFeature(item.id)}
+                      onFocus={() => warmFeature(item.id)}
                       onClick={() => open(item.id)}
                     >
                       <Icon name={item.icon} />
@@ -242,6 +244,7 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
           </div>
           {state.page !== "admin" && state.page !== "mypage" && state.page !== "customers" && state.storageError && <Notice error>{t(state.storageError)}</Notice>}
           <div id="page">
+            <FeatureBoundary key={state.page} ui={ui}>
             {state.page === "customers" ? (
               <Customers ui={ui} />
             ) : state.page === "mypage" ? (
@@ -259,6 +262,7 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
             ) : (
               <Details {...props} onHandoff={() => open("handoff")} />
             )}
+            </FeatureBoundary>
           </div>
         </main>
       </div>
@@ -278,7 +282,7 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
           onCloseAutoFocus={(event) => {
             event.preventDefault();
             if (returnFocus.current?.isConnected) returnFocus.current.focus();
-            else document.getElementById("page-title")?.focus();
+            else (document.getElementById("page-title") ?? document.getElementById("main"))?.focus();
           }}
           onInteractOutside={(event) => event.preventDefault()}
         >
@@ -291,6 +295,7 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
             </DialogClose>
           </div>
           <div className="dialog-body">
+            <FeatureBoundary key={modal} ui={ui}>
             {modal === "pricing" ? (
               <Pricing
                 ui={ui}
@@ -357,6 +362,7 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
                 </AlertDialog>
               </div>
             ) : null}
+            </FeatureBoundary>
           </div>
         </DialogContent>
       </Dialog>

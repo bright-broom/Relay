@@ -57,7 +57,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 await mkdir(".vercel/check-react", { recursive: true });
 await build({
   stdin: {
-    contents: `export * from './src/app/app';export * from './src/app/root';export * from './src/app/admin';export * from './src/app/store';export * from './src/app/scheduling';export * from './src/app/pricing-results';export * from './src/pricing/comparison';export * from './src/app/my-page';export * from './src/i18n/context';export * from './src/components/ui/tooltip';`,
+    contents: `export * from './src/app/feature-boundary';export * from './src/app/app';export * from './src/app/root';export * from './src/app/admin';export * from './src/app/store';export * from './src/app/scheduling';export * from './src/app/pricing-results';export * from './src/pricing/comparison';export * from './src/app/my-page';export * from './src/i18n/context';export * from './src/components/ui/tooltip';`,
     resolveDir: process.cwd(),
   },
   bundle: true,
@@ -69,7 +69,7 @@ await build({
 const api = await import(
   pathToFileURL(process.cwd() + "/.vercel/check-react/index.mjs")
 );
-const { createElement } = await import("react");
+const { createElement, lazy, useEffect } = await import("react");
 const { render, screen, fireEvent, waitFor, cleanup, within, act } =
   await import("@testing-library/react");
 const { default: userEvent } = await import("@testing-library/user-event");
@@ -107,6 +107,7 @@ assert.equal(dialog.dataset.slot, "dialog-content");
 const field = (label) => within(dialog).getByLabelText(t(label));
 const input = (label, value) =>
   fireEvent.change(field(label), { target: { value } });
+await within(dialog).findByLabelText(t("pricingCurrent"));
 assert.equal(field("pricingCurrent").value, "");
 assert.equal(
   within(dialog).getByRole("button", { name: t("pricingPresent") }).disabled,
@@ -524,4 +525,41 @@ for(const page of ['today','cases','reviews','imports','mypage','admin']) {
  cleanup();
 }
 console.log('Public workspace: general pages, pricing, sign-in links and no private API requests: OK.');
+// A slow or failed feature must leave its surrounding navigation usable.
+let finish;
+let mounts=0;
+const Slow=lazy(()=>new Promise(resolve=>{finish=resolve;}));
+const boundary=(child,key='feature')=>createElement('div',null,
+ createElement('button',null,'Synthetic navigation'),
+ createElement(api.FeatureBoundary,{ui,key},child));
+const slowView=render(boundary(createElement(Slow)));
+assert.ok(screen.getByText(t('loading')));
+assert.ok(screen.getByRole('button',{name:'Synthetic navigation'}));
+// Closing the feature before its code arrives must not mount it or run API effects.
+slowView.rerender(boundary(null));
+await act(async()=>{finish({default:()=>{useEffect(()=>{mounts++;},[]);return createElement('p',null,'Synthetic loaded feature');}});});
+assert.equal(mounts,0);
+assert.equal(screen.queryByText('Synthetic loaded feature'),null);
+slowView.rerender(boundary(createElement(Slow)));
+await screen.findByText('Synthetic loaded feature');
+assert.equal(mounts,1);
+cleanup();
+let fail;
+const Failed=lazy(()=>new Promise((_,reject)=>{fail=reject;}));
+const failedView=render(boundary(createElement(Failed)));
+assert.ok(screen.getByText(t('loading')));
+const captured=[];const previousError=console.error;
+console.error=(...args)=>captured.push(args);
+try {
+ await act(async()=>{fail(Error('Synthetic chunk download failure'));});
+ assert.ok(screen.getByText(t('featureLoadFailed')));
+ assert.ok(screen.getByRole('button',{name:t('reloadPage')}));
+ assert.ok(screen.getByRole('button',{name:'Synthetic navigation'}));
+ assert.equal(screen.queryByText('Synthetic chunk download failure'),null);
+ assert.ok(captured.some(args=>args.some(value=>String(value).includes('Synthetic chunk download failure'))));
+ failedView.rerender(boundary(createElement('p',null,'Other destination'),'other'));
+ assert.ok(screen.getByText('Other destination'));
+ assert.equal(screen.queryByText(t('featureLoadFailed')),null);
+} finally {console.error=previousError;cleanup();}
+console.log('Lazy boundary: loading, close-before-resolution, single mount, localized failure, usable shell and destination recovery passed.');
 dom.window.close();

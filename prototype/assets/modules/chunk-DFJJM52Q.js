@@ -1,0 +1,1 @@
+var e=()=>location.protocol==="https:"||location.hostname==="localhost";function o(){e()&&"serviceWorker"in navigator&&window.addEventListener("load",()=>{navigator.serviceWorker.register("./sw.js",{scope:"./",updateViaCache:"none"}).catch(()=>window.dispatchEvent(new Event("relay-offline-unavailable")))},{once:!0})}export{e as a,o as b};

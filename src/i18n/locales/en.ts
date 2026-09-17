@@ -1,5 +1,10 @@
+import {sessionMessages} from './session';
 import type {ja} from './ja';
 export const en: Record<keyof typeof ja,string> = {
+  ...sessionMessages.en,
+  featureLoadFailed: "This view could not be loaded. Check your connection and reload the page. Unsaved input may be lost.",
+  reloadPage: "Reload page",
+
   crmEditContact: "Edit contact",
   crmSaveContactChanges: "Save contact changes",
   crmContactEditScope: "Update the name, email and phone for this contact. Changes apply to any customers sharing it in this workspace. Relationships and primary-contact settings stay the same.",
@@ -267,7 +272,6 @@ export const en: Record<keyof typeof ja,string> = {
   lineRetry: "Delivery could not be confirmed. Retry the same notification.",
   lineRateLimit: "Notification limit reached. Please wait about an hour.",
   refreshConnections: "Refresh",
-  authOnline: "An online sign-in check is required to use Relay.",
   copyLinkCode: "Copy linking code",
 
   storageConflict: "Another window saved newer records. Copy your input before reopening this page.",

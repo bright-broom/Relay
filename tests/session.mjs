@@ -3,29 +3,30 @@ import { build } from 'esbuild';
 import { runInNewContext } from 'node:vm';
 
 // No browser or external requests: run the actual session entry point with synthetic sessions.
-const output = await build({entryPoints:['src/prototype/session.ts'],bundle:true,write:false,format:'iife'});
-async function setup({storageDenied=false, guest=false, initial={subject:'admin-a',isAdmin:true}}={}) {
+const assets={entry:'app-AAAAAAAA.js',eager:['app-AAAAAAAA.js','chunk-BBBBBBBB.js'],features:{customers:['chunk-CCCCCCCC.js','chunk-BBBBBBBB.js'],scheduling:['chunk-DDDDDDDD.js'],admin:['chunk-EEEEEEEE.js']}};
+const output = await build({define:{__APP_ASSETS__:JSON.stringify(assets)},entryPoints:['src/prototype/session.ts'],bundle:true,write:false,format:'iife'});
+async function setup({storageDenied=false, guest=false, hash='#today', pathname='/', search='', protocol='https:', initial={subject:'admin-a',isAdmin:true}}={}) {
   const root={hidden:false,dataset:{admin:'true',publicPreview:String(guest)},after(){}}, values=new Map();
-  const timers=[], listeners=new Map(), redirects=[], scripts=[];
+  const timers=[], listeners=new Map(), redirects=[], scripts=[], preloads=[];
   let response=initial, status=200, offline=false, invalidations=0, requests=0;
   const window={
     addEventListener:(name,fn)=>listeners.set(name,fn),
     dispatchEvent:event=>{if(event.type==='relay-session-invalidated') invalidations++;listeners.get(event.type)?.(event);},
     setInterval:fn=>timers.push(fn),
   };
-  const document={hidden:false,cookie:'',getElementById:()=>root,head:{append:script=>scripts.push(script)},
-    createElement:()=>({setAttribute(){}}),addEventListener:(name,fn)=>listeners.set(name,fn)};
+  const document={hidden:false,cookie:'',getElementById:()=>root,head:{append:element=>(element.tagName === 'script' ? scripts : preloads).push(element)},
+    createElement:tagName=>({tagName,setAttribute(){}}),addEventListener:(name,fn)=>listeners.set(name,fn)};
   const storage={getItem:key=>{if(storageDenied)throw Error('denied');return values.get(key)??null;},
     setItem:(key,value)=>{if(storageDenied)throw Error('denied');values.set(key,value);},
     removeItem:key=>{if(storageDenied)throw Error('denied');values.delete(key);}};
   const flush=async()=>{for(let i=0;i<10;i++)await Promise.resolve();};
   runInNewContext(output.outputFiles[0].text,{window,document,localStorage:storage,Event,
-    location:{protocol:'https:',search:'',replace:path=>redirects.push(path),reload:()=>redirects.push('reload')},
+    location:{protocol,hash,pathname,search,replace:path=>redirects.push(path),reload:()=>redirects.push('reload')},
     navigator:{language:'en'},URLSearchParams,Intl,
     fetch:async()=>{requests++;if(offline)throw Error('offline');return {ok:status===200,json:async()=>response};},
   });
   await flush();
-  return {root,values,redirects,scripts,document,timers,get requests(){return requests;},get invalidations(){return invalidations;},
+  return {root,values,redirects,scripts,preloads,document,timers,get requests(){return requests;},get invalidations(){return invalidations;},
     change:value=>{response=value;},fail:()=>{status=401;},offline:()=>{offline=true;},online:()=>{offline=false;},
     tick:async()=>{timers[0]();await flush();}};
 }
@@ -54,6 +55,7 @@ assert.equal(initialMember.root.dataset.admin,'false','Ignore stale admin flag i
 for(const payload of [null,{}, {subject:'a'}, {subject:'a',isAdmin:'true'}, {subject:'',isAdmin:true}]) {
  const gate=await setup({initial:payload});
  assert.equal(gate.scripts.length,0,'Malformed session must never start the app');
+ assert.equal(gate.preloads.length,0,'Malformed sessions must not preload modules');
  assert.equal(gate.root.dataset.sessionBlocked,'true');
 }
 const expired=await setup();expired.fail();await expired.tick();assert.equal(expired.invalidations,1);
@@ -79,3 +81,15 @@ for(const guest of [true,false]) {
  assert.equal(context.module.exports.workspaceStorage(),guest?tab:shared,'Guest drafts and signed-in drafts use separate storage');
 }
 console.log('Session gate: account/role changes, shared or denied storage, stale HTML, malformed/expired sessions, disposal and reconnect: OK.');
+
+const split=await setup();
+assert.equal(split.scripts[0].type,'module');assert.equal(split.scripts[0].src,'assets/modules/'+assets.entry);
+assert.deepEqual(split.preloads.map(link=>link.href),assets.eager.map(file=>'assets/modules/'+file));
+assert.ok(split.preloads.every(link=>link.rel==='modulepreload'));
+const direct=await setup({hash:'#customers'});
+assert.deepEqual(direct.preloads.map(link=>link.href),[...new Set([...assets.eager,...assets.features.customers])].map(file=>'assets/modules/'+file));
+const callback=await setup({search:'?calendar=connected'});assert.ok(callback.preloads.some(link=>link.href.endsWith('chunk-DDDDDDDD.js')));
+const adminEntry=await setup({hash:'',pathname:'/admin'});assert.ok(adminEntry.preloads.some(link=>link.href.endsWith('chunk-EEEEEEEE.js')));
+const prototypeRoute=await setup({hash:'#constructor'});assert.equal(prototypeRoute.preloads.length,assets.eager.length);
+const local=await setup({protocol:'file:'});assert.equal(local.scripts[0].src,'assets/app.js');assert.equal(local.scripts[0].type,undefined);assert.equal(local.preloads.length,0);
+console.log('Loading gate: eager import graph, direct-route preloads, no preloads on rejection and standalone preview fallback passed.');
