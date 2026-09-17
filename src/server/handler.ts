@@ -11,7 +11,7 @@ import {configured, lineConfigured, sameOrigin, origin} from './config';
 import {session, startLogin, finishLogin, logout, cookie, oauthCookie} from './auth';
 import {loginPage, type LoginStatus} from './page';
 import {ApiError, destinations, issueCode, changeDestination, webhook, notify} from './line';
-import {listWorkspaces, listCustomers, getCustomer, createCustomer} from './crm';
+import {listWorkspaces, listCustomers, getCustomer, createCustomer, changeCustomer} from './crm';
 
 const readRoutes = new Set(['login-page','admin-page','admin-overview','page','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
 export async function handle(request: Request, db?: Database, authProvider?: Configuration, crmDb?: Database): Promise<Response> {
@@ -20,7 +20,7 @@ export async function handle(request: Request, db?: Database, authProvider?: Con
   try {
     const crmRoute = ['crm-workspaces','crm-customers','crm-customer'].includes(route);
     if (!crmRoute && !['login-page','admin-page','admin-overview','page','app','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
-    if (crmRoute ? !(route === 'crm-customers' ? ['GET','POST'] : ['GET']).includes(request.method) : request.method !== (readRoutes.has(route) ? 'GET' : 'POST')) throw new ApiError(405, 'method');
+    if (crmRoute ? !(route === 'crm-customers' ? ['GET','POST'] : route === 'crm-customer' ? ['GET','PATCH'] : ['GET']).includes(request.method) : request.method !== (readRoutes.has(route) ? 'GET' : 'POST')) throw new ApiError(405, 'method');
     if (configured() && url.origin !== origin()) {
       if (route === 'page' || route === 'admin-page' || route === 'login-page') {
         const target = new URL(route === 'admin-page' ? '/admin' : route === 'login-page' ? '/login' : '/', origin());
@@ -68,13 +68,18 @@ export async function handle(request: Request, db?: Database, authProvider?: Con
     if (route === 'mcp') return await handleMcp(request,await limitedBody(request));
     const identity = await session(request, db);
     if (!identity) throw new ApiError(401, 'unauthorized');
-    if (request.method === 'POST' && !sameOrigin(request)) throw new ApiError(403, 'origin');
+    if (request.method !== 'GET' && !sameOrigin(request)) throw new ApiError(403, 'origin');
     if (route === 'crm-workspaces') return Response.json(await listWorkspaces(identity, crmDb));
-    if (route === 'crm-customers' && request.method === 'GET') return Response.json(await listCustomers(identity, url.searchParams.get('workspaceId'), url.searchParams.get('cursor'), crmDb));
-    if (route === 'crm-customer') return Response.json(await getCustomer(identity, url.searchParams.get('workspaceId'), url.searchParams.get('id'), crmDb));
-    if (route === 'crm-customers') {
+    if (route === 'crm-customers' && request.method === 'GET') {
+      const archived = url.searchParams.get('archived');
+      if (archived !== null && archived !== 'true' && archived !== 'false') throw new ApiError(400, 'invalid');
+      return Response.json(await listCustomers(identity, url.searchParams.get('workspaceId'), url.searchParams.get('cursor'), crmDb, archived === 'true'));
+    }
+    if (route === 'crm-customer' && request.method === 'GET') return Response.json(await getCustomer(identity, url.searchParams.get('workspaceId'), url.searchParams.get('id'), crmDb));
+    if (route === 'crm-customers' || route === 'crm-customer') {
       let input: unknown;
       try { input = JSON.parse(await limitedBody(request)); } catch (error) { if (error instanceof ApiError) throw error; throw new ApiError(400, 'invalid'); }
+      if (route === 'crm-customer') return Response.json(await changeCustomer(identity, url.searchParams.get('id'), input, crmDb));
       const result = await createCustomer(identity, input, crmDb);
       return Response.json(result, {status: result.replayed ? 200 : 201});
     }

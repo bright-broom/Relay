@@ -29,6 +29,7 @@ try {
   await admin.begin(async tx=>{
     await tx`SET LOCAL ROLE relay_fixture_migration`;
     await tx.unsafe(await readFile('migrations/003_crm_customers.sql','utf8'));
+    await tx.unsafe(await readFile('migrations/004_crm_customer_lifecycle.sql','utf8'));
     await tx`INSERT INTO relay_crm.workspaces(id,name) VALUES(${randomUUID()},'Synthetic provisioner check')`;
   });
   await admin`CREATE ROLE relay_fixture_runtime LOGIN PASSWORD 'synthetic-runtime-only' IN ROLE relay_crm_runtime`;
@@ -59,38 +60,66 @@ try {
   assert.equal((await runtime`SELECT count(*)::int AS n FROM relay_crm.customers`)[0].n,0,'pooled connections must not retain tenant context');
   await assert.rejects(()=>runtime`TRUNCATE relay_crm.customers`,e=>e.code==='42501');
 
-  // Pause after authorization locks. A concurrent suspension must wait for commit.
-  let release,entered;
-  const gate=new Promise(resolve=>{release=resolve;});
-  const locked=new Promise(resolve=>{entered=resolve;});
-  const pausedDb={transaction:work=>db.transaction(tx=>work({...tx,query:async(text,values)=>{
-    const rows=await tx.query(text,values);
-    if(text.includes("set_config('relay.workspace_id', $1")){entered();await gate;}
-    return rows;
-  }}))};
-  const save=api.createCustomer(identity,{...input,key:randomUUID()},pausedDb);
-  await locked;
-  let suspended=false;
-  const suspend=admin`UPDATE relay_crm.memberships SET status='suspended' WHERE workspace_id=${workspace} AND principal_id=${person}`.then(()=>{suspended=true;});
-  await pause(100);assert.equal(suspended,false);
-  release();await save;await suspend;
-  await assert.rejects(()=>api.createCustomer(identity,input,db),e=>e.status===404);
-  await assert.rejects(()=>api.listCustomers(identity,workspace,null,db),e=>e.status===404);
+  // Competing versions: exactly one writer wins; same-key retries apply only once.
+  const customerId=results[0].customer.id;
+  const edit={workspaceId:workspace,key:randomUUID(),version:'1',action:'edit',customer:{displayName:'Parallel edit',kind:'individual'}};
+  const race=await Promise.allSettled([api.changeCustomer(identity,customerId,edit,db),api.changeCustomer(identity,customerId,{...edit,key:randomUUID(),customer:{...edit.customer,displayName:'Other edit'}},db)]);
+  assert.equal(race.filter(r=>r.status==='fulfilled').length,1);
+  assert.equal(race.find(r=>r.status==='rejected').reason.code,'crmVersionConflict');
+  const retry={...edit,key:randomUUID(),version:'2'};
+  const retryResults=await Promise.all(Array.from({length:4},(_,i)=>api.changeCustomer(identity,i%2?customerId.toUpperCase():customerId,i%2?{...retry,key:retry.key.toUpperCase()}:retry,db)));
+  assert.equal(retryResults.filter(r=>!r.replayed).length,1);
+  assert.ok(retryResults.every(r=>r.customer.version==='3'&&r.appliedVersion==='3'));
+  assert.equal((await admin`SELECT count(*)::int AS n FROM relay_crm.audit_events WHERE action='edit'`)[0].n,2);
+  const lifecycleRace=await Promise.allSettled([
+    api.changeCustomer(identity,customerId,{workspaceId:workspace,key:randomUUID(),version:'3',action:'archive'},db),
+    api.changeCustomer(identity,customerId,{...edit,key:randomUUID(),version:'3'},db),
+  ]);
+  assert.equal(lifecycleRace.filter(r=>r.status==='fulfilled').length,1);
+  assert.equal(lifecycleRace.find(r=>r.status==='rejected').reason.code,'crmVersionConflict');
+  let current=await api.getCustomer(identity,workspace,customerId,db);
+  if(current.archivedAt) current=(await api.changeCustomer(identity,customerId,{workspaceId:workspace,key:randomUUID(),version:current.version,action:'restore'},db)).customer;
 
-  // Suspension that commits first must also reject an already-waiting request.
-  await admin`UPDATE relay_crm.memberships SET status='active' WHERE principal_id=${person}`;
-  let releaseSuspend,startedSuspend;
-  const suspensionGate=new Promise(resolve=>{releaseSuspend=resolve;});
-  const suspensionStarted=new Promise(resolve=>{startedSuspend=resolve;});
-  const stopping=admin.begin(async tx=>{
-    await tx`UPDATE relay_crm.memberships SET status='suspended' WHERE principal_id=${person}`;
-    startedSuspend();await suspensionGate;
-  });
-  await suspensionStarted;
-  const waiting=api.createCustomer(identity,{...input,key:randomUUID()},db);
-  const rejected=assert.rejects(()=>waiting,e=>e.status===404);
-  await pause(100);releaseSuspend();await stopping;await rejected;
-  console.log('PostgreSQL 18.6: restricted login, real RLS, four concurrent retries, pooled-context cleanup and both membership-revocation orders passed. Disposable synthetic database only.');
+  // Keep the original creation race coverage and add the same contracts for editing.
+  for (const operation of ['create','edit']) {
+    await admin`UPDATE relay_crm.memberships SET status='active' WHERE principal_id=${person}`;
+    current=await api.getCustomer(identity,workspace,customerId,db);
+    // Pause after authorization locks. A concurrent suspension must wait for commit.
+    let release,entered;
+    const gate=new Promise(resolve=>{release=resolve;});
+    const locked=new Promise(resolve=>{entered=resolve;});
+    const pausedDb={transaction:work=>db.transaction(tx=>work({...tx,query:async(text,values)=>{
+      const rows=await tx.query(text,values);
+      if(text.includes("set_config('relay.workspace_id', $1")){entered();await gate;}
+      return rows;
+    }}))};
+    const save=operation==='create' ? api.createCustomer(identity,{...input,key:randomUUID()},pausedDb)
+      : api.changeCustomer(identity,customerId,{...edit,key:randomUUID(),version:current.version},pausedDb);
+    await locked;
+    let suspended=false;
+    const suspend=admin`UPDATE relay_crm.memberships SET status='suspended' WHERE workspace_id=${workspace} AND principal_id=${person}`.then(()=>{suspended=true;});
+    await pause(100);assert.equal(suspended,false);
+    release();await save;await suspend;
+    await assert.rejects(()=>api.createCustomer(identity,input,db),e=>e.status===404);
+    await assert.rejects(()=>api.changeCustomer(identity,customerId,retry,db),e=>e.status===404);
+    await assert.rejects(()=>api.listCustomers(identity,workspace,null,db),e=>e.status===404);
+
+    // Suspension that commits first must also reject an already-waiting request.
+    await admin`UPDATE relay_crm.memberships SET status='active' WHERE principal_id=${person}`;
+    let releaseSuspend,startedSuspend;
+    const suspensionGate=new Promise(resolve=>{releaseSuspend=resolve;});
+    const suspensionStarted=new Promise(resolve=>{startedSuspend=resolve;});
+    const stopping=admin.begin(async tx=>{
+      await tx`UPDATE relay_crm.memberships SET status='suspended' WHERE principal_id=${person}`;
+      startedSuspend();await suspensionGate;
+    });
+    await suspensionStarted;
+    const waiting=operation==='create' ? api.createCustomer(identity,{...input,key:randomUUID()},db)
+      : api.changeCustomer(identity,customerId,{...edit,key:randomUUID(),version:(BigInt(current.version)+1n).toString()},db);
+    const rejected=assert.rejects(()=>waiting,e=>e.status===404);
+    await pause(100);releaseSuspend();await stopping;await rejected;
+  }
+  console.log('PostgreSQL 18.6: restricted login, real RLS, four concurrent create/edit retries, competing edits and archive, pooled-context cleanup and both membership-revocation orders passed. Disposable synthetic database only.');
 } finally {
   await Promise.allSettled([runtime?.end({timeout:1}),admin?.end({timeout:1})]);
   if(started)await execFile('docker',['rm','--force',name]);
