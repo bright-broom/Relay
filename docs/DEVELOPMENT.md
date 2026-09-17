@@ -41,3 +41,15 @@ PR の CI は GitHub が作成するマージ候補を検証する。依存 PR �
 Actionsは確認済みリリースのコミットSHAに固定し、リポジトリ権限は読取のみ、チェックアウトに認証情報を残さない。lockfileによるインストールでは依存パッケージのインストールスクリプトを実行しない。npmキャッシュ・古い実行のキャンセル・10分制限・コードに関係するパスの絞り込みで実行量を抑える。説明文書だけの変更は重い検証を起動しない。実行可能な docs/database 配下は検証対象に含める。CRM の実装テストは npm run check、実 PostgreSQL の並行性テストは npm run test:crm:postgres で実行し、CI は両方を必須とする。
 
 このCI成功は、Googleの実アカウント認証やProduction設定の正常性を証明しない。公開前には別途、本番設定の検査と実際のログイン確認を行う。
+
+## 不要コードと生成物の監査
+
+`npm run audit` は文言・CSS・共通部品の境界に加え、`npm run audit:dead-code`（Knip）と `scripts/audit-assets.ts` を実行する。Knip は手書きの TypeScript / JavaScript / CSS、テスト、運用スクリプトの依存・未使用ファイル・export を調べる。設定変更も CI を起動する。設定は [Knip の公式仕様](https://knip.dev/reference/configuration) に従う。
+
+`knip.json` の entry はブラウザー、セッション、Service Worker、サーバー、認証設定検査、ビルド用 CSS の入口。npm scripts からも入口を検出する。esbuild の文字列モジュール経由で呼び出される関数・定数は静的解析から見えないため、実際の呼び出し元を `@public` に記載する。呼び出し元を削除するときは、この注釈の必要性も再確認する。未使用を隠す目的で注釈や除外を追加しない。
+
+HTML は `src/prototype/index.html` が正本、`prototype/index.html` はサーバーに同梱する生成物。React の空の描画先とセッション起動スクリプトを持つ。ログイン HTML は `src/server/page.tsx` から生成する。これらは動作中の入口であり、旧画面として削除しない。HTML の追加、不要な画面マークアップ、配信先に残った未知の生成ファイル、未参照のデザイントークンはアセット監査で検出する。
+
+`api/relay.mjs` と `prototype/` は既存の配信・プレビュー・生成一致検査で使うため Git 管理を継続し、`.gitattributes` で生成物として明示する。生成物はソースから再生成する。`public/` は公開可能なファイルだけをビルド時に作り直し、HTML とアプリ本体を静的公開しない。
+
+未使用コードの削除と、使用中の JavaScript を TypeScript へ移す作業は別。既存の `.mjs` テスト・スクリプトは実行されており、削除対象ではない。新しいアセット監査は TypeScript で実装し、`tsconfig.tools.json` で strict に検査する。SQL の履歴、設計資料、評価用 XML、ライセンスも用途に応じて維持する。静的解析だけで動的な全実行経路の未使用を証明したとは扱わない。

@@ -7,13 +7,14 @@ import {seal,unseal,calendarConfigured} from './vault';
 import {database,type Database} from './database';
 import {ApiError} from './line';
 import {findSlots,searchSchema,searchWindow,type Busy,type Search} from '../scheduling/slots';
+/** @public Invoked by tests/calendar.mjs; source is loaded through esbuild. */
 export const calendarScopes=['https://www.googleapis.com/auth/calendar.events.freebusy','https://www.googleapis.com/auth/calendar.events.owned'];
 const connectCookie='__Host-relay-calendar';
 const callbackPath='/api/calendar/callback';
 const nowISO=()=>new Date().toISOString();
 export const proposalSchema=searchSchema.safeExtend({title:z.string().trim().min(1).max(120)});
 // Parse search independently so strict schemas never accept arbitrary event fields.
-export function parseProposal(input: Record<string,unknown>): {title:string;search:Search} {
+function parseProposal(input: Record<string,unknown>): {title:string;search:Search} {
  const {title,...criteria}=input;
  return {title:z.string().trim().min(1).max(120).parse(title),search:searchSchema.parse(criteria)};
 }
@@ -65,6 +66,7 @@ export interface GoogleCalendar {
  insert(event:CalendarEvent):Promise<CalendarEvent>;
 }
 export type CalendarEvent={id:string;status?:string;summary?:string;start?:{dateTime?:string;timeZone?:string};end?:{dateTime?:string;timeZone?:string};extendedProperties?:{private?:{relayProposal?:string}}};
+/** @public Invoked by tests/calendar.mjs; source is loaded through esbuild. */
 export async function calendarClient(identity:Identity,db:Database=database(),configuration?:oidc.Configuration,send:typeof fetch=fetch):Promise<GoogleCalendar>{
  const [connection]=await db.query<{refresh_cipher:string}>('SELECT refresh_cipher FROM relay_private.calendar_connections WHERE owner_subject=$1',[identity.subject]);
  if(!connection)throw new ApiError(409,'calendarConnect');

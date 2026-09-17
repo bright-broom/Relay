@@ -1502,7 +1502,6 @@ import {
   Pencil,
   RotateCcw,
   FileText,
-  SlidersHorizontal,
   Hourglass,
   Circle
 } from "lucide-react";
@@ -1539,7 +1538,6 @@ var icons = {
   edit: Pencil,
   reset: RotateCcw,
   file: FileText,
-  options: SlidersHorizontal,
   waiting: Hourglass,
   todo: Circle
 };
@@ -1611,21 +1609,12 @@ var buttonVariants = cva("button", {
   variants: {
     variant: {
       default: "primary",
-      destructive: "",
       outline: "",
-      secondary: "",
-      ghost: "ghost",
-      link: "link-button"
+      ghost: "ghost"
     },
     size: {
       default: "",
-      xs: "",
-      sm: "",
-      lg: "",
-      icon: "icon-button",
-      "icon-xs": "icon-button",
-      "icon-sm": "icon-button",
-      "icon-lg": "icon-button"
+      icon: "icon-button"
     }
   },
   defaultVariants: { variant: "default", size: "default" }
@@ -1655,15 +1644,13 @@ import { ChevronDownIcon } from "lucide-react";
 import { jsx as jsx3, jsxs } from "react/jsx-runtime";
 function NativeSelect({
   className,
-  size = "default",
   ...props
 }) {
-  return /* @__PURE__ */ jsxs("div", { className: "", "data-slot": "native-select-wrapper", children: [
+  return /* @__PURE__ */ jsxs("div", { "data-slot": "native-select-wrapper", children: [
     /* @__PURE__ */ jsx3(
       "select",
       {
         "data-slot": "native-select",
-        "data-size": size,
         className: cn(className),
         ...props
       }
@@ -1671,7 +1658,6 @@ function NativeSelect({
     /* @__PURE__ */ jsx3(
       ChevronDownIcon,
       {
-        className: "",
         "aria-hidden": "true",
         "data-slot": "native-select-icon"
       }
@@ -1743,7 +1729,7 @@ function TooltipContent({
       ...props,
       children: [
         children,
-        /* @__PURE__ */ jsx6(TooltipPrimitive.Arrow, { className: "" })
+        /* @__PURE__ */ jsx6(TooltipPrimitive.Arrow, {})
       ]
     }
   ) });
@@ -1781,12 +1767,7 @@ function CollapsibleContent({
 }
 
 // src/components/ui/alert.tsx
-import { cva as cva2 } from "class-variance-authority";
 import { jsx as jsx8 } from "react/jsx-runtime";
-var alertVariants = cva2("notice", {
-  variants: { variant: { default: "", destructive: "" } },
-  defaultVariants: { variant: "default" }
-});
 
 // src/ui/controls.tsx
 import { jsx as jsx9, jsxs as jsxs3 } from "react/jsx-runtime";
@@ -2003,8 +1984,6 @@ var mix = (base, overlay, amount) => {
 };
 var alpha = (hex, opacity) => `rgb(${channels(hex).join(" ")} / ${opacity})`;
 var colorRecipes = {
-  "main": ["main", "sub", 0],
-  "sub": ["sub", "main", 0],
   "surface": ["sub", "main", 0],
   "subtle": ["sub", "main", 0.035],
   "input": ["sub", "main", 0],
@@ -2022,7 +2001,6 @@ var colorTokens = Object.fromEntries(Object.entries(colorRecipes).map(
 ));
 var primitives = {
   "font": 'system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif',
-  "text-xs": "0.75rem",
   "text-sm": "0.875rem",
   "text-base": "1rem",
   "text-md": "1.125rem",
@@ -2030,7 +2008,6 @@ var primitives = {
   "text-xl": "2rem",
   "title-mobile": "1.5rem",
   "metric-size": "1.5rem",
-  "regular": "400",
   "medium": "500",
   "semibold": "600",
   "leading": "1.75",
@@ -2046,7 +2023,6 @@ var primitives = {
   "space-5": "1.5rem",
   "space-6": "2rem",
   "space-7": "3rem",
-  "space-9": "6rem",
   "radius-sm": "0.25rem",
   "radius-card": "0.25rem",
   "radius-panel": "0.5rem",
@@ -2083,7 +2059,6 @@ var componentTokens = {
   "type-subheading": primitives["text-md"],
   "type-body": primitives["text-base"],
   "type-label": primitives["text-sm"],
-  "type-caption": primitives["text-xs"],
   "price-amount": "3rem",
   "price-amount-wide": "4rem",
   "price-secondary": primitives["text-xl"],

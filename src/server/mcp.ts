@@ -28,12 +28,14 @@ export async function revokeMcpToken(identity:Identity,id:unknown,db:Database=da
  const rows=await db.query('DELETE FROM relay_private.mcp_tokens WHERE id=$1 AND owner_subject=$2 RETURNING id',[z.uuid().parse(id),identity.subject]);
  if(!rows.length)throw new ApiError(404,'missing');
 }
+/** @public Invoked by tests/calendar.mjs; source is loaded through esbuild. */
 export async function mcpIdentity(request:Request,db:Database=database()):Promise<McpIdentity|null>{
  const match=/^Bearer (relay_mcp_[A-Za-z0-9_-]{43})$/.exec(request.headers.get('authorization')??'');
  if(!match)return null;
  const [token]=await db.query<{owner_email:string;owner_subject:string;permission:'read'|'book'}>('SELECT owner_email,owner_subject,permission FROM relay_private.mcp_tokens WHERE token_hash=$1 AND expires_at>now()',[hash(match[1])]);
  return token&&allowed(token.owner_email)?{email:token.owner_email,subject:token.owner_subject,permission:token.permission}:null;
 }
+/** @public Invoked by tests/calendar.mjs; source is loaded through esbuild. */
 export function schedulingMcp(identity:McpIdentity,db:Database=database(),client?:GoogleCalendar,now?:string){
  const t=(key:Parameters<typeof translate>[1])=>translate('en',key);
  const slot=z.object({start:z.string(),end:z.string(),timeZone:z.string()});

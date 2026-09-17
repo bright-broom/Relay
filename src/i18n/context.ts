@@ -24,9 +24,3 @@ export function browserLocale(){
 export function persistLocale(locale:string){
  try{if(location.protocol==='https:')document.cookie=`relay-locale=${normalizeLocale(locale)}; Path=/; Max-Age=31536000; SameSite=Lax; Secure`;}catch{/* A blocked preference cookie must not stop the UI. */}
 }
-
-export function isoDateInZone(timeZone:string,date=new Date()){
- const parts=new Intl.DateTimeFormat('en-US',{timeZone,calendar:'iso8601',numberingSystem:'latn',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);
- const values=Object.fromEntries(parts.map(part=>[part.type,part.value]));
- return `${values.year}-${values.month}-${values.day}`;
-}

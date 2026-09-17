@@ -9,6 +9,7 @@ export class ApiError extends Error {
 }
 export type Destination = {id: string; kind: 'user' | 'group'; enabled: boolean; line_id: string};
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+/** @public Invoked by tests/server.mjs; source is loaded through esbuild. */
 export function validSignature(raw: string, signature: string | null, secret: string): boolean {
   if (!secret || !signature || !/^[A-Za-z0-9+/]{43}=$/.test(signature)) return false;
   const expected = createHmac('sha256', secret).update(raw).digest();
@@ -78,7 +79,7 @@ export async function webhook(raw: string, signature: string | null, db: Databas
     });
   }
 }
-export function notificationText(locale: Locale): string {
+function notificationText(locale: Locale): string {
   return `${translate(locale, 'lineTestMessage')}\n${origin()}`;
 }
 type Notification = {id: string; line_id: string; locale: Locale; state: string; created_at: Date};

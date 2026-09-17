@@ -1,5 +1,5 @@
 import {createCipheriv,createDecipheriv,randomBytes} from 'node:crypto';
-export function encryptionKey(): Buffer {
+function encryptionKey(): Buffer {
   const value=process.env.TOKEN_ENCRYPTION_KEY ?? '';
   if(!/^[A-Za-z0-9+/]{43}=$/.test(value))throw new Error('configuration');
   const key=Buffer.from(value,'base64');

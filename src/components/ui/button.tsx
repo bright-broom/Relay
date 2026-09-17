@@ -8,21 +8,12 @@ const buttonVariants = cva("button", {
   variants: {
     variant: {
       default: "primary",
-      destructive: "",
       outline: "",
-      secondary: "",
       ghost: "ghost",
-      link: "link-button",
     },
     size: {
       default: "",
-      xs: "",
-      sm: "",
-      lg: "",
       icon: "icon-button",
-      "icon-xs": "icon-button",
-      "icon-sm": "icon-button",
-      "icon-lg": "icon-button",
     },
   },
   defaultVariants: { variant: "default", size: "default" },
@@ -51,4 +42,4 @@ function Button({
   );
 }
 
-export { Button, buttonVariants };
+export { Button };

@@ -210,7 +210,6 @@ main{container:content / inline-size;min-inline-size:0;padding-block:var(--space
 .button.nav-link{padding:var(--space-3) var(--space-2);inline-size:100%;min-inline-size:var(--touch);border-radius:var(--radius-sm);background:transparent;color:var(--muted)}
 .button.nav-link:hover,.button.nav-link[aria-current=page],.button.nav-link[aria-expanded=true]{background:transparent;color:var(--ink)}
 .button.nav-link[aria-current=page]::after,.button.nav-link[aria-expanded=true]::after{content:"";position:absolute;inset-inline:var(--space-0);inset-block-end:var(--space-1);margin-inline:auto;inline-size:var(--space-4);border-block-end:var(--focus-width) solid currentColor;pointer-events:none}
-.button.link-button{text-decoration:underline;border-color:transparent}
 [data-slot=input],[data-slot=textarea],[data-slot=native-select-wrapper]{inline-size:100%;min-inline-size:0}
 [data-slot=native-select-wrapper]{position:relative}
 [data-slot=native-select]{inline-size:100%;appearance:none;padding-inline-end:var(--space-7)}
