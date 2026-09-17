@@ -284,7 +284,6 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
             if (returnFocus.current?.isConnected) returnFocus.current.focus();
             else (document.getElementById("page-title") ?? document.getElementById("main"))?.focus();
           }}
-          onInteractOutside={(event) => event.preventDefault()}
         >
           <div className="dialog-head">
             <DialogTitle>{modal ? t(modalTitles[modal]) : ""}</DialogTitle>

@@ -5,10 +5,24 @@ import { AlertDialog as AlertDialogPrimitive } from "radix-ui";
 
 import { Button } from "@/components/ui/button";
 
+const DismissContext = React.createContext<(() => void) | null>(null);
+
 function AlertDialog({
+  open,
+  defaultOpen = false,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {
-  return <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} />;
+  const [localOpen, setLocalOpen] = React.useState(defaultOpen);
+  const changeOpen = (next: boolean) => {
+    if (open === undefined) setLocalOpen(next);
+    onOpenChange?.(next);
+  };
+  return (
+    <DismissContext.Provider value={() => changeOpen(false)}>
+      <AlertDialogPrimitive.Root data-slot="alert-dialog" {...props} open={open ?? localOpen} onOpenChange={changeOpen} />
+    </DismissContext.Provider>
+  );
 }
 
 function AlertDialogTrigger({
@@ -29,13 +43,20 @@ function AlertDialogPortal({
 
 function AlertDialogOverlay({
   className,
+  onClick,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Overlay>) {
+  const dismiss = React.useContext(DismissContext);
   return (
     <AlertDialogPrimitive.Overlay
       data-slot="alert-dialog-overlay"
       className={cn(className)}
       {...props}
+      onClick={(event) => {
+        onClick?.(event);
+        // A backdrop click cancels only this confirmation, never its action or parent.
+        if (!event.defaultPrevented && event.target === event.currentTarget && event.button === 0 && !event.ctrlKey) dismiss?.();
+      }}
     />
   );
 }
