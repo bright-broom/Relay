@@ -34,7 +34,9 @@
 
 ## PRの自動検証
 
-`.github/workflows/verify.yml` はPRとmainへのコード変更時に、Vercelと同じNode.js 24で `npm run check` を実行する。型、ビルド、参照監査、認証・権限・カレンダー・計算・UIのテストと、コミット済み生成物の再現を確認する。Google・LINE・DBの本番資格情報は渡さず、合成プロバイダーとPGliteを使う。
+`.github/workflows/verify.yml` は PR の対象ブランチを限定しない。main 向けでも、未マージの機能ブランチを土台にした後続 PR でも、作成・再開・コード更新時に同じ検証を実行する。main への Push も引き続き対象とする。Vercel と同じ Node.js 24 で `npm run check` を実行し、型、ビルド、参照監査、認証・権限・カレンダー・計算・UI のテストと、コミット済み生成物の再現を確認する。Google・LINE・DB の本番資格情報は渡さず、合成プロバイダーと PGlite を使う。
+
+PR の CI は GitHub が作成するマージ候補を検証する。依存 PR を先にマージし、後続 PR の対象を main へ切り替える場合は、最新の対象ブランチと HEAD を含むマージ候補の検証結果を確認する。対象ブランチの変更だけでは既定の自動起動を前提にせず、最新の main を取り込むなどしてコード更新の検証を再実行する。以前の手動実行や依存ブランチ向けの成功を、そのまま main への統合可否の根拠にしない。参照：[GitHub の PR イベントとマージ候補](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request)。
 
 Actionsは確認済みリリースのコミットSHAに固定し、リポジトリ権限は読取のみ、チェックアウトに認証情報を残さない。lockfileによるインストールでは依存パッケージのインストールスクリプトを実行しない。npmキャッシュ・古い実行のキャンセル・10分制限・コードに関係するパスの絞り込みで実行量を抑える。説明文書だけの変更は重い検証を起動しない。実行可能な docs/database 配下は検証対象に含める。CRM の実装テストは npm run check、実 PostgreSQL の並行性テストは npm run test:crm:postgres で実行し、CI は両方を必須とする。
 
