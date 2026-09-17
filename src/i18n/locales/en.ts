@@ -1,5 +1,13 @@
 import type {ja} from './ja';
 export const en: Record<keyof typeof ja,string> = {
+  crmEditContact: "Edit contact",
+  crmSaveContactChanges: "Save contact changes",
+  crmContactEditScope: "Update the name, email and phone for this contact. Changes apply to any customers sharing it in this workspace. Relationships and primary-contact settings stay the same.",
+  crmContactUpdated: "Contact updated.",
+  crmContactReplayedNewer: "This change was already saved. The contact has also been changed since then.",
+  crmContactEditArchived: "Contacts cannot be edited through an archived customer. Close the editor, refresh the customer, and restore it before editing.",
+  crmContactConflict: "The contact or customer state has changed. Your draft is retained. Review the latest details, then discard the draft before editing again.",
+
   crmContactSaved: "Contact saved: {name}.",
   crmContactInvalid: "Use a name of 1–200 characters, a valid email address up to 254 characters, and a phone number up to 64 characters. Line breaks and control characters are not allowed.",
   crmContactArchived: "Contacts cannot be added to an archived customer. Cancel the draft, refresh the customer, and restore it first.",

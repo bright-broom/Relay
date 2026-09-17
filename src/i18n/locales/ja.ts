@@ -1,4 +1,12 @@
 export const ja = {
+  crmEditContact: "連絡先を編集",
+  crmSaveContactChanges: "連絡先の変更を保存",
+  crmContactEditScope: "氏名・メール・電話を更新します。この連絡先を共有する同じ所属の顧客にも反映されます。顧客との関係・主連絡先の区分は変わりません。",
+  crmContactUpdated: "連絡先を更新しました。",
+  crmContactReplayedNewer: "この変更は保存済みで、連絡先にはその後の変更もあります。",
+  crmContactEditArchived: "アーカイブ済みの顧客からは連絡先を編集できません。編集を閉じて顧客を再取得し、復元してから編集してください。",
+  crmContactConflict: "連絡先または顧客の状態が変更されています。入力は保持しています。最新内容を確認し、入力を破棄してから編集し直してください。",
+
   crmContacts: "連絡先",
   crmContactScope: "この顧客の連絡先を、同じ所属のメンバーで共有します。",
   crmLoadContacts: "連絡先を再取得",

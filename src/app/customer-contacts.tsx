@@ -1,7 +1,8 @@
 import {useEffect, useState} from 'react';
 import type {UiContext} from '../i18n/context';
 import type {MessageKey} from '../i18n/messages';
-import {contactInput, type ContactInput, type ContactCreated, type ContactPage, type Customer} from '../crm/contracts';
+import {contactInput, type ContactInput, type ContactCreated, type ContactPage, type Customer, type ContactDetails} from '../crm/contracts';
+import {ContactEditor} from './contact-editor';
 import type {CrmRun, CrmRequest} from './customer-editor';
 import {Action, Notice, SelectField} from '../ui/controls';
 import {Button} from '@/components/ui/button';
@@ -24,7 +25,9 @@ export function CustomerContacts({ui,customer,workspaceId,readOnly,busy,run,onLo
   const [invalid,setInvalid] = useState(false), [stale,setStale] = useState(false);
   const [problem,setProblem] = useState<MessageKey | null>(null);
   const [saved,setSaved] = useState<string | null>(null);
-  useEffect(()=>{onLock(editing || !!pending);return ()=>onLock(false);},[editing,pending,onLock]);
+  const [selected,setSelected] = useState<ContactDetails | null>(null);
+  const [editSaved,setEditSaved] = useState<MessageKey | null>(null);
+  useEffect(()=>{onLock(editing || !!pending || !!selected);return ()=>onLock(false);},[editing,pending,selected,onLock]);
   const load = async (request:CrmRequest,cursor:string | null = null) => {
     setPage(null);
     setPage(await request<ContactPage>(`customers/${customer.id}/contacts?workspaceId=${encodeURIComponent(workspaceId)}${cursor ? '&cursor='+encodeURIComponent(cursor) : ''}`));
@@ -52,7 +55,7 @@ export function CustomerContacts({ui,customer,workspaceId,readOnly,busy,run,onLo
   return <section className="stack" aria-label={t('crmContacts')}>
     <h3>{t('crmContacts')}</h3>
     <p className="meta">{t('crmContactScope')}</p>
-    <Action ui={ui} label="crmLoadContacts" symbol="refresh" variant="outline" disabled={busy || !!pending}
+    <Action ui={ui} label="crmLoadContacts" symbol="refresh" variant="outline" disabled={busy || !!pending || !!selected}
       onClick={()=>void run(request=>load(request))} />
     {page?.contacts.length === 0 && <Notice>{t('crmNoContacts')}</Notice>}
     {page?.contacts.map(contact=><article className="stack" key={contact.id}>
@@ -60,13 +63,28 @@ export function CustomerContacts({ui,customer,workspaceId,readOnly,busy,run,onLo
       <p className="meta">{t(relationships[contact.relationship])}{contact.isPrimary ? ' · '+t('crmContactPrimary') : ''}</p>
       <p>{t('crmContactEmail')}: {contact.email ?? t('crmContactUnknown')}</p>
       <p>{t('crmContactPhone')}: {contact.phone ?? t('crmContactUnknown')}</p>
+      {!readOnly && !customer.archivedAt && <Action ui={ui} label="crmEditContact" symbol="edit" iconOnly variant="outline"
+        disabled={busy || editing || !!pending || !!selected} onClick={()=>void run(async request=>{
+          setSaved(null);setEditSaved(null);
+          setSelected(await request<ContactDetails>(`contacts/${contact.id}?workspaceId=${encodeURIComponent(workspaceId)}&customerId=${encodeURIComponent(customer.id)}`));
+        })} />}
     </article>)}
-    {page?.nextCursor && <Action ui={ui} label="crmMoreContacts" variant="outline" disabled={busy || !!pending}
+    {page?.nextCursor && <Action ui={ui} label="crmMoreContacts" variant="outline" disabled={busy || !!pending || !!selected}
       onClick={()=>void run(request=>load(request,page.nextCursor))} />}
     {saved !== null && <Notice>{t('crmContactSaved',{name:saved})}</Notice>}
+    {editSaved && <Notice>{t(editSaved)}</Notice>}
+    {selected && <ContactEditor key={selected.contact.id} ui={ui} details={selected} workspaceId={workspaceId}
+      customerId={customer.id} busy={busy} run={run} onCancel={()=>setSelected(null)}
+      onReviewed={latest=>{
+        setSelected(latest);
+        setPage(current=>current ? {...current,contacts:current.contacts.map(contact=>contact.id === latest.contact.id ? latest.contact : contact)} : null);
+      }} onSaved={async (result,request)=>{
+        setSelected(null);setEditSaved(result.contact.version !== result.appliedVersion ? 'crmContactReplayedNewer' : 'crmContactUpdated');
+        await load(request);
+      }} />}
     {customer.archivedAt && <Notice>{t('crmContactArchived')}</Notice>}
     {!readOnly && !customer.archivedAt && <>
-      {!editing ? <Action ui={ui} label="crmAddContact" variant="outline" disabled={busy} onClick={()=>{setEditing(true);setSaved(null);}} /> :
+      {!editing ? <Action ui={ui} label="crmAddContact" variant="outline" disabled={busy || !!selected} onClick={()=>{setEditing(true);setSaved(null);setEditSaved(null);}} /> :
         <form className="stack" onSubmit={event=>{event.preventDefault();save();}} aria-busy={busy}>
           {(['displayName','email','phone'] as const).map(field=>{
             const label = {displayName:'crmContactName',email:'crmContactEmail',phone:'crmContactPhone'} as const;

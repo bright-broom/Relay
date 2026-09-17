@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {verifyContacts} from './crm-contacts.mjs';
+import {verifyContactEdits} from './crm-contact-edit.mjs';
 import {randomUUID, createHash} from 'node:crypto';
 import {readFile, mkdir} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
@@ -262,6 +263,7 @@ try {
   assert.equal((await call(new Request('https://relay.test/api/relay?route=crm-search',{method:'POST',body:JSON.stringify(searchBody)}))).status,401);
   assert.equal((await call(request('crm-search','POST',{...searchBody,query:'x'.repeat(201)}))).status,400);
   await verifyContacts({api,pg,db,id,identity,reject,scoped,sqlReject,call,request,failing,failedDedup});
+  await verifyContactEdits({api,pg,db,id,identity,reject,scoped,sqlReject,call,request,failing,failedDedup});
   process.env.ALLOWED_GOOGLE_EMAILS=identity(2).email;
   assert.equal((await call(request('crm-workspaces'))).status,401);
   console.log('CRM: runtime-role RLS, tenant isolation, viewer denial, revocation, immutable audit, atomic save/retry, upgrade preservation, edit/archive/restore, bigint conflicts, rollback, filter-bound search pagination, literal matching, search privacy and authenticated routes passed. Synthetic PGlite only.');

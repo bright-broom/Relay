@@ -1,5 +1,6 @@
 // Always creates its own disposable, loopback-only PostgreSQL. Never accepts a DB URL.
 import assert from 'node:assert/strict';
+import {verifyContactEditPostgres} from './crm-contact-edit-postgres.mjs';
 import {execFile as callbackExecFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {readFile,mkdir} from 'node:fs/promises';
@@ -31,6 +32,7 @@ try {
     await tx.unsafe(await readFile('migrations/003_crm_customers.sql','utf8'));
     await tx.unsafe(await readFile('migrations/004_crm_customer_lifecycle.sql','utf8'));
     await tx.unsafe(await readFile('migrations/005_crm_contacts.sql','utf8'));
+    await tx.unsafe(await readFile('migrations/006_crm_contact_edit.sql','utf8'));
     await tx`INSERT INTO relay_crm.workspaces(id,name) VALUES(${randomUUID()},'Synthetic provisioner check')`;
   });
   await admin`CREATE ROLE relay_fixture_runtime LOGIN PASSWORD 'synthetic-runtime-only' IN ROLE relay_crm_runtime`;
@@ -121,6 +123,8 @@ try {
       assert.equal((await api.listContacts(identity,workspace,parent.id,null,db)).contacts.length,0);
     }
   }
+
+  await verifyContactEditPostgres({api,admin,db,identity,workspace,person,customerId,contactId:contacts[0].contact.id,pause});
 
   // Keep the original creation race coverage and add the same contracts for editing.
   for (const operation of ['create','edit','contact']) {

@@ -145,6 +145,10 @@
       "dest": "/api/relay?route=crm-search"
     },
     {
+      "src": "/api/crm/contacts/([0-9a-fA-F-]+)",
+      "dest": "/api/relay?route=crm-contact&id=$1"
+    },
+    {
       "src": "/api/crm/contacts",
       "dest": "/api/relay?route=crm-contacts"
     },

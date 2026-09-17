@@ -13,7 +13,7 @@ export async function verifyContacts({api,pg,db,id,identity,reject,scoped,sqlRej
     (SELECT count(*) FROM relay_crm.request_dedup)::int AS keys`)).rows[0];
   const first = await create();
   assert.equal(first.replayed,false);
-  assert.deepEqual(first.contact,{id:first.contact.id,...input.contact});
+  assert.deepEqual(first.contact,{id:first.contact.id,...input.contact,version:'1'});
   assert.equal((await create({...input,key:input.key.toUpperCase(),customerId:parent.id.toUpperCase()})).contact.id,first.contact.id);
   assert.equal((await create()).replayed,true);
   assert.deepEqual((await list(null,2)).contacts,[first.contact]);
