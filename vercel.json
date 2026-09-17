@@ -133,6 +133,18 @@
       "dest": "/api/relay?route=mcp-revoke"
     },
     {
+      "src": "/api/crm/workspaces",
+      "dest": "/api/relay?route=crm-workspaces"
+    },
+    {
+      "src": "/api/crm/customers",
+      "dest": "/api/relay?route=crm-customers"
+    },
+    {
+      "src": "/api/crm/customers/([0-9a-fA-F-]+)",
+      "dest": "/api/relay?route=crm-customer&id=$1"
+    },
+    {
       "handle": "filesystem"
     }
   ]

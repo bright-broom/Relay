@@ -1,10 +1,11 @@
 import type {MessageKey} from '../i18n/messages';
 
-type LinkItem={kind:'page';id:'today'|'cases'|'reviews'|'imports'|'admin'|'mypage';label:MessageKey;icon:string};
+type LinkItem={kind:'page';id:'today'|'cases'|'customers'|'reviews'|'imports'|'admin'|'mypage';label:MessageKey;icon:string};
 type DialogItem={kind:'dialog';id:'pricing'|'scheduling'|'preview-info';label:MessageKey;icon:string};
 export const navigationItems=[
  {kind:'page',id:'today',label:'today',icon:'home'},
  {kind:'page',id:'cases',label:'cases',icon:'cases'},
+ {kind:'page',id:'customers',label:'crmCustomers',icon:'user'},
  {kind:'dialog',id:'pricing',label:'pricing',icon:'calculator'},
  {kind:'dialog',id:'scheduling',label:'scheduling',icon:'calendar'},
  {kind:'page',id:'reviews',label:'reviews',icon:'reviews'},

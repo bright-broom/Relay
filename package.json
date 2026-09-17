@@ -21,7 +21,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build": "node scripts/build.mjs",
-    "check": "npm run typecheck && npm run build && node scripts/check.mjs && npm run audit && npm run test:server && npm run test:calendar && npm run test:pricing && npm run test:i18n && npm run test:inputs && npm run test:ui && npm run test:viewport && npm run test:session",
+    "check": "npm run typecheck && npm run build && node scripts/check.mjs && npm run audit && npm run test:server && npm run test:calendar && npm run test:pricing && npm run test:i18n && npm run test:inputs && npm run test:ui && npm run test:viewport && npm run test:session && npm run test:crm && npm run test:crm-ui",
     "audit": "node scripts/audit.mjs",
     "test:server": "node tests/server.mjs",
     "db:migrate": "node scripts/migrate.mjs",
@@ -32,7 +32,10 @@
     "test:ui": "node tests/react-ui.mjs",
     "test:viewport": "node tests/viewport.mjs",
     "test:session": "node tests/session.mjs",
-    "check:auth-config": "node scripts/check-auth-config.mjs"
+    "check:auth-config": "node scripts/check-auth-config.mjs",
+    "test:crm": "node docs/database/verify-crm.mjs && node tests/crm.mjs",
+    "test:crm-ui": "node tests/crm-ui.mjs",
+    "test:crm:postgres": "node tests/crm-postgres.mjs"
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.5.1",

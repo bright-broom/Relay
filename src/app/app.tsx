@@ -40,6 +40,7 @@ import { Admin } from "./admin";
 import { Today, Cases, Details, Reviews, Imports } from "./pages";
 import { Pricing } from "./pricing";
 import { Scheduling } from "./scheduling";
+import { Customers } from "./customers";
 import { MyPage } from "./my-page";
 import type { Workspace } from "./store";
 type Modal =
@@ -231,17 +232,19 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
           </div>
         </aside>
         <main id="main" tabIndex={-1}>
-          <div className="topbar" hidden={(state.page === "admin" || state.page === "mypage") && !ui.fallback}>
-            {state.page !== "admin" && state.page !== "mypage" && <span className="meta">{t(publicPreview() ? "publicPreviewHint" : "previewShort")}</span>}
+          <div className="topbar" hidden={(state.page === "admin" || state.page === "mypage" || state.page === "customers") && !ui.fallback}>
+            {state.page !== "admin" && state.page !== "mypage" && state.page !== "customers" && <span className="meta">{t(publicPreview() ? "publicPreviewHint" : "previewShort")}</span>}
             {ui.fallback && (
               <span className="meta" role="status">
                 {t("languageFallback")}
               </span>
             )}
           </div>
-          {state.page !== "admin" && state.page !== "mypage" && state.storageError && <Notice error>{t(state.storageError)}</Notice>}
+          {state.page !== "admin" && state.page !== "mypage" && state.page !== "customers" && state.storageError && <Notice error>{t(state.storageError)}</Notice>}
           <div id="page">
-            {state.page === "mypage" ? (
+            {state.page === "customers" ? (
+              <Customers ui={ui} />
+            ) : state.page === "mypage" ? (
               <MyPage ui={ui} onLanguage={() => open("language")} />
             ) : state.page === "admin" ? (
               <Admin ui={ui} />

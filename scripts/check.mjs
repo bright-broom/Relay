@@ -122,7 +122,7 @@ assert.equal(activeNavigation('detail'),'cases');
 for(const hash of ['#case/2','#case/0','#case/01','#case/4/extra','#case/1e0','#case/9007199254740992'])assert.deepEqual(resolveRoute(hash,[1,4]),{page:'cases'},'Invalid case URLs must not silently open another customer');
 for(const hash of ['','#system','#unknown'])assert.deepEqual(resolveRoute(hash,[1,4]),{page:'today'});
 assert.equal(resolveRoute('#main',[1,4]),null,'Skip link must not remount the page');
-assert.deepEqual(visibleNavigation().map(item=>item.id),['today','cases','pricing','scheduling','reviews','imports','mypage','admin','preview-info']);
+assert.deepEqual(visibleNavigation().map(item=>item.id),['today','cases','customers','pricing','scheduling','reviews','imports','mypage','admin','preview-info']);
 assert.equal(visibleNavigation().find(item=>item.id==='admin').label,'adminLocked');
 assert.equal(visibleNavigation().find(item=>item.id==='admin').icon,'adminLocked');
 assert.equal(visibleNavigation(true).find(item=>item.id==='admin').label,'admin');
