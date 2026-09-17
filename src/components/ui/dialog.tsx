@@ -1,21 +1,12 @@
 // shadcn/ui registry component, styled with Relay semantic tokens. See docs/COMPONENTS.md.
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { XIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
-
-import { Button } from "@/components/ui/button";
 
 function Dialog({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
-}
-
-function DialogTrigger({
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Trigger>) {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
 }
 
 function DialogPortal({
@@ -46,13 +37,8 @@ function DialogOverlay({
 function DialogContent({
   className,
   children,
-  showCloseButton = false,
-  closeLabel,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & {
-  showCloseButton?: boolean;
-  closeLabel?: string;
-}) {
+}: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay />
@@ -62,40 +48,8 @@ function DialogContent({
         {...props}
       >
         {children}
-        {showCloseButton && closeLabel && (
-          <DialogPrimitive.Close data-slot="dialog-close" className="">
-            <XIcon />
-            <span className="sr-only">{closeLabel}</span>
-          </DialogPrimitive.Close>
-        )}
       </DialogPrimitive.Content>
     </DialogPortal>
-  );
-}
-
-function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return <div data-slot="dialog-header" className={cn(className)} {...props} />;
-}
-
-function DialogFooter({
-  className,
-  showCloseButton = false,
-  closeLabel,
-  children,
-  ...props
-}: React.ComponentProps<"div"> & {
-  showCloseButton?: boolean;
-  closeLabel?: string;
-}) {
-  return (
-    <div data-slot="dialog-footer" className={cn(className)} {...props}>
-      {children}
-      {showCloseButton && closeLabel && (
-        <DialogPrimitive.Close asChild>
-          <Button variant="outline">{closeLabel}</Button>
-        </DialogPrimitive.Close>
-      )}
-    </div>
   );
 }
 
@@ -112,28 +66,9 @@ function DialogTitle({
   );
 }
 
-function DialogDescription({
-  className,
-  ...props
-}: React.ComponentProps<typeof DialogPrimitive.Description>) {
-  return (
-    <DialogPrimitive.Description
-      data-slot="dialog-description"
-      className={cn(className)}
-      {...props}
-    />
-  );
-}
-
 export {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogOverlay,
-  DialogPortal,
   DialogTitle,
-  DialogTrigger,
 };

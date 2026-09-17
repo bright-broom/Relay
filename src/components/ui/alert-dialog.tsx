@@ -42,30 +42,17 @@ function AlertDialogOverlay({
 
 function AlertDialogContent({
   className,
-  size = "default",
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Content> & {
-  size?: "default" | "sm";
-}) {
+}: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
-        data-size={size}
         className={cn(className)}
         {...props}
       />
     </AlertDialogPortal>
-  );
-}
-
-function AlertDialogHeader({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
-  return (
-    <div data-slot="alert-dialog-header" className={cn(className)} {...props} />
   );
 }
 
@@ -101,15 +88,6 @@ function AlertDialogDescription({
       className={cn(className)}
       {...props}
     />
-  );
-}
-
-function AlertDialogMedia({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
-  return (
-    <div data-slot="alert-dialog-media" className={cn(className)} {...props} />
   );
 }
 
@@ -156,10 +134,6 @@ export {
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogMedia,
-  AlertDialogOverlay,
-  AlertDialogPortal,
   AlertDialogTitle,
   AlertDialogTrigger,
 };

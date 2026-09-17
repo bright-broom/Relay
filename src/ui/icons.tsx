@@ -31,7 +31,6 @@ import {
   Pencil,
   RotateCcw,
   FileText,
-  SlidersHorizontal,
   Hourglass,
   Circle,
   type LucideIcon,
@@ -69,7 +68,6 @@ const icons: Record<string, LucideIcon> = {
   edit: Pencil,
   reset: RotateCcw,
   file: FileText,
-  options: SlidersHorizontal,
   waiting: Hourglass,
   todo: Circle,
 };

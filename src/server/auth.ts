@@ -4,6 +4,7 @@ import {allowed, origin} from './config';
 import {administratorAllowed, administratorIssues} from './access';
 import {database, type Database} from './database';
 
+/** @public Invoked by tests/server.mjs and tests/crm.mjs; source is loaded through esbuild. */
 export const sessionCookie = '__Host-relay-session';
 export const oauthCookie = '__Host-relay-oauth';
 export const hash = (value: string) => createHash('sha256').update(value).digest('hex');

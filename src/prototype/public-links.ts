@@ -1,4 +1,5 @@
 /** Public entry points only. Credentials and access lists remain server-side. */
+/** @public Invoked by scripts/check-auth-config.mjs; source is loaded through esbuild. */
 export const publicApplicationOrigin = 'https://relay-chi-ecru.vercel.app';
 
 export function adminSignInHref(isHosted: boolean, locale: string): string {

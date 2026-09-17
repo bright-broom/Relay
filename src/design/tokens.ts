@@ -14,8 +14,8 @@ const mix = (base: string, overlay: string, amount: number) => {
 const alpha = (hex: string, opacity: number) => `rgb(${channels(hex).join(' ')} / ${opacity})`;
 
 /** base + overlay × amount; no independent gray or status palette. */
+/** @public Invoked by scripts/check.mjs; source is loaded through esbuild. */
 export const colorRecipes = {
-  'main': ['main', 'sub', 0], 'sub': ['sub', 'main', 0],
   'surface': ['sub', 'main', 0], 'subtle': ['sub', 'main', 0.035],
   'input': ['sub', 'main', 0], 'ink': ['main', 'sub', 0],
   'muted': ['main', 'sub', 0.36], 'line': ['sub', 'main', 0.10],
@@ -23,6 +23,7 @@ export const colorRecipes = {
   'accent': ['accent', 'main', 0], 'accent-hover': ['accent', 'main', 0.14],
   'accent-pressed': ['accent', 'main', 0.26], 'on-accent': ['sub', 'main', 0],
 } as const satisfies Record<string, readonly [PaletteRole, PaletteRole, number]>;
+/** @public Invoked by scripts/check.mjs; source is loaded through esbuild. */
 export const colorTokens = Object.fromEntries(Object.entries(colorRecipes).map(([key, [base, overlay, amount]]) =>
   [key, mix(palette[base], palette[overlay], amount)]
 )) as Record<keyof typeof colorRecipes, string>;
@@ -30,12 +31,12 @@ export const colorTokens = Object.fromEntries(Object.entries(colorRecipes).map((
 /** Shared scales. Framework-independent source; never edit generated CSS. */
 const primitives = {
   'font': 'system-ui, -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif',
-  'text-xs': '0.75rem', 'text-sm': '0.875rem', 'text-base': '1rem',
+  'text-sm': '0.875rem', 'text-base': '1rem',
   'text-md': '1.125rem', 'text-lg': '1.5rem', 'text-xl': '2rem',
   'title-mobile': '1.5rem', 'metric-size': '1.5rem',
-  'regular': '400', 'medium': '500', 'semibold': '600', 'leading': '1.75', 'heading-leading': '1.4', 'section-leading': '1.5', 'label-leading': '1.5', 'letter-normal': '0', 'space-0': '0', 'space-1': '0.25rem', 'space-2': '0.5rem', 'space-3': '0.75rem',
+  'medium': '500', 'semibold': '600', 'leading': '1.75', 'heading-leading': '1.4', 'section-leading': '1.5', 'label-leading': '1.5', 'letter-normal': '0', 'space-0': '0', 'space-1': '0.25rem', 'space-2': '0.5rem', 'space-3': '0.75rem',
   'space-4': '1rem', 'space-5': '1.5rem', 'space-6': '2rem', 'space-7': '3rem',
-  'space-9': '6rem', 'radius-sm': '0.25rem', 'radius-card': '0.25rem', 'radius-panel': '0.5rem', 'radius-pill': '999px',
+  'radius-sm': '0.25rem', 'radius-card': '0.25rem', 'radius-panel': '0.5rem', 'radius-pill': '999px',
   'border-width': '1px', 'focus-width': '2px', 'focus-gap': '3px',
   'action': '3rem', 'touch': '2.75rem', 'row': '3.5rem', 'icon': '1.25rem',
   'sidebar': '4.5rem', 'topbar': '3rem', 'content-max': '96rem', 'reading': '45rem',
@@ -46,11 +47,10 @@ const primitives = {
   } as const;
 
 /** Roles are bound once here; component CSS must not pick a new size. */
-export const componentTokens = {
+const componentTokens = {
   'type-page': primitives['text-lg'], 'type-page-mobile': primitives['title-mobile'],
   'type-section': primitives['text-md'], 'type-subheading': primitives['text-md'],
   'type-body': primitives['text-base'], 'type-label': primitives['text-sm'],
-  'type-caption': primitives['text-xs'],
   'price-amount': '3rem', 'price-amount-wide': '4rem',
   'price-secondary': primitives['text-xl'], 'price-content-max': '68rem',
   'price-bar-height': primitives['space-3'],
@@ -71,4 +71,5 @@ export const componentTokens = {
 
 export const tokens = { ...colorTokens, ...primitives, ...componentTokens } as const;
 
+/** @public Invoked by scripts/build.mjs; source is loaded through esbuild. */
 export const breakpoints = { narrow: '30rem', mobile: '48rem', compact: '64rem', short: '32rem', columns: '36rem', table: '56rem' } as const;

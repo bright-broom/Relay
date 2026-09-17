@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div data-slot="table-container" className="">
+    <div data-slot="table-container">
       <table data-slot="table" className={cn(className)} {...props} />
     </div>
   );
@@ -22,12 +22,6 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   return <tbody data-slot="table-body" className={cn(className)} {...props} />;
 }
 
-function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
-  return (
-    <tfoot data-slot="table-footer" className={cn(className)} {...props} />
-  );
-}
-
 function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return <tr data-slot="table-row" className={cn(className)} {...props} />;
 }
@@ -40,22 +34,11 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
   return <td data-slot="table-cell" className={cn(className)} {...props} />;
 }
 
-function TableCaption({
-  className,
-  ...props
-}: React.ComponentProps<"caption">) {
-  return (
-    <caption data-slot="table-caption" className={cn(className)} {...props} />
-  );
-}
-
 export {
   Table,
   TableHeader,
   TableBody,
-  TableFooter,
   TableHead,
   TableRow,
   TableCell,
-  TableCaption,
 };

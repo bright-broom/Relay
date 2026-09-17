@@ -14,8 +14,8 @@ function Checkbox({
       className={cn(className)}
       {...props}
     >
-      <CheckboxPrimitive.Indicator data-slot="checkbox-indicator" className="">
-        <CheckIcon className="" />
+      <CheckboxPrimitive.Indicator data-slot="checkbox-indicator">
+        <CheckIcon />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   );

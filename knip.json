@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/app/main.tsx",
+    "src/prototype/session.ts",
+    "src/pwa/worker.ts",
+    "src/server/handler.ts",
+    "src/server/readiness.ts",
+    "src/design/components.css",
+    "src/prototype/styles.css"
+  ],
+  "project": [
+    "**/*.{ts,tsx,js,mjs,cjs,css}",
+    "!api/relay.mjs",
+    "!prototype/assets/{app.js,session.js,styles.css}",
+    "!prototype/sw.js"
+  ],
+  "includeEntryExports": true,
+  "treatConfigHintsAsErrors": true
+}

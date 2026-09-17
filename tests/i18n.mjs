@@ -5,7 +5,7 @@ import {build} from 'esbuild';
 import {mkdir,readFile,readdir} from 'node:fs/promises';
 import {pathToFileURL} from 'node:url';
 await mkdir('.vercel/check-i18n',{recursive:true});
-await build({stdin:{contents:`export * from './src/i18n/messages';export * from './src/i18n/context';export * from './src/ui/icons';export * from './src/ui/controls';export * from './src/components/ui/tooltip';export * from './src/server/page';`,resolveDir:process.cwd()},bundle:true,packages:'external',platform:'node',format:'esm',outfile:'.vercel/check-i18n/index.mjs'});
+await build({stdin:{contents:`export * from './src/i18n/messages';export * from './src/i18n/context';export {relativeDate} from './src/ui/input-values';export * from './src/ui/icons';export * from './src/ui/controls';export * from './src/components/ui/tooltip';export * from './src/server/page';`,resolveDir:process.cwd()},bundle:true,packages:'external',platform:'node',format:'esm',outfile:'.vercel/check-i18n/index.mjs'});
 const api=await import(pathToFileURL(process.cwd()+'/.vercel/check-i18n/index.mjs'));
 for(const invalid of ['','en_US','<img>','ar" onload="x',null,12,'x'.repeat(101)])assert.equal(api.canonicalLocale(invalid),null);
 assert.equal(api.canonicalLocale('EN-us'),'en-US');
@@ -38,8 +38,8 @@ for(const file of (await readdir('src/app')).filter(name=>/\.tsx?$/.test(name)))
  const source=await readFile('src/app/'+file,'utf8');assert.ok(!/[\u3040-\u30ff\u3400-\u9fff]/u.test(source),'UI literal outside catalog: '+file);
 }
 console.log('i18n: regional locales, plural forms, fallback, RTL, exact currency, localized digits, SSR escaping, isolated contexts and semantic icons passed.');
-assert.equal(api.isoDateInZone('Asia/Tokyo',new Date('2026-09-13T23:30:00Z')),'2026-09-14');
-assert.equal(api.isoDateInZone('America/New_York',new Date('2026-09-13T00:30:00Z')),'2026-09-12');
+assert.equal(api.relativeDate('Asia/Tokyo',0,new Date('2026-09-13T23:30:00Z')),'2026-09-14');
+assert.equal(api.relativeDate('America/New_York',0,new Date('2026-09-13T00:30:00Z')),'2026-09-12');
 // Preference storage failures are isolated from rendering; no actual browser or cookie store is used.
 const saved=Object.fromEntries(['document','location','navigator'].map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)]));
 try{

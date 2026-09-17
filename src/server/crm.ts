@@ -16,6 +16,7 @@ const columns = `id, display_name AS "displayName", kind, status, version::text,
  to_char(archived_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "archivedAt"`;
 
 // Refuse owner/admin credentials instead of silently bypassing tenant policies.
+/** @public Invoked by tests/crm-postgres.mjs; source is loaded through esbuild. */
 export async function verifyCrmRole(db: Database): Promise<void> {
   const [row] = await db.query<{safe: boolean}>(`SELECT
     NOT (r.rolsuper OR r.rolbypassrls OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication)

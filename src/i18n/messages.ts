@@ -1,6 +1,7 @@
 import {createInstance} from 'i18next';
 import {ja} from './locales/ja';
 import {en} from './locales/en';
+/** @public Catalog parity is verified by scripts/check.mjs and tests/i18n.mjs through esbuild. */
 export {ja,en};
 export const brand='Relay';
 export const catalogs={ja,en};

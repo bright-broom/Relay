@@ -3,7 +3,7 @@ export const caseStages=['stageSchedule','stageContract','stageInstall'] as cons
 export const caseDueDates=['dueNow','dueDay','dueUnknown','overdueDate','futureDate'] as const satisfies readonly MessageKey[];
 export const caseStatuses=['todo','doing','awaiting','done'] as const;
 export const caseLevels=['today','overdue','unknown','upcoming'] as const;
-export type CaseDue=typeof caseDueDates[number];
+type CaseDue=typeof caseDueDates[number];
 export interface CaseRecord {
   id:number; name:string; area:string; stage:typeof caseStages[number]; title:string; owner:string;
   waiting:string; due:CaseDue; level:typeof caseLevels[number];

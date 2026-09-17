@@ -274,7 +274,6 @@ export function App({ workspace, isAdmin = false }: { workspace: Workspace; isAd
         <DialogContent
           id="modal"
           className={presenting ? "pricing-presentation" : ""}
-          showCloseButton={false}
           aria-describedby={undefined}
           onCloseAutoFocus={(event) => {
             event.preventDefault();

@@ -5,11 +5,13 @@
     "@tailwindcss/postcss": "4.3.3",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.7",
+    "@types/jsdom": "30.0.0",
     "@types/node": "22.20.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "esbuild": "0.28.2",
     "jsdom": "29.1.1",
+    "knip": "6.36.0",
     "postcss": "8.5.28",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2"
@@ -19,10 +21,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tools.json",
     "build": "node scripts/build.mjs",
     "check": "npm run typecheck && npm run build && node scripts/check.mjs && npm run audit && npm run test:server && npm run test:calendar && npm run test:pricing && npm run test:i18n && npm run test:inputs && npm run test:ui && npm run test:viewport && npm run test:session && npm run test:crm && npm run test:crm-ui",
-    "audit": "node scripts/audit.mjs",
+    "audit": "node scripts/audit.mjs && npm run audit:dead-code && node scripts/audit-assets.ts",
     "test:server": "node tests/server.mjs",
     "db:migrate": "node scripts/migrate.mjs",
     "test:calendar": "node tests/calendar.mjs",
@@ -35,7 +37,8 @@
     "check:auth-config": "node scripts/check-auth-config.mjs",
     "test:crm": "node docs/database/verify-crm.mjs && node tests/crm.mjs",
     "test:crm-ui": "node tests/crm-ui.mjs",
-    "test:crm:postgres": "node tests/crm-postgres.mjs"
+    "test:crm:postgres": "node tests/crm-postgres.mjs",
+    "audit:dead-code": "knip"
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.5.1",

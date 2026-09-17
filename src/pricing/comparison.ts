@@ -13,7 +13,7 @@ export const comparisonSchema=z.object({
   ctx.addIssue({code:'custom',path:['installmentMonths'],message:'installmentMismatch'});
 });
 export type ComparisonInput=z.infer<typeof comparisonSchema>;
-export const calculationVersion='fixed-cost-jpy/1.0.0';
+const calculationVersion='fixed-cost-jpy/1.0.0';
 export function compareCosts(raw:unknown){
  const input=comparisonSchema.parse(raw);
  const current=new Money(input.currentMonthly),running=new Money(input.proposedMonthly);
