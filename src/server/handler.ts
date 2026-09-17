@@ -11,14 +11,16 @@ import {configured, lineConfigured, sameOrigin, origin} from './config';
 import {session, startLogin, finishLogin, logout, cookie, oauthCookie} from './auth';
 import {loginPage, type LoginStatus} from './page';
 import {ApiError, destinations, issueCode, changeDestination, webhook, notify} from './line';
+import {listWorkspaces, listCustomers, getCustomer, createCustomer} from './crm';
 
 const readRoutes = new Set(['login-page','admin-page','admin-overview','page','app','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
-export async function handle(request: Request, db?: Database, authProvider?: Configuration): Promise<Response> {
+export async function handle(request: Request, db?: Database, authProvider?: Configuration, crmDb?: Database): Promise<Response> {
   const url = new URL(request.url), route = url.searchParams.get('route') ?? '';
   const locale = normalizeLocale(url.searchParams.get('lang')??request.headers.get('cookie')?.split('; ').find(value=>value.startsWith('relay-locale='))?.slice(13)??request.headers.get('accept-language')?.split(',')[0]?.split(';')[0]);
   try {
-    if (!['login-page','admin-page','admin-overview','page','app','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
-    if (request.method !== (readRoutes.has(route) ? 'GET' : 'POST')) throw new ApiError(405, 'method');
+    const crmRoute = ['crm-workspaces','crm-customers','crm-customer'].includes(route);
+    if (!crmRoute && !['login-page','admin-page','admin-overview','page','app','session','destinations','start','callback','logout','code','destination','notify','webhook','calendar-status','calendar-callback','calendar-connect','calendar-disconnect','schedule-propose','schedule-book','mcp','mcp-tokens','mcp-token','mcp-revoke'].includes(route)) throw new ApiError(404, 'missing');
+    if (crmRoute ? !(route === 'crm-customers' ? ['GET','POST'] : ['GET']).includes(request.method) : request.method !== (readRoutes.has(route) ? 'GET' : 'POST')) throw new ApiError(405, 'method');
     if (configured() && url.origin !== origin()) {
       if (route === 'page' || route === 'admin-page' || route === 'login-page') {
         const target = new URL(route === 'admin-page' ? '/admin' : route === 'login-page' ? '/login' : '/', origin());
@@ -67,6 +69,15 @@ export async function handle(request: Request, db?: Database, authProvider?: Con
     const identity = await session(request, db);
     if (!identity) throw new ApiError(401, 'unauthorized');
     if (request.method === 'POST' && !sameOrigin(request)) throw new ApiError(403, 'origin');
+    if (route === 'crm-workspaces') return Response.json(await listWorkspaces(identity, crmDb));
+    if (route === 'crm-customers' && request.method === 'GET') return Response.json(await listCustomers(identity, url.searchParams.get('workspaceId'), url.searchParams.get('cursor'), crmDb));
+    if (route === 'crm-customer') return Response.json(await getCustomer(identity, url.searchParams.get('workspaceId'), url.searchParams.get('id'), crmDb));
+    if (route === 'crm-customers') {
+      let input: unknown;
+      try { input = JSON.parse(await limitedBody(request)); } catch (error) { if (error instanceof ApiError) throw error; throw new ApiError(400, 'invalid'); }
+      const result = await createCustomer(identity, input, crmDb);
+      return Response.json(result, {status: result.replayed ? 200 : 201});
+    }
     if (route === 'admin-overview') return Response.json(await adminOverview(request, db));
     if (route === 'session') return Response.json({isAdmin: isAdmin(identity.email), email: identity.email, subject: identity.subject, lineReady: lineConfigured()});
     if (route === 'logout') return await logout(request);

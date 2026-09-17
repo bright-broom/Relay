@@ -16,9 +16,12 @@ function wrap(sql: postgres.Sql | postgres.TransactionSql): Database {
   };
 }
 let connection: Database | undefined;
-export function database(): Database {
-  if (!process.env.DATABASE_URL) throw new Error('configuration');
-  return connection ??= wrap(postgres(process.env.DATABASE_URL, {
+export function connectDatabase(url: string): Database {
+  return wrap(postgres(url, {
     ssl: 'verify-full', max: 1, prepare: false, idle_timeout: 20, connect_timeout: 10,
   }));
+}
+export function database(): Database {
+  if (!process.env.DATABASE_URL) throw new Error('configuration');
+  return connection ??= connectDatabase(process.env.DATABASE_URL);
 }

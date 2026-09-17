@@ -62,15 +62,18 @@ function wrap(sql) {
   };
 }
 var connection;
-function database() {
-  if (!process.env.DATABASE_URL) throw new Error("configuration");
-  return connection ??= wrap(postgres(process.env.DATABASE_URL, {
+function connectDatabase(url) {
+  return wrap(postgres(url, {
     ssl: "verify-full",
     max: 1,
     prepare: false,
     idle_timeout: 20,
     connect_timeout: 10
   }));
+}
+function database() {
+  if (!process.env.DATABASE_URL) throw new Error("configuration");
+  return connection ??= connectDatabase(process.env.DATABASE_URL);
 }
 
 // src/server/auth.ts
@@ -174,6 +177,28 @@ import { createInstance } from "i18next";
 
 // src/i18n/locales/ja.ts
 var ja = {
+  crmCustomers: "\u9867\u5BA2\u53F0\u5E33",
+  crmScope: "\u6240\u5C5E\u5148\u3067\u5171\u6709\u3059\u308B\u9867\u5BA2\u3092\u30B5\u30FC\u30D0\u30FC\u306B\u4FDD\u5B58\u3057\u307E\u3059\u3002\u516C\u958B\u30C7\u30E2\u306E\u6848\u4EF6\u3068\u306F\u5225\u306E\u30C7\u30FC\u30BF\u3067\u3059\u3002",
+  crmWorkspace: "\u6240\u5C5E\u5148",
+  crmNoWorkspace: "\u5229\u7528\u3067\u304D\u308B\u6240\u5C5E\u5148\u304C\u3042\u308A\u307E\u305B\u3093\u3002\u904B\u7528\u62C5\u5F53\u8005\u3078\u6240\u5C5E\u767B\u9332\u3092\u4F9D\u983C\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  crmReadOnly: "\u95B2\u89A7\u6A29\u9650\u3067\u5229\u7528\u3057\u3066\u3044\u307E\u3059\u3002\u9867\u5BA2\u306E\u767B\u9332\u306F\u3067\u304D\u307E\u305B\u3093\u3002",
+  crmCreate: "\u9867\u5BA2\u3092\u767B\u9332",
+  crmName: "\u9867\u5BA2\u540D",
+  crmKind: "\u9867\u5BA2\u306E\u7A2E\u985E",
+  crmIndividual: "\u500B\u4EBA",
+  crmOrganization: "\u6CD5\u4EBA\u30FB\u56E3\u4F53",
+  crmHousehold: "\u4E16\u5E2F",
+  crmInvalid: "\u9867\u5BA2\u540D\u306F 1\u301C200 \u6587\u5B57\u3067\u5165\u529B\u3057\u3001\u7A2E\u985E\u3092\u9078\u629E\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  crmFailure: "\u901A\u4FE1\u3092\u5B8C\u4E86\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u767B\u9332\u7D50\u679C\u304C\u4E0D\u660E\u306A\u5834\u5408\u306F\u3001\u5165\u529B\u3092\u5909\u3048\u305A\u306B\u518D\u9001\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  crmUnavailable: "\u9867\u5BA2\u53F0\u5E33\u3092\u5229\u7528\u3067\u304D\u307E\u305B\u3093\u3002\u63A5\u7D9A\u8A2D\u5B9A\u30FB\u6A29\u9650\u30FB\u79FB\u884C\u72B6\u6CC1\u306E\u78BA\u8A8D\u3092\u904B\u7528\u62C5\u5F53\u8005\u3078\u4F9D\u983C\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  crmAccessLost: "\u5BFE\u8C61\u3092\u53C2\u7167\u3067\u304D\u307E\u305B\u3093\u3002\u6240\u5C5E\u5148\u3068\u6A29\u9650\u3092\u518D\u8AAD\u307F\u8FBC\u307F\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  crmRetryConflict: "\u3053\u306E\u767B\u9332\u8981\u6C42\u306F\u518D\u9001\u3067\u304D\u307E\u305B\u3093\u3002\u4E00\u89A7\u3092\u78BA\u8A8D\u3057\u3001\u904B\u7528\u62C5\u5F53\u8005\u3078\u767B\u9332\u7D50\u679C\u306E\u78BA\u8A8D\u3092\u4F9D\u983C\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
+  crmPending: "\u767B\u9332\u7D50\u679C\u306E\u78BA\u8A8D\u304C\u7D42\u308F\u308B\u307E\u3067\u5165\u529B\u3092\u4FDD\u6301\u3057\u307E\u3059\u3002\u518D\u9001\u3057\u3066\u3082\u540C\u3058\u8981\u6C42\u3092\u91CD\u8907\u767B\u9332\u3057\u307E\u305B\u3093\u3002",
+  crmRetry: "\u540C\u3058\u5185\u5BB9\u3067\u518D\u9001",
+  crmSaved: "\u9867\u5BA2\u3092\u30B5\u30FC\u30D0\u30FC\u306B\u4FDD\u5B58\u3057\u307E\u3057\u305F\u3002",
+  crmDetails: "\u767B\u9332\u5185\u5BB9\u3092\u78BA\u8A8D",
+  crmEmpty: "\u767B\u9332\u6E08\u307F\u306E\u9867\u5BA2\u306F\u3042\u308A\u307E\u305B\u3093\u3002",
+  crmNextPage: "\u6B21\u306E 50 \u4EF6",
   myPage: "\u30DE\u30A4\u30DA\u30FC\u30B8",
   myProfile: "\u30ED\u30B0\u30A4\u30F3\u60C5\u5831",
   myPageFailure: "\u30DE\u30A4\u30DA\u30FC\u30B8\u3092\u8AAD\u307F\u8FBC\u3081\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u518D\u8AAD\u307F\u8FBC\u307F\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
@@ -482,6 +507,28 @@ var ja = {
 
 // src/i18n/locales/en.ts
 var en = {
+  crmCustomers: "Customers",
+  crmScope: "Customers are saved on the server and shared within your workspace, separately from demo cases.",
+  crmWorkspace: "Workspace",
+  crmNoWorkspace: "No workspace is available. Ask your administrator to provision your membership.",
+  crmReadOnly: "You have read-only access. Customer creation is unavailable.",
+  crmCreate: "Create customer",
+  crmName: "Customer name",
+  crmKind: "Customer type",
+  crmIndividual: "Individual",
+  crmOrganization: "Organization",
+  crmHousehold: "Household",
+  crmInvalid: "Enter a customer name of 1\u2013200 characters and select a type.",
+  crmFailure: "The request could not be completed. If the save result is unknown, retry the same submission.",
+  crmUnavailable: "Customers are unavailable. Ask your administrator to check the connection, permissions and migrations.",
+  crmAccessLost: "This resource is unavailable. Refresh your workspaces and permissions.",
+  crmRetryConflict: "This submission cannot be retried. Check the list and ask your administrator to verify the saved result.",
+  crmPending: "The original input is retained until the result is confirmed. Retrying the same request will not create a duplicate.",
+  crmRetry: "Retry submission",
+  crmSaved: "Customer saved on the server.",
+  crmDetails: "View customer",
+  crmEmpty: "There are no customers yet.",
+  crmNextPage: "Next 50 customers",
   myPage: "My page",
   myProfile: "Sign-in details",
   myPageFailure: "Could not load your profile. Please refresh.",
@@ -1062,8 +1109,8 @@ function parseProposal(input) {
 }
 async function calendarStatus(identity, db = database()) {
   if (!calendarConfigured()) return { ready: false, connected: false };
-  const [connection2] = await db.query("SELECT owner_subject FROM relay_private.calendar_connections WHERE owner_subject=$1", [identity.subject]);
-  return { ready: true, connected: Boolean(connection2) };
+  const [connection3] = await db.query("SELECT owner_subject FROM relay_private.calendar_connections WHERE owner_subject=$1", [identity.subject]);
+  return { ready: true, connected: Boolean(connection3) };
 }
 async function startCalendar(identity, db = database(), configuration) {
   if (!calendarConfigured()) throw new ApiError(503, "configuration");
@@ -1104,18 +1151,18 @@ async function disconnectCalendar(identity, db = database()) {
   });
 }
 async function calendarClient(identity, db = database(), configuration, send = fetch) {
-  const [connection2] = await db.query("SELECT refresh_cipher FROM relay_private.calendar_connections WHERE owner_subject=$1", [identity.subject]);
-  if (!connection2) throw new ApiError(409, "calendarConnect");
-  let access;
+  const [connection3] = await db.query("SELECT refresh_cipher FROM relay_private.calendar_connections WHERE owner_subject=$1", [identity.subject]);
+  if (!connection3) throw new ApiError(409, "calendarConnect");
+  let access2;
   try {
-    const tokens2 = await oidc2.refreshTokenGrant(configuration ?? await google(), unseal(connection2.refresh_cipher, identity.subject));
-    access = tokens2.access_token;
-    if (tokens2.refresh_token) await db.query("UPDATE relay_private.calendar_connections SET refresh_cipher=$2 WHERE owner_subject=$1 AND refresh_cipher=$3", [identity.subject, seal(tokens2.refresh_token, identity.subject), connection2.refresh_cipher]);
+    const tokens2 = await oidc2.refreshTokenGrant(configuration ?? await google(), unseal(connection3.refresh_cipher, identity.subject));
+    access2 = tokens2.access_token;
+    if (tokens2.refresh_token) await db.query("UPDATE relay_private.calendar_connections SET refresh_cipher=$2 WHERE owner_subject=$1 AND refresh_cipher=$3", [identity.subject, seal(tokens2.refresh_token, identity.subject), connection3.refresh_cipher]);
   } catch {
     throw new ApiError(409, "calendarReconnect");
   }
   async function call(path, body) {
-    const response = await send("https://www.googleapis.com/calendar/v3/" + path, { method: body ? "POST" : "GET", headers: { Authorization: "Bearer " + access, ...body ? { "Content-Type": "application/json" } : {} }, ...body ? { body: JSON.stringify(body) } : {}, signal: AbortSignal.timeout(1e4) });
+    const response = await send("https://www.googleapis.com/calendar/v3/" + path, { method: body ? "POST" : "GET", headers: { Authorization: "Bearer " + access2, ...body ? { "Content-Type": "application/json" } : {} }, ...body ? { body: JSON.stringify(body) } : {}, signal: AbortSignal.timeout(1e4) });
     if (response.status === 401) throw new ApiError(409, "calendarReconnect");
     return response;
   }
@@ -2000,14 +2047,154 @@ function loginPage(locale, status, admin = false) {
   );
 }
 
+// src/server/crm.ts
+import { createHash as createHash2, randomUUID as randomUUID4 } from "node:crypto";
+import { z as z6 } from "zod";
+
+// src/crm/contracts.ts
+import { z as z5 } from "zod";
+var customerInput = z5.object({
+  displayName: z5.string().trim().min(1).max(200).regex(/^[^\u0000-\u001f\u007f]+$/u),
+  kind: z5.enum(["individual", "organization", "household"])
+}).strict();
+var crmId = z5.uuid().transform((value) => value.toLowerCase());
+var createCustomerInput = z5.object({
+  workspaceId: crmId,
+  key: crmId,
+  customer: customerInput
+}).strict();
+
+// src/server/crm.ts
+var connection2;
+function crmDatabase() {
+  if (!process.env.CRM_DATABASE_URL) throw new ApiError(503, "crmUnavailable");
+  return connection2 ??= connectDatabase(process.env.CRM_DATABASE_URL);
+}
+var columns = `id, display_name AS "displayName", kind, status, version::text,
+ to_char(updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "updatedAt"`;
+async function verifyCrmRole(db) {
+  const [row] = await db.query(`SELECT
+    NOT (r.rolsuper OR r.rolbypassrls OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication)
+    AND pg_has_role(current_user, 'relay_crm_runtime', 'USAGE')
+    AND NOT has_schema_privilege(current_user, 'relay_crm', 'CREATE')
+    AND (SELECT count(*) = 6 AND bool_and(c.relrowsecurity AND c.relforcerowsecurity
+      AND NOT pg_has_role(current_user, c.relowner, 'MEMBER')
+      AND NOT has_table_privilege(current_user, c.oid, 'TRUNCATE'))
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'relay_crm' AND c.relkind = 'r')
+    AND NOT has_table_privilege(current_user, 'relay_crm.audit_events', 'UPDATE,DELETE')
+    AS safe FROM pg_roles r WHERE r.rolname = current_user`);
+  if (!row?.safe) throw new ApiError(503, "crmUnavailable");
+}
+async function transaction(identity, work, db) {
+  return (db ?? crmDatabase()).transaction(async (tx) => {
+    await verifyCrmRole(tx);
+    await tx.query(`SELECT set_config('relay.subject', $1, true),
+      set_config('relay.workspace_id', '', true), set_config('relay.principal_id', '', true),
+      set_config('statement_timeout', '5000', true), set_config('lock_timeout', '2000', true)`, [identity.subject]);
+    return work(tx);
+  });
+}
+async function access(tx, workspaceId, writing) {
+  const [principal] = await tx.query("SELECT id FROM relay_crm.principals FOR SHARE");
+  if (!principal) throw new ApiError(404, "missing");
+  const [member] = await tx.query(
+    "SELECT role FROM relay_crm.memberships WHERE workspace_id=$1 AND principal_id=$2 FOR SHARE",
+    [workspaceId, principal.id]
+  );
+  const [workspace] = await tx.query("SELECT id FROM relay_crm.workspaces WHERE id=$1 FOR SHARE", [workspaceId]);
+  if (!member || !workspace) throw new ApiError(404, "missing");
+  if (writing && member.role === "viewer") throw new ApiError(403, "crmReadOnly");
+  await tx.query(`SELECT set_config('relay.workspace_id', $1, true), set_config('relay.principal_id', $2, true)`, [workspaceId, principal.id]);
+  return { principalId: principal.id, role: member.role };
+}
+async function audit(tx, workspaceId, actor, entityId, action) {
+  await tx.query(`INSERT INTO relay_crm.audit_events(id, workspace_id, actor_id, request_id, entity_type, entity_id, action, changes)
+    VALUES($1,$2,$3,$4,'customer',$5,$6,'{}')`, [randomUUID4(), workspaceId, actor, randomUUID4(), entityId, action]);
+}
+async function listWorkspaces(identity, db) {
+  return transaction(identity, async (tx) => {
+    const rows = await tx.query(`SELECT w.id, w.name, m.role FROM relay_crm.workspaces w
+      JOIN relay_crm.memberships m ON m.workspace_id=w.id ORDER BY w.name, w.id LIMIT 101`);
+    if (rows.length > 100) throw new ApiError(503, "crmUnavailable");
+    return rows;
+  }, db);
+}
+var cursorSchema = z6.object({ updatedAt: z6.iso.datetime({ offset: true }), id: crmId }).strict();
+async function listCustomers(identity, workspace, cursor, db) {
+  const workspaceId = crmId.parse(workspace);
+  let after = null;
+  if (cursor !== null) {
+    if (!/^[A-Za-z0-9_-]{1,256}$/.test(cursor)) throw new ApiError(400, "invalid");
+    try {
+      after = cursorSchema.parse(JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")));
+    } catch {
+      throw new ApiError(400, "invalid");
+    }
+  }
+  return transaction(identity, async (tx) => {
+    const member = await access(tx, workspaceId, false);
+    const rows = await tx.query(`SELECT ${columns} FROM relay_crm.customers
+      WHERE workspace_id=$1 AND archived_at IS NULL
+      ${after ? "AND (updated_at,id) < ($2::timestamptz,$3::uuid)" : ""}
+      ORDER BY updated_at DESC, id DESC LIMIT 51`, after ? [workspaceId, after.updatedAt, after.id] : [workspaceId]);
+    const customers = rows.slice(0, 50), last = customers.at(-1);
+    const nextCursor = rows.length > 50 && last ? Buffer.from(JSON.stringify({ updatedAt: last.updatedAt, id: last.id })).toString("base64url") : null;
+    await audit(tx, workspaceId, member.principalId, workspaceId, "list");
+    return { customers, nextCursor };
+  }, db);
+}
+async function getCustomer(identity, workspace, id, db) {
+  const workspaceId = crmId.parse(workspace), customerId = crmId.parse(id);
+  return transaction(identity, async (tx) => {
+    const member = await access(tx, workspaceId, false);
+    const [customer] = await tx.query(`SELECT ${columns} FROM relay_crm.customers WHERE workspace_id=$1 AND id=$2 AND archived_at IS NULL`, [workspaceId, customerId]);
+    if (!customer) throw new ApiError(404, "missing");
+    await audit(tx, workspaceId, member.principalId, customer.id, "read");
+    return customer;
+  }, db);
+}
+async function createCustomer(identity, input, db) {
+  const { workspaceId, key, customer: data } = createCustomerInput.parse(input);
+  const payloadHash = createHash2("sha256").update(JSON.stringify(data)).digest("hex");
+  return transaction(identity, async (tx) => {
+    const member = await access(tx, workspaceId, true);
+    const lock = `${workspaceId}:${member.principalId}:customer.create:${key}`;
+    await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [lock]);
+    const [prior] = await tx.query(
+      `SELECT result_id, payload_hash, expires_at <= now() AS expired FROM relay_crm.request_dedup
+       WHERE workspace_id=$1 AND actor_id=$2 AND operation='customer.create' AND key=$3`,
+      [workspaceId, member.principalId, key]
+    );
+    if (prior && (prior.payload_hash !== payloadHash || prior.expired)) throw new ApiError(409, "crmRetryConflict");
+    if (prior) {
+      const [customer2] = await tx.query(`SELECT ${columns} FROM relay_crm.customers WHERE workspace_id=$1 AND id=$2 AND archived_at IS NULL`, [workspaceId, prior.result_id]);
+      if (!customer2) throw new ApiError(409, "crmRetryConflict");
+      await audit(tx, workspaceId, member.principalId, customer2.id, "replay");
+      return { customer: customer2, replayed: true };
+    }
+    const [customer] = await tx.query(
+      `INSERT INTO relay_crm.customers
+      (id,workspace_id,kind,display_name,name_search,status,owner_id)
+      VALUES($1,$2,$3,$4,$5,'prospect',$6) RETURNING ${columns}`,
+      [randomUUID4(), workspaceId, data.kind, data.displayName, data.displayName.normalize("NFKC").toLocaleLowerCase("en-US"), member.principalId]
+    );
+    await audit(tx, workspaceId, member.principalId, customer.id, "create");
+    await tx.query(`INSERT INTO relay_crm.request_dedup(workspace_id,actor_id,operation,key,payload_hash,response_status,result_id,expires_at)
+      VALUES($1,$2,'customer.create',$3,$4,201,$5,now()+interval '7 days')`, [workspaceId, member.principalId, key, payloadHash, customer.id]);
+    return { customer, replayed: false };
+  }, db);
+}
+
 // src/server/handler.ts
 var readRoutes = /* @__PURE__ */ new Set(["login-page", "admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "calendar-status", "calendar-callback", "mcp-tokens"]);
-async function handle(request, db, authProvider) {
+async function handle(request, db, authProvider, crmDb) {
   const url = new URL(request.url), route = url.searchParams.get("route") ?? "";
   const locale = normalizeLocale(url.searchParams.get("lang") ?? request.headers.get("cookie")?.split("; ").find((value) => value.startsWith("relay-locale="))?.slice(13) ?? request.headers.get("accept-language")?.split(",")[0]?.split(";")[0]);
   try {
-    if (!["login-page", "admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "logout", "code", "destination", "notify", "webhook", "calendar-status", "calendar-callback", "calendar-connect", "calendar-disconnect", "schedule-propose", "schedule-book", "mcp", "mcp-tokens", "mcp-token", "mcp-revoke"].includes(route)) throw new ApiError(404, "missing");
-    if (request.method !== (readRoutes.has(route) ? "GET" : "POST")) throw new ApiError(405, "method");
+    const crmRoute = ["crm-workspaces", "crm-customers", "crm-customer"].includes(route);
+    if (!crmRoute && !["login-page", "admin-page", "admin-overview", "page", "app", "session", "destinations", "start", "callback", "logout", "code", "destination", "notify", "webhook", "calendar-status", "calendar-callback", "calendar-connect", "calendar-disconnect", "schedule-propose", "schedule-book", "mcp", "mcp-tokens", "mcp-token", "mcp-revoke"].includes(route)) throw new ApiError(404, "missing");
+    if (crmRoute ? !(route === "crm-customers" ? ["GET", "POST"] : ["GET"]).includes(request.method) : request.method !== (readRoutes.has(route) ? "GET" : "POST")) throw new ApiError(405, "method");
     if (configured() && url.origin !== origin()) {
       if (route === "page" || route === "admin-page" || route === "login-page") {
         const target = new URL(route === "admin-page" ? "/admin" : route === "login-page" ? "/login" : "/", origin());
@@ -2056,6 +2243,20 @@ async function handle(request, db, authProvider) {
     const identity = await session(request, db);
     if (!identity) throw new ApiError(401, "unauthorized");
     if (request.method === "POST" && !sameOrigin(request)) throw new ApiError(403, "origin");
+    if (route === "crm-workspaces") return Response.json(await listWorkspaces(identity, crmDb));
+    if (route === "crm-customers" && request.method === "GET") return Response.json(await listCustomers(identity, url.searchParams.get("workspaceId"), url.searchParams.get("cursor"), crmDb));
+    if (route === "crm-customer") return Response.json(await getCustomer(identity, url.searchParams.get("workspaceId"), url.searchParams.get("id"), crmDb));
+    if (route === "crm-customers") {
+      let input2;
+      try {
+        input2 = JSON.parse(await limitedBody(request));
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
+        throw new ApiError(400, "invalid");
+      }
+      const result = await createCustomer(identity, input2, crmDb);
+      return Response.json(result, { status: result.replayed ? 200 : 201 });
+    }
     if (route === "admin-overview") return Response.json(await adminOverview(request, db));
     if (route === "session") return Response.json({ isAdmin: administratorAllowed(identity.email), email: identity.email, subject: identity.subject, lineReady: lineConfigured() });
     if (route === "logout") return await logout(request);

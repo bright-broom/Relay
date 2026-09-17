@@ -8,6 +8,7 @@ on:
       - 'tests/**'
       - 'scripts/**'
       - 'migrations/**'
+      - 'docs/database/**'
       - 'api/**'
       - 'prototype/**'
       - 'package.json'
@@ -23,6 +24,7 @@ on:
       - 'tests/**'
       - 'scripts/**'
       - 'migrations/**'
+      - 'docs/database/**'
       - 'api/**'
       - 'prototype/**'
       - 'package.json'
@@ -58,5 +60,7 @@ jobs:
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify types, build, authorization and UI behavior
         run: npm run check
+      - name: Verify CRM with isolated PostgreSQL and concurrent connections
+        run: npm run test:crm:postgres
       - name: Verify committed generated files
         run: git diff --exit-code -- api/relay.mjs prototype/index.html prototype/assets

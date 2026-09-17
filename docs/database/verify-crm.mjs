@@ -73,7 +73,7 @@ try {
  assert.equal((await pg.query('SELECT count(*)::int AS n FROM relay_crm.customers')).rows[0].n,0);
  await reject(() => insert('customers', {id:id(24),workspace_id:id(1),kind:'individual',display_name:'Not authorized',name_search:'not authorized',status:'prospect'}), '42501');
  await pg.exec('RESET ROLE');
- console.log('CRM design: existing schemas coexist; 14 tables; tenant/customer/pipeline FKs, primary contact, optimistic version, completion evidence, append-only history, pricing totals/revisions, dedup and default-deny RLS verified. Synthetic in-memory DB only; production policies and APIs remain unimplemented.');
+ console.log('CRM design: existing schemas coexist; 14 tables; tenant/customer/pipeline FKs, primary contact, optimistic version, completion evidence, append-only history, pricing totals/revisions, dedup and default-deny RLS verified. Synthetic in-memory draft only; implemented runtime policies and APIs are checked separately by tests/crm.mjs.');
 } finally {
  await pg.close();
 }
