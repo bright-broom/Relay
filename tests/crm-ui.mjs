@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {verifyContactsUi} from "./crm-contacts-ui.mjs";
 import { JSDOM } from "jsdom";
 import { build } from "esbuild";
 import { mkdir } from "node:fs/promises";
@@ -252,3 +253,5 @@ cleanup();
 globalThis.fetch = async ()=>Response.json([]);
 mount(); await screen.findByText(t('crmNoWorkspace')); cleanup();
 console.log('CRM UI: guest isolation, creation/edit retry identity, retained conflict input, archive/restore, permission loss, viewer search, applied-filter paging, search privacy, empty/error states and late-response session cleanup passed (simulated DOM).');
+
+await verifyContactsUi({mount,screen,user,waitFor,cleanup,act,t,workspace,customer});

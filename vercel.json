@@ -145,6 +145,14 @@
       "dest": "/api/relay?route=crm-search"
     },
     {
+      "src": "/api/crm/contacts",
+      "dest": "/api/relay?route=crm-contacts"
+    },
+    {
+      "src": "/api/crm/customers/([0-9a-fA-F-]+)/contacts",
+      "dest": "/api/relay?route=crm-customer-contacts&id=$1"
+    },
+    {
       "src": "/api/crm/customers/([0-9a-fA-F-]+)",
       "dest": "/api/relay?route=crm-customer&id=$1"
     },

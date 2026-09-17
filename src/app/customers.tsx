@@ -2,6 +2,7 @@ import {useEffect, useRef, useState} from 'react';
 import type {UiContext} from '../i18n/context';
 import type {MessageKey} from '../i18n/messages';
 import {customerInput, customerSearchTerm, type CustomerInput, type CrmWorkspace, type Customer, type CustomerPage, type CustomerCreated} from '../crm/contracts';
+import {CustomerContacts} from './customer-contacts';
 import {CustomerEditor, customerKinds as kinds, type CrmRun, type CrmRequest} from './customer-editor';
 import {publicPreview} from '../prototype/access-mode';
 import {sessionInvalidated} from '../prototype/session-events';
@@ -20,7 +21,9 @@ export function Customers({ui}: {ui: UiContext}) {
   const [query, setQuery] = useState(''), [search, setSearch] = useState('');
   const [searchInvalid, setSearchInvalid] = useState(false);
   const [archived, setArchived] = useState(false);
-  const [editorLocked, setEditorLocked] = useState(false);
+  const [customerLocked, setEditorLocked] = useState(false);
+  const [contactsLocked, setContactsLocked] = useState(false);
+  const editorLocked = customerLocked || contactsLocked;
   const [changed, setChanged] = useState<MessageKey | null>(null);
   const [selected, setSelected] = useState<Customer | null>(null);
   const [displayName, setDisplayName] = useState('');
@@ -84,7 +87,7 @@ export function Customers({ui}: {ui: UiContext}) {
     try { await task(request); }
     catch (cause) {
       if (!abort.signal.aborted && current === generation.current) {
-        const errors: Record<string,MessageKey> = {crmSearchInvalid:'crmSearchInvalid',crmCursorInvalid:'crmSearchRestart',crmReadOnly:'crmReadOnly',missing:'crmAccessLost',crmRetryConflict:'crmRetryConflict',invalid:'crmInvalid',crmUnavailable:'crmUnavailable'};
+        const errors: Record<string,MessageKey> = {crmContactInvalid:'crmContactInvalid',crmContactArchived:'crmContactArchived',crmPrimaryConflict:'crmPrimaryConflict',crmSearchInvalid:'crmSearchInvalid',crmCursorInvalid:'crmSearchRestart',crmReadOnly:'crmReadOnly',missing:'crmAccessLost',crmRetryConflict:'crmRetryConflict',invalid:'crmInvalid',crmUnavailable:'crmUnavailable'};
         setError(errors[cause instanceof Error ? cause.message : ''] ?? 'crmFailure');
       }
     } finally {
@@ -170,7 +173,7 @@ export function Customers({ui}: {ui: UiContext}) {
           {saved && <Notice>{t('crmSaved')}</Notice>}
           {changed && <Notice>{t(changed)}</Notice>}
           {selected && <CustomerEditor key={`${selected.id}:${selected.version}`} ui={ui} customer={selected}
-            workspaceId={workspaceId} readOnly={member.role === 'viewer'} busy={busy || !!pending} run={run}
+            workspaceId={workspaceId} readOnly={member.role === 'viewer'} busy={busy || !!pending || contactsLocked} run={run}
             onLock={setEditorLocked} onStart={()=>{setSaved(false);setChanged(null);}} onReviewed={customer=>{
               setSelected(customer); setPage(null);
               void run(async request=>setPage(await readPage(request)));
@@ -180,6 +183,9 @@ export function Customers({ui}: {ui: UiContext}) {
               setPage(null);
               setPage(await readPage(request));
             }} />}
+          {selected && <CustomerContacts key={`${workspaceId}:${selected.id}:${selected.version}`} ui={ui} customer={selected}
+            workspaceId={workspaceId} readOnly={member.role === 'viewer'} busy={busy || !!pending || customerLocked}
+            run={run} onLock={setContactsLocked} />}
           <form className="stack" role="search" aria-label={t('crmSearch')} onSubmit={event=>{event.preventDefault();applySearch();}}>
             <div className="field">
               <Label htmlFor="crm-search">{t('crmSearchName')}</Label>
