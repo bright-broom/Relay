@@ -60,4 +60,4 @@ HTML は `src/prototype/index.html` が正本、`prototype/index.html` はサー
 
 ## サーバーの ESM 解決
 
-Vercel の TypeScript 関数はバンドルせずに実行されるため、API から到達する相対 import は出力先の `.js` 拡張子を明示する。ソースは `.ts` / `.tsx` のまま TypeScript が対応付ける。サーバーの依存先でビルド専用の `@/` エイリアスを使わない。`tsconfig.server.json` の NodeNext 検査と `npm run test:server-runtime` で、個別にコンパイルした ESM の実起動・HTML・配信ファイル・認証失敗時の境界を検証する。
+Vercel の TypeScript エントリーは、ビルド時に生成する `.vercel/server/app.relay-server.mjs` を読み込む。サーバーの TS / TSX を先にバンドルし、ホストのソース拡張子探索に依存しない。生成バンドルは静的 import と `includeFiles` の両方で配信対象にし、型は `src/types/generated-server.d.ts` から正本のハンドラーを参照する。サーバー内の相対 import は出力先の `.js` 拡張子を明示する。ソースは `.ts` / `.tsx` のまま TypeScript が対応付ける。サーバーの依存先でビルド専用の `@/` エイリアスを使わない。`tsconfig.server.json` の NodeNext 検査と `npm run test:server-runtime` で、コンパイルした入口と生成バンドルだけを置いた ESM の実起動・HTML・配信ファイル・認証失敗時の境界を検証する。

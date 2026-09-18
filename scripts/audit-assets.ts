@@ -8,7 +8,7 @@ import {tokens} from '../src/design/tokens.ts';
 
 // These are deployment inputs, not a general exemption for generated directories.
 const generated = [
-  '.vercel/server/relay.mjs', 'prototype/index.html', 'prototype/assets/app.js',
+  '.vercel/server/app.relay-server.mjs', 'prototype/index.html', 'prototype/assets/app.js',
   'prototype/assets/session.js', 'prototype/assets/styles.css', 'prototype/sw.js',
   'prototype/manifest.webmanifest', ...[180,192,512].map(size=>`prototype/icons/icon-${size}.png`),
 ];

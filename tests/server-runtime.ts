@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {readFile, rm} from 'node:fs/promises';
+import {readFile, rm, mkdir, copyFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 
 // Model the native Vercel TypeScript runtime: emit separate ESM files and import
-// the actual API entry in Node. Bundled tests cannot detect unresolved imports.
+// the actual API entry plus the generated bundle in Node, without source files.
 const directory = '.vercel/check-server-runtime';
 await rm(directory,{recursive:true,force:true});
 execFileSync(resolve('node_modules/.bin/tsc'),['--project','tsconfig.server.json','--noEmit','false','--outDir',directory],{stdio:'inherit'});
+await rm(resolve(directory,'src'),{recursive:true,force:true});
+await mkdir(resolve(directory,'.vercel/server'),{recursive:true});
+await copyFile('.vercel/server/app.relay-server.mjs',resolve(directory,'.vercel/server/app.relay-server.mjs'));
 for (const key of ['APP_ORIGIN','DATABASE_URL','CRM_DATABASE_URL','GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET',
   'ALLOWED_GOOGLE_EMAILS','ADMIN_GOOGLE_EMAILS','LINE_CHANNEL_SECRET','LINE_CHANNEL_ACCESS_TOKEN','TOKEN_ENCRYPTION_KEY']) delete process.env[key];
 const {default:endpoint} = await import(pathToFileURL(resolve(directory,'api/relay.js')).href) as typeof import('../api/relay');
