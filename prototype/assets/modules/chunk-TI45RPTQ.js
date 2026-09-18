@@ -1,1 +1,0 @@
-import{c as a,f as t,g as o}from"./chunk-GQXRK6BM.js";var n=a(o(),1);function d({className:e,variant:p="default",...r}){return(0,n.jsx)("span",{"data-slot":"badge","data-variant":p,className:t("pill",e),...r})}export{d as a};

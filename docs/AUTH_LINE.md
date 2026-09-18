@@ -10,7 +10,7 @@ Google OpenID ConnectのAuthorization Code + PKCEを `openid-client` 6.8.8で処
 
 Vercelのルートを静的ファイル配信より先に評価する。`/`、`/index.html` とUIの `/assets/app.js` は公開し、未ログインでは架空データだけを扱う。`/login` は一般ログイン、`/admin` は認証・管理者権限付きの専用入口とする。APIはそれぞれセッションを確認し、変更操作はPOSTおよび同一Originを要求する。認証関連・アプリの応答はCDNを含めno-store。サーバー用コードと環境変数はブラウザーのビルドへ含めない。
 
-静的配信ディレクトリは `public/`。CSS・起動時の認証確認・アイコン・公開ガイドだけを生成し、アプリHTML/本体JSは配置しない。TypeScriptの `src/server/handler.ts` から `api/relay.mjs` をビルドし、アプリ本体はFunction内の添付ファイルから配信し、業務APIの認証は独立して維持する。認証機能はAPP_ORIGINの正規ホストのみで利用でき、古いデプロイ固有URLへのセッション持ち出しを拒否する。
+静的配信ディレクトリは `public/`。CSS・起動時の認証確認・アイコン・公開ガイドだけを生成し、アプリHTML/本体JSは配置しない。Vercel は `api/relay.ts` をコンパイルし、共通実装の `src/server/handler.ts` を呼び出す。アプリ本体はFunction内の添付ファイルから配信し、業務APIの認証は独立して維持する。認証機能はAPP_ORIGINの正規ホストのみで利用でき、古いデプロイ固有URLへのセッション持ち出しを拒否する。
 
 ## LINE通知
 
@@ -76,7 +76,7 @@ Webhook利用・再送を有効化して「検証」。グループ利用には�
 
 ## 検証
 
-`npm run check` はstrict型検査・デザイン/文言監査・既存操作テストと `tests/server.mjs` を実行する。PGlite上で本物のSQLを使い、合成署名付きOIDCで成功・state/nonce/署名/audience/issuer/期限/メール不正、セッション失効、Webhook改ざん・再送、個人/グループの所有権、通知の同一キー再送・上限、未設定/未認証の拒否を確認する。外部へのメッセージ送信は行わない。
+`npm run check` はstrict型検査・デザイン/文言監査・既存操作テストと `tests/server.ts` を実行する。PGlite上で本物のSQLを使い、合成署名付きOIDCで成功・state/nonce/署名/audience/issuer/期限/メール不正、セッション失効、Webhook改ざん・再送、個人/グループの所有権、通知の同一キー再送・上限、未設定/未認証の拒否を確認する。外部へのメッセージ送信は行わない。
 
 Google実アカウントの往復、実LINE配信、Neon/Supabase実接続、iOS/Androidの画面・インストールは未検証。ブラウザー操作は自動セキュリティ確認を完了できないため制限されており、別手段でその制限を回避しない。
 

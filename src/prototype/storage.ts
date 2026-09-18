@@ -8,7 +8,7 @@ export interface Snapshot {locale:Locale;cases:CaseRecord[];drafts:Record<number
 const member=(value:unknown,values:readonly string[])=>typeof value==='string'&&values.includes(value);
 const fixtureIds=new Set(initialCases.map(c=>c.id));
 const object=(value:unknown):value is Record<string,unknown>=>Boolean(value)&&typeof value==='object'&&!Array.isArray(value);
-/** @public Invoked by scripts/check.mjs; source is loaded through esbuild. */
+/** @public Invoked by scripts/check.ts; source is loaded through esbuild. */
 export function validSnapshot(value:unknown):value is Snapshot{
  if(!object(value)||!canonicalLocale(value.locale)||!Array.isArray(value.cases)||value.cases.length!==fixtureIds.size||!object(value.drafts))return false;
  if(!member(value.review,['pending','approved','rejected'])||typeof value.reviewOwner!=='string'||!member(value.reviewDue,['dueNow','futureDate','dueUnknown'])||typeof value.imported!=='boolean')return false;

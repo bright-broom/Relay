@@ -4,7 +4,7 @@
   "buildCommand": "npm run build",
   "outputDirectory": "public",
   "functions": {
-    "api/relay.mjs": {
+    "api/relay.ts": {
       "includeFiles": "prototype/{index.html,assets/app.js,assets/module-manifest.json,assets/modules/**}",
       "maxDuration": 60
     }

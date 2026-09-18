@@ -5,6 +5,7 @@
   },
   "include": [
     "scripts/**/*.ts",
-    "tests/loading.ts"
+    "tests/**/*.ts",
+    "docs/database/**/*.ts"
   ]
 }

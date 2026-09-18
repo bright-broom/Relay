@@ -7,14 +7,11 @@
     "src/server/handler.ts",
     "src/server/readiness.ts",
     "src/design/components.css",
-    "src/prototype/styles.css"
+    "src/prototype/styles.css",
+    "api/relay.ts"
   ],
   "project": [
-    "**/*.{ts,tsx,js,mjs,cjs,css}",
-    "!api/relay.mjs",
-    "!prototype/assets/{app.js,session.js,styles.css}",
-    "!prototype/sw.js",
-    "!prototype/assets/modules/**"
+    "**/*.{ts,tsx,js,mjs,cjs,css}"
   ],
   "includeEntryExports": true,
   "treatConfigHintsAsErrors": true

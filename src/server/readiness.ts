@@ -1,7 +1,7 @@
 import type {Database} from './database';
 
 /** Read-only deployment check: validate required columns and privileges without reading user rows. */
-/** @public Invoked by scripts/check-auth-config.mjs and tests/server.mjs; source is loaded through esbuild. */
+/** @public Invoked by scripts/check-auth-config.ts and tests/server.ts; source is loaded through esbuild. */
 export async function loginDatabaseReady(db: Pick<Database, 'query'>): Promise<boolean> {
   await db.query('SELECT token_hash,state,nonce,verifier,expires_at FROM relay_private.oauth_attempts WHERE false');
   await db.query('SELECT token_hash,subject,email,expires_at FROM relay_private.sessions WHERE false');

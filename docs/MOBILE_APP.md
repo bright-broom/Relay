@@ -24,7 +24,7 @@ iOS / Android共通のPWA。アプリストア向けの署名済みバイナリ�
 
 `npm run build` で `prototype/` にプレビューを生成し、公開可能な素材だけを `public/` にコピーする。Vercelの静的配信は `public/`。アプリHTML/本体JSはFunctionから認証後に返す。Service Workerとmanifestに再検証用の配信設定を付ける。
 
-HTMLの正本：`src/prototype/index.html`。PWA処理：`src/pwa/`。端末内保存：`src/prototype/storage.ts`。アイコン・manifest・Worker生成：`scripts/pwa.mjs`。生成物は直接編集しない。
+HTMLの正本：`src/prototype/index.html`。PWA処理：`src/pwa/`。端末内保存：`src/prototype/storage.ts`。アイコン・manifest・Worker生成：`scripts/pwa.ts`。生成物は直接編集しない。
 
 ## 実機での受入確認（未実施）
 

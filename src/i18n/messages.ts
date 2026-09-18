@@ -3,7 +3,7 @@ export {canonicalLocale,normalizeLocale} from './locale';
 import {createInstance} from 'i18next';
 import {ja} from './locales/ja';
 import {en} from './locales/en';
-/** @public Catalog parity is verified by scripts/check.mjs and tests/i18n.mjs through esbuild. */
+/** @public Catalog parity is verified by scripts/check.ts and tests/i18n.ts through esbuild. */
 export {ja,en};
 export const brand='Relay';
 export const catalogs={ja,en};

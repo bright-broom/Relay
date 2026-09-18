@@ -210,4 +210,4 @@ sequenceDiagram
 
 SQL案は隔離PGliteで既存マイグレーションとの併存、複合FK、同じ顧客/案件の制約、履歴の追記制約、完了根拠、提案金額の整合、全拒否RLSを検証する。これは本番RLS・API・保存画面を検証した証拠ではない。
 
-再検証：リポジトリで依存関係を導入し、`node docs/database/verify-crm.mjs`を実行する。本番URL・資格情報は使わない。今後`migrations/003_...sql`へ昇格する際は、許可ポリシー・限定GRANT・監査保存を含めてレビューし、通常CIへテストを統合する。
+再検証：リポジトリで依存関係を導入し、`node docs/database/verify-crm.ts`を実行する。本番URL・資格情報は使わない。今後`migrations/003_...sql`へ昇格する際は、許可ポリシー・限定GRANT・監査保存を含めてレビューし、通常CIへテストを統合する。

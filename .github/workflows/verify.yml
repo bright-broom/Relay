@@ -17,6 +17,8 @@ on:
       - 'knip.json'
       - 'vercel.json'
       - '.vercelignore'
+      - '.gitignore'
+      - '.gitattributes'
       - '.github/workflows/**'
   push:
     branches: [main]
@@ -34,6 +36,8 @@ on:
       - 'knip.json'
       - 'vercel.json'
       - '.vercelignore'
+      - '.gitignore'
+      - '.gitattributes'
       - '.github/workflows/**'
   workflow_dispatch:
 
@@ -64,5 +68,5 @@ jobs:
         run: npm run check
       - name: Verify CRM with isolated PostgreSQL and concurrent connections
         run: npm run test:crm:postgres
-      - name: Verify committed generated files
-        run: git diff --exit-code -- api/relay.mjs prototype/index.html prototype/assets
+      - name: Verify reproducible generated files
+        run: npm run check:reproducible
