@@ -8,7 +8,7 @@ import {tokens} from '../src/design/tokens.ts';
 
 // These are deployment inputs, not a general exemption for generated directories.
 const generated = [
-  '.vercel/server/app.relay-server.mjs', 'prototype/index.html', 'prototype/assets/app.js',
+  'dist/server/app.relay-server.mjs', 'prototype/index.html', 'prototype/assets/app.js',
   'prototype/assets/session.js', 'prototype/assets/styles.css', 'prototype/sw.js',
   'prototype/manifest.webmanifest', ...[180,192,512].map(size=>`prototype/icons/icon-${size}.png`),
 ];
@@ -42,7 +42,7 @@ const tracked = execFileSync('git',['ls-files','--cached','--others','--exclude-
 assert.deepEqual((await readdir('api')).sort(),['relay.ts'],'Unexpected API entry or generated JavaScript');
 const htmlFiles = [...new Set(tracked.filter(file=>/\.html?$/i.test(file)))].sort();
 assert.deepEqual(htmlFiles,['src/prototype/index.html'],'Unreviewed HTML: connect it to an entry point or remove it');
-for (const directory of ['.vercel/server','prototype']) {
+for (const directory of ['dist/server','prototype']) {
   const files = (await readdir(directory,{recursive:true,withFileTypes:true})).filter(entry=>entry.isFile())
     .map(entry=>posix.relative(process.cwd(),posix.join(entry.parentPath,entry.name))).sort();
   assert.deepEqual(files,generated.filter(file=>file.startsWith(directory+'/')).sort(),'Unexpected or missing generated asset');

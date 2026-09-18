@@ -230,7 +230,7 @@ scripts/             ビルド・監査・接続設定の検査
 tests/              計算・認証・連携・UIの自動テスト
 ```
 
-アプリ・API・テスト・ビルド・運用スクリプトの正本は TypeScript です。Vercel の入口は `api/relay.ts`。`prototype/`、`public/`、`.vercel/server/` はビルド時に生成し、Git 管理しません。ブラウザーで実行する JavaScript は配信時に生成します。`npm run audit` が JavaScript ソースの混入を検出し、`npm run check:reproducible` が生成物の再現性を検証します。採用ライブラリの正本は[package.json](package.json)と[lockfile](package-lock.json)です。
+アプリ・API・テスト・ビルド・運用スクリプトの正本は TypeScript です。Vercel の入口は `api/relay.ts`。`prototype/`、`public/`、`dist/server/` はビルド時に生成し、Git 管理しません。ブラウザーで実行する JavaScript は配信時に生成します。`npm run audit` が JavaScript ソースの混入を検出し、`npm run check:reproducible` が生成物の再現性を検証します。採用ライブラリの正本は[package.json](package.json)と[lockfile](package-lock.json)です。
 
 ### 認証・外部連携を有効にする
 

@@ -22,9 +22,9 @@ const applicationAssets = await buildModules();
 // Standalone IIFE remains the file:// preview entry; HTTP uses split ESM modules.
 await build({entryPoints:['src/app/main.tsx'],outfile:'prototype/assets/app.js',bundle:true,format:'iife',target:['safari16','chrome110'],minify:true});
 await build({entryPoints:['src/prototype/session.ts'],define:{__APP_ASSETS__:JSON.stringify(applicationAssets)},outfile:'prototype/assets/session.js',bundle:true,format:'iife',target:['safari16','chrome110'],minify:true});
-await rm('.vercel/server',{recursive:true,force:true});
-await mkdir('.vercel/server',{recursive:true});
-await build({entryPoints:['src/server/handler.ts'],outfile:'.vercel/server/app.relay-server.mjs',bundle:true,packages:'external',platform:'node',format:'esm',target:'node24',banner:{js:'// Generated from src/server/handler.ts. Do not edit.'}});
+await rm('dist/server',{recursive:true,force:true});
+await mkdir('dist/server',{recursive:true});
+await build({entryPoints:['src/server/handler.ts'],outfile:'dist/server/app.relay-server.mjs',bundle:true,packages:'external',platform:'node',format:'esm',target:'node24',banner:{js:'// Generated from src/server/handler.ts. Do not edit.'}});
 await buildPwa(palette,brand);
 // Only explicitly public files reach the static CDN. Private app files live in the function bundle.
 await rm('public',{recursive:true,force:true});

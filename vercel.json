@@ -5,7 +5,7 @@
   "outputDirectory": "public",
   "functions": {
     "api/relay.ts": {
-      "includeFiles": "{prototype/{index.html,assets/app.js,assets/module-manifest.json,assets/modules/**},.vercel/server/app.relay-server.mjs}",
+      "includeFiles": "{prototype/{index.html,assets/app.js,assets/module-manifest.json,assets/modules/**},dist/server/app.relay-server.mjs}",
       "maxDuration": 60
     }
   },

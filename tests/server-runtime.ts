@@ -10,8 +10,8 @@ const directory = '.vercel/check-server-runtime';
 await rm(directory,{recursive:true,force:true});
 execFileSync(resolve('node_modules/.bin/tsc'),['--project','tsconfig.server.json','--noEmit','false','--outDir',directory],{stdio:'inherit'});
 await rm(resolve(directory,'src'),{recursive:true,force:true});
-await mkdir(resolve(directory,'.vercel/server'),{recursive:true});
-await copyFile('.vercel/server/app.relay-server.mjs',resolve(directory,'.vercel/server/app.relay-server.mjs'));
+await mkdir(resolve(directory,'dist/server'),{recursive:true});
+await copyFile('dist/server/app.relay-server.mjs',resolve(directory,'dist/server/app.relay-server.mjs'));
 for (const key of ['APP_ORIGIN','DATABASE_URL','CRM_DATABASE_URL','GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET',
   'ALLOWED_GOOGLE_EMAILS','ADMIN_GOOGLE_EMAILS','LINE_CHANNEL_SECRET','LINE_CHANNEL_ACCESS_TOKEN','TOKEN_ENCRYPTION_KEY']) delete process.env[key];
 const {default:endpoint} = await import(pathToFileURL(resolve(directory,'api/relay.js')).href) as typeof import('../api/relay');

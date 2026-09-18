@@ -50,7 +50,7 @@ Actionsは確認済みリリースのコミットSHAに固定し、リポジト�
 
 HTML は `src/prototype/index.html` が正本、`prototype/index.html` はサーバーに同梱する生成物。React の空の描画先とセッション起動スクリプトを持つ。ログイン HTML は `src/server/page.tsx` から生成する。これらは動作中の入口であり、旧画面として削除しない。HTML の追加、不要な画面マークアップ、配信先に残った未知の生成ファイル、未参照のデザイントークンはアセット監査で検出する。
 
-`prototype/` と `.vercel/server/` は配信・プレビュー用にビルド時に生成し、Git 管理から除外する。Vercel の入口は `api/relay.ts`。`npm run check:reproducible` は生成物全件のパス・SHA-256 を記録し、再ビルド後の一致を検証する。`public/` は公開可能なファイルだけをビルド時に作り直し、HTML とアプリ本体を静的公開しない。
+`prototype/` と `dist/server/` は配信・プレビュー用にビルド時に生成し、Git 管理から除外する。Vercel の入口は `api/relay.ts`。`npm run check:reproducible` は生成物全件のパス・SHA-256 を記録し、再ビルド後の一致を検証する。`public/` は公開可能なファイルだけをビルド時に作り直し、HTML とアプリ本体を静的公開しない。
 
 テスト・ビルド・運用スクリプトも `.ts` とし、`tsconfig.tools.json` で strict に検査する。Node.js 24 の型除去で実行するため、実行時の相対 import は `.ts` を明示する。`scripts/audit-source.ts` は Git 管理対象と未追跡のソースに `.js` / `.mjs` / `.cjs` がないことを検査する。生成された JavaScript はブラウザーの実行に必要なため、ビルド成果物として検証し配信する。SQL の履歴、設計資料、評価用 XML、ライセンスも用途に応じて維持する。静的解析だけで動的な全実行経路の未使用を証明したとは扱わない。
 
@@ -60,4 +60,4 @@ HTML は `src/prototype/index.html` が正本、`prototype/index.html` はサー
 
 ## サーバーの ESM 解決
 
-Vercel の TypeScript エントリーは、ビルド時に生成する `.vercel/server/app.relay-server.mjs` を読み込む。サーバーの TS / TSX を先にバンドルし、ホストのソース拡張子探索に依存しない。生成バンドルは静的 import と `includeFiles` の両方で配信対象にし、型は `src/types/generated-server.d.ts` から正本のハンドラーを参照する。サーバー内の相対 import は出力先の `.js` 拡張子を明示する。ソースは `.ts` / `.tsx` のまま TypeScript が対応付ける。サーバーの依存先でビルド専用の `@/` エイリアスを使わない。`tsconfig.server.json` の NodeNext 検査と `npm run test:server-runtime` で、コンパイルした入口と生成バンドルだけを置いた ESM の実起動・HTML・配信ファイル・認証失敗時の境界を検証する。
+Vercel の TypeScript エントリーは、ビルド時に生成する `dist/server/app.relay-server.mjs` を読み込む。サーバーの TS / TSX を先にバンドルし、ホストのソース拡張子探索に依存しない。生成バンドルは静的 import と `includeFiles` の両方で配信対象にし、型は `src/types/generated-server.d.ts` から正本のハンドラーを参照する。サーバー内の相対 import は出力先の `.js` 拡張子を明示する。ソースは `.ts` / `.tsx` のまま TypeScript が対応付ける。サーバーの依存先でビルド専用の `@/` エイリアスを使わない。`tsconfig.server.json` の NodeNext 検査と `npm run test:server-runtime` で、コンパイルした入口と生成バンドルだけを置いた ESM の実起動・HTML・配信ファイル・認証失敗時の境界を検証する。

@@ -6,7 +6,7 @@ import {join} from 'node:path';
 
 async function snapshot() {
   const hashes: Record<string,string> = {};
-  for (const directory of ['prototype','public','.vercel/server']) {
+  for (const directory of ['prototype','public','dist/server']) {
     const entries = await readdir(directory,{recursive:true,withFileTypes:true});
     for (const entry of entries.filter(item=>item.isFile())) {
       const path = join(entry.parentPath,entry.name);
