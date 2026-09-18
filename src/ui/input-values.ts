@@ -5,7 +5,7 @@ export const evidenceKinds=['quote','invoice','priceList','other'] as const;
 type EvidenceKind=typeof evidenceKinds[number];
 export const evidenceLabels={quote:'sourceQuote',invoice:'sourceInvoice',priceList:'sourcePriceList',other:'customValue'} as const;
 export interface CostEvidence {kind:string;date:string;reference:string}
-/** @public Invoked by tests/input-ux.mjs; source is loaded through esbuild. */
+/** @public Invoked by tests/input-ux.ts; source is loaded through esbuild. */
 export function validIsoDate(value:string):boolean {
  if(!/^\d{4}-\d{2}-\d{2}$/.test(value)||value.startsWith('0000'))return false;
  try{return Temporal.PlainDate.from(value).toString()===value;}catch{return false;}

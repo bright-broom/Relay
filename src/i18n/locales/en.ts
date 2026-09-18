@@ -1,5 +1,5 @@
-import {sessionMessages} from './session';
-import type {ja} from './ja';
+import {sessionMessages} from './session.js';
+import type {ja} from './ja.js';
 export const en: Record<keyof typeof ja,string> = {
   ...sessionMessages.en,
   featureLoadFailed: "This view could not be loaded. Check your connection and reload the page. Unsaved input may be lost.",

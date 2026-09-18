@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { allowed } from './config';
+import { allowed } from './config.js';
 
 type Environment = Readonly<Record<string, string | undefined>>;
 export type ConfigurationIssue = {
@@ -24,7 +24,7 @@ export function administratorIssues(env: Environment = process.env): Configurati
 export function administratorAllowed(email: unknown): boolean {
   return administratorIssues().length === 0 && allowed(email) && allowed(email, process.env.ADMIN_GOOGLE_EMAILS ?? '');
 }
-/** @public Invoked by scripts/check-auth-config.mjs and tests/server.mjs; source is loaded through esbuild. */
+/** @public Invoked by scripts/check-auth-config.ts and tests/server.ts; source is loaded through esbuild. */
 export function authConfigurationIssues(env: Environment = process.env): ConfigurationIssue[] {
   const issues = administratorIssues(env);
   for (const field of ['APP_ORIGIN','GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','DATABASE_URL']) {

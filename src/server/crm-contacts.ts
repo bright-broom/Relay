@@ -1,10 +1,10 @@
 import {createHash, randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import type {Identity} from './auth';
-import type {Database, Row} from './database';
-import {ApiError} from './line';
-import {transaction, access, audit} from './crm';
-import {crmId, createContactInput, editContactInput, type CustomerContact, type ContactCreated, type ContactPage, type ContactDetails, type ContactEdited} from '../crm/contracts';
+import type {Identity} from './auth.js';
+import type {Database, Row} from './database.js';
+import {ApiError} from './line.js';
+import {transaction, access, audit} from './crm.js';
+import {crmId, createContactInput, editContactInput, type CustomerContact, type ContactCreated, type ContactPage, type ContactDetails, type ContactEdited} from '../crm/contracts.js';
 
 const columns = `c.id, c.display_name AS "displayName", c.email, c.phone, c.version::text, r.relationship, r.is_primary AS "isPrimary"`;
 const joined = `relay_crm.contacts c JOIN relay_crm.customer_contacts r ON r.workspace_id=c.workspace_id AND r.contact_id=c.id`;

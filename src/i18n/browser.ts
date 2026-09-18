@@ -1,4 +1,4 @@
-import {normalizeLocale} from './locale';
+import {normalizeLocale} from './locale.js';
 function localeCookie(){
  try{return document.cookie.split('; ').find(value=>value.startsWith('relay-locale='))?.slice(13);}catch{return undefined;}
 }

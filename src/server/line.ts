@@ -1,15 +1,15 @@
 import {createHmac, timingSafeEqual, randomUUID} from 'node:crypto';
-import {hash, randomToken, type Identity} from './auth';
-import {allowed, origin} from './config';
-import {database, type Database} from './database';
-import {translate, type Locale} from '../i18n/messages';
+import {hash, randomToken, type Identity} from './auth.js';
+import {allowed, origin} from './config.js';
+import {database, type Database} from './database.js';
+import {translate, type Locale} from '../i18n/messages.js';
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string) { super(code); }
 }
 export type Destination = {id: string; kind: 'user' | 'group'; enabled: boolean; line_id: string};
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-/** @public Invoked by tests/server.mjs; source is loaded through esbuild. */
+/** @public Invoked by tests/server.ts; source is loaded through esbuild. */
 export function validSignature(raw: string, signature: string | null, secret: string): boolean {
   if (!secret || !signature || !/^[A-Za-z0-9+/]{43}=$/.test(signature)) return false;
   const expected = createHmac('sha256', secret).update(raw).digest();

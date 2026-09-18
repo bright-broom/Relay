@@ -13,5 +13,6 @@ coverage/
 private/
 imports/
 
-# Generated public-only deployment assets
+# Generated preview and public-only deployment assets (TypeScript is the source)
+prototype/
 public/

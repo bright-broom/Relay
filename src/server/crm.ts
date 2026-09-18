@@ -1,9 +1,9 @@
 import {createHash, randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import type {Identity} from './auth';
-import {connectDatabase, type Database, type Row} from './database';
-import {ApiError} from './line';
-import {crmId, createCustomerInput, changeCustomerInput, customerSearchTerm, searchCustomersInput, normalizeCustomerName, type CrmWorkspace, type Customer, type CustomerPage, type CustomerCreated, type CustomerChanged} from '../crm/contracts';
+import type {Identity} from './auth.js';
+import {connectDatabase, type Database, type Row} from './database.js';
+import {ApiError} from './line.js';
+import {crmId, createCustomerInput, changeCustomerInput, customerSearchTerm, searchCustomersInput, normalizeCustomerName, type CrmWorkspace, type Customer, type CustomerPage, type CustomerCreated, type CustomerChanged} from '../crm/contracts.js';
 
 let connection: Database | undefined;
 function crmDatabase(): Database {
@@ -16,7 +16,7 @@ const columns = `id, display_name AS "displayName", kind, status, version::text,
  to_char(archived_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "archivedAt"`;
 
 // Refuse owner/admin credentials instead of silently bypassing tenant policies.
-/** @public Invoked by tests/crm-postgres.mjs; source is loaded through esbuild. */
+/** @public Invoked by tests/crm-postgres.ts; source is loaded through esbuild. */
 export async function verifyCrmRole(db: Database): Promise<void> {
   const [row] = await db.query<{safe: boolean}>(`SELECT
     NOT (r.rolsuper OR r.rolbypassrls OR r.rolcreaterole OR r.rolcreatedb OR r.rolreplication)

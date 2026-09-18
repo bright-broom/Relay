@@ -1,25 +1,25 @@
 import { useId, useState, type ReactNode, type ComponentProps } from "react";
-import type { UiContext } from "../i18n/context";
-import type { MessageKey } from "../i18n/messages";
-import { Icon, iconOnly, labeled } from "./icons";
-import { Button } from "@/components/ui/button";
+import type { UiContext } from "../i18n/context.js";
+import type { MessageKey } from "../i18n/messages.js";
+import { Icon, iconOnly, labeled } from "./icons.js";
+import { Button } from "../components/ui/button.js";
 import {
   NativeSelect,
   NativeSelectOption,
-} from "@/components/ui/native-select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "../components/ui/native-select.js";
+import { Input } from "../components/ui/input.js";
+import { Label } from "../components/ui/label.js";
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-} from "@/components/ui/tooltip";
+} from "../components/ui/tooltip.js";
 import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
-} from "@/components/ui/collapsible";
-import { Alert } from "@/components/ui/alert";
+} from "../components/ui/collapsible.js";
+import { Alert } from "../components/ui/alert.js";
 export function Action({
   ui,
   label,

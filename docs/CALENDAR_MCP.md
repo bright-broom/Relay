@@ -75,7 +75,7 @@ Authorization: Bearer <Relayで発行した接続キー>
 
 ## 検証・残る範囲
 
-`npm run check` に `tests/calendar.mjs` を追加。PGliteの実SQL、合成署名付きOIDC、固定日時の計算、MCP公式Clientで以下を確認する。実カレンダーには書き込まない。
+`npm run check` に `tests/calendar.ts` を追加。PGliteの実SQL、合成署名付きOIDC、固定日時の計算、MCP公式Clientで以下を確認する。実カレンダーには書き込まない。
 
 - 週末除外、当日、営業時間、バッファ、夏時間、無効な日付・タイムゾーン。
 - 別Googleアカウント拒否、権限不足、コールバック再利用、暗号化と本人への紐付け。

@@ -34,7 +34,7 @@
 
 ## PRの自動検証
 
-`.github/workflows/verify.yml` は PR の対象ブランチを限定しない。main 向けでも、未マージの機能ブランチを土台にした後続 PR でも、作成・再開・コード更新時に同じ検証を実行する。main への Push も引き続き対象とする。Vercel と同じ Node.js 24 で `npm run check` を実行し、型、ビルド、参照監査、認証・権限・カレンダー・計算・UI のテストと、コミット済み生成物の再現を確認する。Google・LINE・DB の本番資格情報は渡さず、合成プロバイダーと PGlite を使う。
+`.github/workflows/verify.yml` は PR の対象ブランチを限定しない。main 向けでも、未マージの機能ブランチを土台にした後続 PR でも、作成・再開・コード更新時に同じ検証を実行する。main への Push も引き続き対象とする。Vercel と同じ Node.js 24 で `npm run check` を実行し、型、ビルド、参照監査、認証・権限・カレンダー・計算・UI のテストと、ビルド生成物の再現性を確認する。Google・LINE・DB の本番資格情報は渡さず、合成プロバイダーと PGlite を使う。
 
 PR の CI は GitHub が作成するマージ候補を検証する。依存 PR を先にマージし、後続 PR の対象を main へ切り替える場合は、最新の対象ブランチと HEAD を含むマージ候補の検証結果を確認する。対象ブランチの変更だけでは既定の自動起動を前提にせず、最新の main を取り込むなどしてコード更新の検証を再実行する。以前の手動実行や依存ブランチ向けの成功を、そのまま main への統合可否の根拠にしない。参照：[GitHub の PR イベントとマージ候補](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request)。
 
@@ -44,16 +44,20 @@ Actionsは確認済みリリースのコミットSHAに固定し、リポジト�
 
 ## 不要コードと生成物の監査
 
-`npm run audit` は文言・CSS・共通部品の境界に加え、`npm run audit:dead-code`（Knip）と `scripts/audit-assets.ts` を実行する。Knip は手書きの TypeScript / JavaScript / CSS、テスト、運用スクリプトの依存・未使用ファイル・export を調べる。設定変更も CI を起動する。設定は [Knip の公式仕様](https://knip.dev/reference/configuration) に従う。
+`npm run audit` は文言・CSS・共通部品の境界に加え、`npm run audit:dead-code`（Knip）と `scripts/audit-assets.ts` を実行する。Knip は手書きの TypeScript / CSS、テスト、運用スクリプトの依存・未使用ファイル・export を調べる。設定変更も CI を起動する。設定は [Knip の公式仕様](https://knip.dev/reference/configuration) に従う。
 
 `knip.json` の entry はブラウザー、セッション、Service Worker、サーバー、認証設定検査、ビルド用 CSS の入口。npm scripts からも入口を検出する。esbuild の文字列モジュール経由で呼び出される関数・定数は静的解析から見えないため、実際の呼び出し元を `@public` に記載する。呼び出し元を削除するときは、この注釈の必要性も再確認する。未使用を隠す目的で注釈や除外を追加しない。
 
 HTML は `src/prototype/index.html` が正本、`prototype/index.html` はサーバーに同梱する生成物。React の空の描画先とセッション起動スクリプトを持つ。ログイン HTML は `src/server/page.tsx` から生成する。これらは動作中の入口であり、旧画面として削除しない。HTML の追加、不要な画面マークアップ、配信先に残った未知の生成ファイル、未参照のデザイントークンはアセット監査で検出する。
 
-`api/relay.mjs` と `prototype/` は既存の配信・プレビュー・生成一致検査で使うため Git 管理を継続し、`.gitattributes` で生成物として明示する。生成物はソースから再生成する。`public/` は公開可能なファイルだけをビルド時に作り直し、HTML とアプリ本体を静的公開しない。
+`prototype/` と `dist/server/` は配信・プレビュー用にビルド時に生成し、Git 管理から除外する。Vercel の入口は `api/relay.ts`。`npm run check:reproducible` は生成物全件のパス・SHA-256 を記録し、再ビルド後の一致を検証する。`public/` は公開可能なファイルだけをビルド時に作り直し、HTML とアプリ本体を静的公開しない。
 
-未使用コードの削除と、使用中の JavaScript を TypeScript へ移す作業は別。既存の `.mjs` テスト・スクリプトは実行されており、削除対象ではない。新しいアセット監査は TypeScript で実装し、`tsconfig.tools.json` で strict に検査する。SQL の履歴、設計資料、評価用 XML、ライセンスも用途に応じて維持する。静的解析だけで動的な全実行経路の未使用を証明したとは扱わない。
+テスト・ビルド・運用スクリプトも `.ts` とし、`tsconfig.tools.json` で strict に検査する。Node.js 24 の型除去で実行するため、実行時の相対 import は `.ts` を明示する。`scripts/audit-source.ts` は Git 管理対象と未追跡のソースに `.js` / `.mjs` / `.cjs` がないことを検査する。生成された JavaScript はブラウザーの実行に必要なため、ビルド成果物として検証し配信する。SQL の履歴、設計資料、評価用 XML、ライセンスも用途に応じて維持する。静的解析だけで動的な全実行経路の未使用を証明したとは扱わない。
 
 ## 読み込み性能の維持
 
 [読み込み性能](PERFORMANCE.md)に eager / lazy / 操作意図による先読み、manifest と配信境界、計測方法をまとめた。`npm run test:loading` を統合検証に含め、初期コードの上限と重い機能の分離を確認する。分割チャンクは生成物の監査対象とし、手書きソースの未使用を隠す除外として扱わない。ブラウザー用の新規コード・ビルド処理・性能テストは TypeScript と strict 検査を使う。
+
+## サーバーの ESM 解決
+
+Vercel の TypeScript エントリーは、ビルド時に生成する `dist/server/app.relay-server.mjs` を読み込む。サーバーの TS / TSX を先にバンドルし、ホストのソース拡張子探索に依存しない。生成バンドルは静的 import と `includeFiles` の両方で配信対象にし、型は `src/types/generated-server.d.ts` から正本のハンドラーを参照する。サーバー内の相対 import は出力先の `.js` 拡張子を明示する。ソースは `.ts` / `.tsx` のまま TypeScript が対応付ける。サーバーの依存先でビルド専用の `@/` エイリアスを使わない。`tsconfig.server.json` の NodeNext 検査と `npm run test:server-runtime` で、コンパイルした入口と生成バンドルだけを置いた ESM の実起動・HTML・配信ファイル・認証失敗時の境界を検証する。

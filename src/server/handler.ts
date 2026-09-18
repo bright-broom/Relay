@@ -1,22 +1,22 @@
-import {appModule} from './app-modules';
-import {isAdmin, adminOverview} from './admin';
-import {administratorIssues} from './access';
-import type {Database} from './database';
+import {appModule} from './app-modules.js';
+import {isAdmin, adminOverview} from './admin.js';
+import {administratorIssues} from './access.js';
+import type {Database} from './database.js';
 import type {Configuration} from 'openid-client';
-import {normalizeLocale} from '../i18n/messages';
+import {normalizeLocale} from '../i18n/messages.js';
 import {ZodError} from 'zod';
-import {calendarStatus,startCalendar,finishCalendar,disconnectCalendar,proposeSchedule,bookSlot,integrationLimit} from './calendar';
-import {handleMcp,listMcpTokens,issueMcpToken,revokeMcpToken} from './mcp';
+import {calendarStatus,startCalendar,finishCalendar,disconnectCalendar,proposeSchedule,bookSlot,integrationLimit} from './calendar.js';
+import {handleMcp,listMcpTokens,issueMcpToken,revokeMcpToken} from './mcp.js';
 import {readFile} from 'node:fs/promises';
-import {configured, lineConfigured, sameOrigin, origin} from './config';
-import {session, startLogin, finishLogin, logout, cookie, oauthCookie} from './auth';
-import {loginPage, type LoginStatus} from './page';
-import {ApiError, destinations, issueCode, changeDestination, webhook, notify} from './line';
-import {listContacts, createContact, getContact, editContact} from './crm-contacts';
-import {listWorkspaces, listCustomers, getCustomer, createCustomer, changeCustomer, searchCustomers} from './crm';
+import {configured, lineConfigured, sameOrigin, origin} from './config.js';
+import {session, startLogin, finishLogin, logout, cookie, oauthCookie} from './auth.js';
+import {loginPage, type LoginStatus} from './page.js';
+import {ApiError, destinations, issueCode, changeDestination, webhook, notify} from './line.js';
+import {listContacts, createContact, getContact, editContact} from './crm-contacts.js';
+import {listWorkspaces, listCustomers, getCustomer, createCustomer, changeCustomer, searchCustomers} from './crm.js';
 
 const readRoutes = new Set(['login-page','admin-page','admin-overview','page','app','app-module','session','destinations','start','callback','calendar-status','calendar-callback','mcp-tokens']);
-/** @public Invoked by tests/server.mjs and tests/crm.mjs; source is loaded through esbuild. */
+/** @public Invoked by tests/server.ts and tests/crm.ts; source is loaded through esbuild. */
 export async function handle(request: Request, db?: Database, authProvider?: Configuration, crmDb?: Database): Promise<Response> {
   const url = new URL(request.url), route = url.searchParams.get('route') ?? '';
   const locale = normalizeLocale(url.searchParams.get('lang')??request.headers.get('cookie')?.split('; ').find(value=>value.startsWith('relay-locale='))?.slice(13)??request.headers.get('accept-language')?.split(',')[0]?.split(';')[0]);
@@ -129,7 +129,7 @@ export async function handle(request: Request, db?: Database, authProvider?: Con
     return Response.json({error: error instanceof ApiError ? error.code : error instanceof ZodError || error instanceof RangeError ? 'invalid' : 'unavailable'}, {status: error instanceof ApiError ? error.status : error instanceof ZodError || error instanceof RangeError ? 400 : 503});
   }
 }
-/** @public Invoked by tests/server.mjs; source is loaded through esbuild. */
+/** @public Invoked by tests/server.ts; source is loaded through esbuild. */
 export async function limitedBody(request: Request): Promise<string> {
   const reader = request.body?.getReader();
   if (!reader) return '';

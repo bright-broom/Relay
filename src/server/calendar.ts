@@ -1,13 +1,13 @@
 import * as oidc from 'openid-client';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import {google,verifiedIdentity,hash,randomToken,cookie,readCookie,type Identity} from './auth';
-import {origin} from './config';
-import {seal,unseal,calendarConfigured} from './vault';
-import {database,type Database} from './database';
-import {ApiError} from './line';
-import {findSlots,searchSchema,searchWindow,type Busy,type Search} from '../scheduling/slots';
-/** @public Invoked by tests/calendar.mjs; source is loaded through esbuild. */
+import {google,verifiedIdentity,hash,randomToken,cookie,readCookie,type Identity} from './auth.js';
+import {origin} from './config.js';
+import {seal,unseal,calendarConfigured} from './vault.js';
+import {database,type Database} from './database.js';
+import {ApiError} from './line.js';
+import {findSlots,searchSchema,searchWindow,type Busy,type Search} from '../scheduling/slots.js';
+/** @public Invoked by tests/calendar.ts; source is loaded through esbuild. */
 export const calendarScopes=['https://www.googleapis.com/auth/calendar.events.freebusy','https://www.googleapis.com/auth/calendar.events.owned'];
 const connectCookie='__Host-relay-calendar';
 const callbackPath='/api/calendar/callback';
@@ -66,7 +66,7 @@ export interface GoogleCalendar {
  insert(event:CalendarEvent):Promise<CalendarEvent>;
 }
 export type CalendarEvent={id:string;status?:string;summary?:string;start?:{dateTime?:string;timeZone?:string};end?:{dateTime?:string;timeZone?:string};extendedProperties?:{private?:{relayProposal?:string}}};
-/** @public Invoked by tests/calendar.mjs; source is loaded through esbuild. */
+/** @public Invoked by tests/calendar.ts; source is loaded through esbuild. */
 export async function calendarClient(identity:Identity,db:Database=database(),configuration?:oidc.Configuration,send:typeof fetch=fetch):Promise<GoogleCalendar>{
  const [connection]=await db.query<{refresh_cipher:string}>('SELECT refresh_cipher FROM relay_private.calendar_connections WHERE owner_subject=$1',[identity.subject]);
  if(!connection)throw new ApiError(409,'calendarConnect');

@@ -35,7 +35,7 @@ import {
   Circle,
   type LucideIcon,
 } from "lucide-react";
-import type { MessageKey } from "../i18n/messages";
+import type { MessageKey } from "../i18n/messages.js";
 const icons: Record<string, LucideIcon> = {
   admin: ShieldCheck,
   adminLocked: LockKeyhole,

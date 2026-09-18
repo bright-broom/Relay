@@ -14,7 +14,7 @@ const mix = (base: string, overlay: string, amount: number) => {
 const alpha = (hex: string, opacity: number) => `rgb(${channels(hex).join(' ')} / ${opacity})`;
 
 /** base + overlay × amount; no independent gray or status palette. */
-/** @public Invoked by scripts/check.mjs; source is loaded through esbuild. */
+/** @public Invoked by scripts/check.ts; source is loaded through esbuild. */
 export const colorRecipes = {
   'surface': ['sub', 'main', 0], 'subtle': ['sub', 'main', 0.035],
   'input': ['sub', 'main', 0], 'ink': ['main', 'sub', 0],
@@ -23,7 +23,7 @@ export const colorRecipes = {
   'accent': ['accent', 'main', 0], 'accent-hover': ['accent', 'main', 0.14],
   'accent-pressed': ['accent', 'main', 0.26], 'on-accent': ['sub', 'main', 0],
 } as const satisfies Record<string, readonly [PaletteRole, PaletteRole, number]>;
-/** @public Invoked by scripts/check.mjs; source is loaded through esbuild. */
+/** @public Invoked by scripts/check.ts; source is loaded through esbuild. */
 export const colorTokens = Object.fromEntries(Object.entries(colorRecipes).map(([key, [base, overlay, amount]]) =>
   [key, mix(palette[base], palette[overlay], amount)]
 )) as Record<keyof typeof colorRecipes, string>;
@@ -71,5 +71,5 @@ const componentTokens = {
 
 export const tokens = { ...colorTokens, ...primitives, ...componentTokens } as const;
 
-/** @public Invoked by scripts/build.mjs; source is loaded through esbuild. */
+/** @public Invoked by scripts/build.ts; source is loaded through esbuild. */
 export const breakpoints = { narrow: '30rem', mobile: '48rem', compact: '64rem', short: '32rem', columns: '36rem', table: '56rem' } as const;

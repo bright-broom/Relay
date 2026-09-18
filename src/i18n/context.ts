@@ -1,4 +1,4 @@
-import {normalizeLocale,translationLanguage,direction,translate,type MessageKey} from './messages';
+import {normalizeLocale,translationLanguage,direction,translate,type MessageKey} from './messages.js';
 export function createUiContext(requested:unknown){
  const locale=normalizeLocale(requested),language=translationLanguage(locale);
  const number=(value:number|bigint,options:Intl.NumberFormatOptions={})=>new Intl.NumberFormat(locale,options).format(value);
@@ -14,4 +14,4 @@ export function createUiContext(requested:unknown){
  });
 }
 export type UiContext=ReturnType<typeof createUiContext>;
-export {hasLocalePreference,browserLocale,persistLocale} from './browser';
+export {hasLocalePreference,browserLocale,persistLocale} from './browser.js';

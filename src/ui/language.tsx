@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { catalogs, canonicalLocale } from "../i18n/messages";
-import type { UiContext } from "../i18n/context";
-import { SelectField, Action, Fold } from "./controls";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { catalogs, canonicalLocale } from "../i18n/messages.js";
+import type { UiContext } from "../i18n/context.js";
+import { SelectField, Action, Fold } from "./controls.js";
+import { Input } from "../components/ui/input.js";
+import { Label } from "../components/ui/label.js";
 const suggestions = [
   "ja",
   "en",

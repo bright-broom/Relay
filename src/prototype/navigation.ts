@@ -2,7 +2,7 @@ import type {MessageKey} from '../i18n/messages';
 
 type LinkItem={kind:'page';id:'today'|'cases'|'customers'|'reviews'|'imports'|'admin'|'mypage';label:MessageKey;icon:string};
 type DialogItem={kind:'dialog';id:'pricing'|'scheduling'|'preview-info';label:MessageKey;icon:string};
-/** @public Invoked by scripts/check.mjs; source is loaded through esbuild. */
+/** @public Invoked by scripts/check.ts; source is loaded through esbuild. */
 export const navigationItems=[
  {kind:'page',id:'today',label:'today',icon:'home'},
  {kind:'page',id:'cases',label:'cases',icon:'cases'},
