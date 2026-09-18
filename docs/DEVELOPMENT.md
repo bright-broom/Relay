@@ -57,3 +57,7 @@ HTML は `src/prototype/index.html` が正本、`prototype/index.html` はサー
 ## 読み込み性能の維持
 
 [読み込み性能](PERFORMANCE.md)に eager / lazy / 操作意図による先読み、manifest と配信境界、計測方法をまとめた。`npm run test:loading` を統合検証に含め、初期コードの上限と重い機能の分離を確認する。分割チャンクは生成物の監査対象とし、手書きソースの未使用を隠す除外として扱わない。ブラウザー用の新規コード・ビルド処理・性能テストは TypeScript と strict 検査を使う。
+
+## サーバーの ESM 解決
+
+Vercel の TypeScript 関数はバンドルせずに実行されるため、API から到達する相対 import は出力先の `.js` 拡張子を明示する。ソースは `.ts` / `.tsx` のまま TypeScript が対応付ける。サーバーの依存先でビルド専用の `@/` エイリアスを使わない。`tsconfig.server.json` の NodeNext 検査と `npm run test:server-runtime` で、個別にコンパイルした ESM の実起動・HTML・配信ファイル・認証失敗時の境界を検証する。

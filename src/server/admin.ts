@@ -1,10 +1,10 @@
-import { configured, lineConfigured } from './config';
-import { session } from './auth';
-import { database, type Database } from './database';
-import { ApiError } from './line';
-import type { AdminOverview } from '../admin/types';
+import { configured, lineConfigured } from './config.js';
+import { session } from './auth.js';
+import { database, type Database } from './database.js';
+import { ApiError } from './line.js';
+import type { AdminOverview } from '../admin/types.js';
 
-import { administratorAllowed as isAdmin } from './access';
+import { administratorAllowed as isAdmin } from './access.js';
 export { isAdmin };
 export async function adminOverview(request: Request, db: Database = database()): Promise<AdminOverview> {
   const identity = await session(request, db);

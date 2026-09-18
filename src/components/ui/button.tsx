@@ -1,7 +1,7 @@
 // shadcn/ui registry component, styled with Relay semantic tokens. See docs/COMPONENTS.md.
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils.js";
 import { Slot } from "radix-ui";
 
 const buttonVariants = cva("button", {

@@ -1,12 +1,12 @@
 import * as oidc from 'openid-client';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import {google,verifiedIdentity,hash,randomToken,cookie,readCookie,type Identity} from './auth';
-import {origin} from './config';
-import {seal,unseal,calendarConfigured} from './vault';
-import {database,type Database} from './database';
-import {ApiError} from './line';
-import {findSlots,searchSchema,searchWindow,type Busy,type Search} from '../scheduling/slots';
+import {google,verifiedIdentity,hash,randomToken,cookie,readCookie,type Identity} from './auth.js';
+import {origin} from './config.js';
+import {seal,unseal,calendarConfigured} from './vault.js';
+import {database,type Database} from './database.js';
+import {ApiError} from './line.js';
+import {findSlots,searchSchema,searchWindow,type Busy,type Search} from '../scheduling/slots.js';
 /** @public Invoked by tests/calendar.ts; source is loaded through esbuild. */
 export const calendarScopes=['https://www.googleapis.com/auth/calendar.events.freebusy','https://www.googleapis.com/auth/calendar.events.owned'];
 const connectCookie='__Host-relay-calendar';

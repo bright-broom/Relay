@@ -1,8 +1,8 @@
 import {createHmac, timingSafeEqual, randomUUID} from 'node:crypto';
-import {hash, randomToken, type Identity} from './auth';
-import {allowed, origin} from './config';
-import {database, type Database} from './database';
-import {translate, type Locale} from '../i18n/messages';
+import {hash, randomToken, type Identity} from './auth.js';
+import {allowed, origin} from './config.js';
+import {database, type Database} from './database.js';
+import {translate, type Locale} from '../i18n/messages.js';
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string) { super(code); }

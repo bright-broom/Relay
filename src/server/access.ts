@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { allowed } from './config';
+import { allowed } from './config.js';
 
 type Environment = Readonly<Record<string, string | undefined>>;
 export type ConfigurationIssue = {

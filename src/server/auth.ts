@@ -1,8 +1,8 @@
 import {createHash, randomBytes} from 'node:crypto';
 import * as oidc from 'openid-client';
-import {allowed, origin} from './config';
-import {administratorAllowed, administratorIssues} from './access';
-import {database, type Database} from './database';
+import {allowed, origin} from './config.js';
+import {administratorAllowed, administratorIssues} from './access.js';
+import {database, type Database} from './database.js';
 
 /** @public Invoked by tests/server.ts and tests/crm.ts; source is loaded through esbuild. */
 export const sessionCookie = '__Host-relay-session';

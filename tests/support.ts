@@ -37,7 +37,7 @@ export type CrmContext = {
   reject: (work:()=>Promise<unknown>,status:number,code?:string)=>Promise<void>;
   sqlReject: (work:()=>Promise<unknown>)=>Promise<void>;
   scoped: <T>(person:number,workspace:number,work:(db:Database)=>Promise<T>)=>Promise<T>;
-  call: (request:Request)=>Promise<Pick<Response, 'ok' | 'status' | 'json'>>;
+  call: (request:Request)=>Promise<Response>;
   request: (route:string,method?:string,body?:unknown,extra?:Record<string,string>)=>Request;
 };
 export type CrmPostgresContext = {

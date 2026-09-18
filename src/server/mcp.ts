@@ -1,13 +1,13 @@
 import {McpServer,createMcpHandler} from '@modelcontextprotocol/server';
 import {z} from 'zod';
 import {randomUUID} from 'node:crypto';
-import {hash,randomToken,type Identity} from './auth';
-import {allowed,origin} from './config';
-import {database,type Database} from './database';
-import {ApiError} from './line';
-import {calendarStatus,availableSlots,proposeSchedule,bookSlot,integrationLimit,proposalSchema,type GoogleCalendar} from './calendar';
-import {searchSchema} from '../scheduling/slots';
-import {translate} from '../i18n/messages';
+import {hash,randomToken,type Identity} from './auth.js';
+import {allowed,origin} from './config.js';
+import {database,type Database} from './database.js';
+import {ApiError} from './line.js';
+import {calendarStatus,availableSlots,proposeSchedule,bookSlot,integrationLimit,proposalSchema,type GoogleCalendar} from './calendar.js';
+import {searchSchema} from '../scheduling/slots.js';
+import {translate} from '../i18n/messages.js';
 export type McpIdentity=Identity & {permission:'read'|'book'};
 export async function issueMcpToken(identity:Identity,permission:unknown,db:Database=database()){
  if(permission!=='read'&&permission!=='book')throw new ApiError(400,'invalid');

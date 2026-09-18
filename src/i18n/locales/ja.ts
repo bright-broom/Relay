@@ -1,4 +1,4 @@
-import {sessionMessages} from './session';
+import {sessionMessages} from './session.js';
 export const ja = {
   ...sessionMessages.ja,
   featureLoadFailed: "画面を読み込めませんでした。接続を確認し、ページを再読み込みしてください。未保存の入力は失われる場合があります。",

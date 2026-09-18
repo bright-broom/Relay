@@ -1,10 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { brand } from "../i18n/messages";
-import { createUiContext } from "../i18n/context";
-import { LanguageForm } from "../ui/language";
-import { palette } from "../design/tokens";
-import { Icon } from "../ui/icons";
-import { Button } from "@/components/ui/button";
+import { brand } from "../i18n/messages.js";
+import { createUiContext } from "../i18n/context.js";
+import { LanguageForm } from "../ui/language.js";
+import { palette } from "../design/tokens.js";
+import { Icon } from "../ui/icons.js";
+import { Button } from "../components/ui/button.js";
 export type LoginStatus = "ready" | "denied" | "setup" | "unavailable";
 export function loginPage(locale: string, status: LoginStatus, admin = false): string {
   const ui = createUiContext(locale),

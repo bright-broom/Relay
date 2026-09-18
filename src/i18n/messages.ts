@@ -1,8 +1,8 @@
-import {normalizeLocale} from './locale';
-export {canonicalLocale,normalizeLocale} from './locale';
+import {normalizeLocale} from './locale.js';
+export {canonicalLocale,normalizeLocale} from './locale.js';
 import {createInstance} from 'i18next';
-import {ja} from './locales/ja';
-import {en} from './locales/en';
+import {ja} from './locales/ja.js';
+import {en} from './locales/en.js';
 /** @public Catalog parity is verified by scripts/check.ts and tests/i18n.ts through esbuild. */
 export {ja,en};
 export const brand='Relay';

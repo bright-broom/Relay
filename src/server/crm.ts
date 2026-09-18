@@ -1,9 +1,9 @@
 import {createHash, randomUUID} from 'node:crypto';
 import {z} from 'zod';
-import type {Identity} from './auth';
-import {connectDatabase, type Database, type Row} from './database';
-import {ApiError} from './line';
-import {crmId, createCustomerInput, changeCustomerInput, customerSearchTerm, searchCustomersInput, normalizeCustomerName, type CrmWorkspace, type Customer, type CustomerPage, type CustomerCreated, type CustomerChanged} from '../crm/contracts';
+import type {Identity} from './auth.js';
+import {connectDatabase, type Database, type Row} from './database.js';
+import {ApiError} from './line.js';
+import {crmId, createCustomerInput, changeCustomerInput, customerSearchTerm, searchCustomersInput, normalizeCustomerName, type CrmWorkspace, type Customer, type CustomerPage, type CustomerCreated, type CustomerChanged} from '../crm/contracts.js';
 
 let connection: Database | undefined;
 function crmDatabase(): Database {

@@ -1,5 +1,5 @@
 import {readFile} from 'node:fs/promises';
-import {ApiError} from './line';
+import {ApiError} from './line.js';
 
 // Build-scoped code only. Neither API responses nor user records enter this cache.
 let manifest:Promise<{files:Record<string,unknown>}> | undefined;
