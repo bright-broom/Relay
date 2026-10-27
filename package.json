@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.5.1",
-    "@modelcontextprotocol/server": "2.0.0",
+    "@modelcontextprotocol/server": "^2.4.0",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "decimal.js": "10.6.0",
@@ -58,7 +58,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "tailwind-merge": "3.7.0",
-    "zod": "4.6.2"
+    "zod": "^4.6.7"
   },
   "engines": {
     "node": "24.x"
